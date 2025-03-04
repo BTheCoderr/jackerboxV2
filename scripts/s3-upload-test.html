@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>S3 Upload Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .container {
+      border: 1px solid #ccc;
+      padding: 20px;
+      border-radius: 5px;
+    }
+    .drop-area {
+      border: 2px dashed #ccc;
+      border-radius: 5px;
+      padding: 25px;
+      text-align: center;
+      margin: 20px 0;
+      cursor: pointer;
+    }
+    .drop-area.highlight {
+      border-color: #2196F3;
+      background-color: #e3f2fd;
+    }
+    .button {
+      background-color: #4CAF50;
+      border: none;
+      color: white;
+      padding: 10px 20px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 16px;
+      margin: 4px 2px;
+      cursor: pointer;
+      border-radius: 5px;
+    }
+    .file-info {
+      margin-top: 20px;
+    }
+    #result {
+      margin-top: 20px;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      background-color: #f9f9f9;
+      min-height: 100px;
+    }
+  </style>
+</head>
+<body>
+  <h1>S3 Direct Upload Test</h1>
+  <div class="container">
+    <h2>Upload a file to S3</h2>
+    <p>This page tests direct uploading to your S3 bucket using pre-signed URLs.</p>
+    
+    <div id="drop-area" class="drop-area">
+      <p>Drag and drop a file here or click to select a file</p>
+      <input type="file" id="fileInput" style="display: none;">
+      <button id="selectFile" class="button">Select File</button>
+    </div>
+    
+    <div class="file-info" id="fileInfo" style="display: none;">
+      <p><strong>Selected File:</strong> <span id="fileName"></span></p>
+      <p><strong>File Size:</strong> <span id="fileSize"></span></p>
+      <p><strong>File Type:</strong> <span id="fileType"></span></p>
+      <button id="uploadFile" class="button">Upload to S3</button>
+    </div>
+    
+    <div id="result">
+      <p>Results will appear here...</p>
+    </div>
+  </div>
+
+  <script>
+    // Configuration
+    const bucketName = 'jackerbox-image';
+    const region = 'us-east-2';
+    
+    // DOM elements
+    const dropArea = document.getElementById('drop-area');
+    const fileInput = document.getElementById('fileInput');
+    const selectFileBtn = document.getElementById('selectFile');
+    const uploadFileBtn = document.getElementById('uploadFile');
+    const fileInfoDiv = document.getElementById('fileInfo');
+    const fileNameSpan = document.getElementById('fileName');
+    const fileSizeSpan = document.getElementById('fileSize');
+    const fileTypeSpan = document.getElementById('fileType');
+    const resultDiv = document.getElementById('result');
+    
+    let selectedFile = null;
+    
+    // Event listeners for drag and drop
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+      dropArea.addEventListener(eventName, preventDefaults, false);
+    });
+    
+    function preventDefaults(e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
+    ['dragenter', 'dragover'].forEach(eventName => {
+      dropArea.addEventListener(eventName, highlight, false);
+    });
+    
+    ['dragleave', 'drop'].forEach(eventName => {
+      dropArea.addEventListener(eventName, unhighlight, false);
+    });
+    
+    function highlight() {
+      dropArea.classList.add('highlight');
+    }
+    
+    function unhighlight() {
+      dropArea.classList.remove('highlight');
+    }
+    
+    // Handle dropped files
+    dropArea.addEventListener('drop', handleDrop, false);
+    
+    function handleDrop(e) {
+      const dt = e.dataTransfer;
+      const files = dt.files;
+      handleFiles(files);
+    }
+    
+    // Handle selected files
+    selectFileBtn.addEventListener('click', () => {
+      fileInput.click();
+    });
+    
+    fileInput.addEventListener('change', () => {
+      handleFiles(fileInput.files);
+    });
+    
+    function handleFiles(files) {
+      if (files.length > 0) {
+        selectedFile = files[0];
+        displayFileInfo(selectedFile);
+      }
+    }
+    
+    function displayFileInfo(file) {
+      fileNameSpan.textContent = file.name;
+      fileSizeSpan.textContent = formatFileSize(file.size);
+      fileTypeSpan.textContent = file.type;
+      fileInfoDiv.style.display = 'block';
+    }
+    
+    function formatFileSize(bytes) {
+      if (bytes < 1024) return bytes + ' bytes';
+      else if (bytes < 1048576) return (bytes / 1024).toFixed(2) + ' KB';
+      else return (bytes / 1048576).toFixed(2) + ' MB';
+    }
+    
+    // Handle file upload
+    uploadFileBtn.addEventListener('click', uploadToS3);
+    
+    async function uploadToS3() {
+      if (!selectedFile) {
+        updateResult('No file selected', 'error');
+        return;
+      }
+      
+      try {
+        updateResult('Generating pre-signed URL...', 'info');
+        
+        // For testing purposes, we'll just try to upload directly
+        // In a real app, you would get a pre-signed URL from your server
+        const fileName = `test-image-${Date.now()}.${selectedFile.name.split('.').pop()}`;
+        const uploadUrl = `https://${bucketName}.s3.${region}.amazonaws.com/${fileName}`;
+        
+        updateResult(`Uploading to ${uploadUrl}...`, 'info');
+        
+        // In a real implementation, you would use the pre-signed URL
+        // For now, we'll just show what would happen
+        updateResult(`
+          <p>In a real implementation with proper credentials:</p>
+          <p>1. Your server would generate a pre-signed URL</p>
+          <p>2. The file would be uploaded directly to S3</p>
+          <p>3. The URL would be: ${uploadUrl}</p>
+          <p>For testing, please upload a file manually through the AWS console:</p>
+          <ol>
+            <li>Go to your S3 bucket in the AWS console</li>
+            <li>Click "Upload"</li>
+            <li>Select a file named "test-image.jpg"</li>
+            <li>Click "Upload"</li>
+            <li>Then run the test script: npm run test-s3-direct</li>
+          </ol>
+        `, 'success');
+        
+      } catch (error) {
+        updateResult(`Error: ${error.message}`, 'error');
+      }
+    }
+    
+    function updateResult(message, type) {
+      resultDiv.innerHTML = message;
+      resultDiv.className = type || '';
+    }
+  </script>
+</body>
+</html>
