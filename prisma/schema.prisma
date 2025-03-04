@@ -1,0 +1,243 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model
+model User {
+  id                String    @id @default(cuid())
+  name              String?
+  email             String    @unique
+  emailVerified     DateTime?
+  image             String?
+  password          String?
+  phone             String?   @unique
+  phoneVerified     Boolean   @default(false)
+  bio               String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  // Verification and security
+  verificationToken String?
+  twoFactorEnabled  Boolean   @default(false)
+  
+  // ID Verification
+  idVerified        Boolean   @default(false)
+  idVerificationStatus String? // "pending", "approved", "rejected"
+  idDocumentType    String?   // "passport", "driver_license", "national_id"
+  idDocumentUrl     String?   // URL to the stored ID document
+  idVerificationDate DateTime?
+  
+  // Admin and payment
+  isAdmin           Boolean   @default(false)
+  stripeConnectAccountId String?
+  
+  // Relationships
+  accounts          Account[]
+  sessions          Session[]
+  equipmentListings Equipment[] @relation("OwnerEquipment")
+  rentals           Rental[]    @relation("RenterRentals")
+  reviews           Review[]    @relation("ReviewAuthor")
+  receivedReviews   Review[]    @relation("ReviewReceiver")
+  payments          Payment[]
+  messages          Message[]   @relation("MessageSender")
+  receivedMessages  Message[]   @relation("MessageReceiver")
+  notifications     Notification[]
+  moderatedEquipment Equipment[] @relation("ModeratedEquipment")
+}
+
+// NextAuth models
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// Equipment model
+enum ModerationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  FLAGGED
+}
+
+model Equipment {
+  id              String    @id @default(cuid())
+  title           String
+  description     String
+  condition       String    // New, Like New, Good, Fair, Poor
+  category        String
+  subcategory     String?
+  tagsJson        String    @default("[]")
+  location        String
+  latitude        Float?
+  longitude       Float?
+  hourlyRate      Float?
+  dailyRate       Float?
+  weeklyRate      Float?
+  securityDeposit Float?
+  imagesJson      String    @default("[]")
+  isVerified      Boolean   @default(false)
+  isAvailable     Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Moderation fields
+  moderationStatus ModerationStatus @default(PENDING)
+  moderatedAt     DateTime?
+  moderatedBy     String?
+  moderationNotes String?
+  
+  // Relations
+  owner     User      @relation("OwnerEquipment", fields: [ownerId], references: [id])
+  ownerId   String
+  rentals   Rental[]
+  moderator User?     @relation("ModeratedEquipment", fields: [moderatedBy], references: [id])
+  availability Availability[]
+  reviews   Review[]  @relation("EquipmentReviews")
+  
+  @@index([ownerId])
+  @@index([moderationStatus])
+  @@index([moderatedBy])
+}
+
+// Availability model
+model Availability {
+  id          String    @id @default(cuid())
+  startDate   DateTime
+  endDate     DateTime
+  
+  // Relationships
+  equipmentId String
+  equipment   Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+}
+
+// Rental model
+model Rental {
+  id              String    @id @default(cuid())
+  startDate       DateTime
+  endDate         DateTime
+  totalPrice      Float
+  securityDeposit Float?
+  status          String    // Pending, Approved, Rejected, Cancelled, Completed
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relationships
+  equipmentId     String
+  equipment       Equipment @relation(fields: [equipmentId], references: [id])
+  renterId        String
+  renter          User      @relation("RenterRentals", fields: [renterId], references: [id])
+  payment         Payment?
+  review          Review?
+}
+
+// Review model
+model Review {
+  id          String    @id @default(cuid())
+  rating      Int       // 1-5 stars
+  comment     String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  // Relationships
+  authorId    String
+  author      User      @relation("ReviewAuthor", fields: [authorId], references: [id])
+  receiverId  String?
+  receiver    User?     @relation("ReviewReceiver", fields: [receiverId], references: [id])
+  equipmentId String?
+  equipment   Equipment? @relation("EquipmentReviews", fields: [equipmentId], references: [id])
+  rentalId    String?   @unique
+  rental      Rental?   @relation(fields: [rentalId], references: [id])
+}
+
+// Payment model
+model Payment {
+  id                   String    @id @default(cuid())
+  amount               Float
+  currency             String    @default("USD")
+  status               String    // Pending, Completed, Failed, Refunded, Disputed
+  paymentMethod        String?
+  stripeId             String?   @unique
+  stripePaymentIntentId String?  @unique
+  stripeTransferId     String?   @unique
+  disputeId            String?   @unique
+  securityDepositAmount Float?
+  rentalAmount         Float?
+  securityDepositReturned Boolean @default(false)
+  ownerPaidOut         Boolean   @default(false)
+  ownerPaidOutAmount   Float?
+  platformFee          Float?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  
+  // Relationships
+  userId               String
+  user                 User      @relation(fields: [userId], references: [id])
+  rentalId             String    @unique
+  rental               Rental    @relation(fields: [rentalId], references: [id])
+}
+
+// Message model
+model Message {
+  id          String    @id @default(cuid())
+  content     String
+  isRead      Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  
+  // Relationships
+  senderId    String
+  sender      User      @relation("MessageSender", fields: [senderId], references: [id])
+  receiverId  String
+  receiver    User      @relation("MessageReceiver", fields: [receiverId], references: [id])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  type      String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  data      Json?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
