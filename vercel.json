@@ -1,0 +1,13 @@
+{
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "outputDirectory": ".next",
+  "regions": ["sfo1"],
+  "env": {
+    "NEXTAUTH_URL": {
+      "development": "http://localhost:3000",
+      "production": "https://jackerbox-v2.vercel.app"
+    }
+  }
+} 
