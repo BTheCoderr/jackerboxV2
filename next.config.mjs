@@ -13,20 +13,15 @@ const nextConfig = {
     // your project has ESLint errors.
     ignoreDuringBuilds: true,
   },
-  // Set output to standalone for Netlify
-  output: 'standalone',
-  // Ensure images work correctly
+  // Static export configuration
+  output: 'export',
+  // Ensure images work correctly in static export
   images: {
-    domains: ['res.cloudinary.com'],
     unoptimized: true,
   },
-  // Ensure trailing slashes are handled correctly
-  trailingSlash: false,
-  // Disable source maps in production
-  productionBrowserSourceMaps: false,
-  // Enable experimental features for Netlify
+  // Disable server components for static export
   experimental: {
-    serverActions: true,
+    serverComponentsExternalPackages: [],
   },
 };
 
