@@ -14,7 +14,7 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   // Add output configuration for Netlify
-  output: 'standalone',
+  output: process.env.NETLIFY ? 'export' : 'standalone',
   // Ensure images work correctly
   images: {
     domains: ['res.cloudinary.com'],
@@ -22,6 +22,12 @@ const nextConfig = {
   },
   // Ensure trailing slashes are handled correctly
   trailingSlash: false,
+  // Disable source maps in production
+  productionBrowserSourceMaps: false,
+  // Enable experimental features for Netlify
+  experimental: {
+    serverActions: true,
+  },
 };
 
 export default nextConfig; 
