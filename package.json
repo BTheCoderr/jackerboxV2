@@ -29,7 +29,8 @@
     "generate-presigned-url": "ts-node scripts/generate-presigned-url.ts",
     "test-with-s3-url": "ts-node --esm scripts/test-with-s3-url.ts",
     "test-s3-direct": "ts-node --esm scripts/test-s3-direct.ts",
-    "create-s3-bucket": "ts-node --esm scripts/create-s3-bucket.ts"
+    "create-s3-bucket": "ts-node --esm scripts/create-s3-bucket.ts",
+    "fix-vercel": "node fix-vercel-deployment.js && chmod +x vercel-build.sh"
   },
   "dependencies": {
     "@arcjet/next": "^1.0.0-beta.2",
