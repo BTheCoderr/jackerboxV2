@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { getSignedUploadUrl } from '@/lib/aws/s3-service';
 import { requireAuth } from '@/lib/auth/auth-utils';
+import { getAwsRegion, getAwsS3BucketName } from '@/lib/aws/env';
 
 // Validation schema for the request body
 const requestSchema = z.object({
@@ -41,7 +42,7 @@ export async function POST(req: Request) {
       success: true,
       presignedUrl,
       key,
-      url: `https://${process.env.AWS_S3_BUCKET_NAME}.s3.${process.env.AWS_REGION || 'us-east-2'}.amazonaws.com/${key}`,
+      url: `https://${getAwsS3BucketName()}.s3.${getAwsRegion()}.amazonaws.com/${key}`,
       expiresIn: 300,
     });
   } catch (error) {
