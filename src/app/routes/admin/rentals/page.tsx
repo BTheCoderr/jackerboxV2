@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { getCurrentUser } from "@/lib/auth/auth-utils";
 import { db } from "@/lib/db";
 import Link from "next/link";

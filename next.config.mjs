@@ -13,18 +13,18 @@ const nextConfig = {
     // your project has ESLint errors.
     ignoreDuringBuilds: true,
   },
-  // Set output to standalone for Netlify
-  output: 'standalone',
-  // Ensure images work correctly
+  // For Vercel deployment, we don't need to set output to standalone
+  //   // Ensure images work correctly
   images: {
     domains: ['res.cloudinary.com'],
-    unoptimized: true,
+    // For Vercel, we can use optimized images
+    unoptimized: false,
   },
   // Ensure trailing slashes are handled correctly
   trailingSlash: false,
   // Disable source maps in production
   productionBrowserSourceMaps: false,
-  // Enable experimental features for Netlify
+  // Enable experimental features
   experimental: {
     serverActions: true,
   },

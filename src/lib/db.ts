@@ -20,11 +20,29 @@ const prismaClientSingleton = () => {
       console.log('Using standard Prisma client for database connection');
       return new PrismaClient({
         log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+        datasources: {
+          db: {
+            url: process.env.DATABASE_URL,
+          },
+        },
       });
     }
   } catch (error) {
     console.error("Error initializing Prisma client:", error);
-    // Fallback to regular Prisma client without extension
+    
+    // Fallback to direct database URL if available
+    if (process.env.DIRECT_DATABASE_URL) {
+      console.log('Falling back to direct database connection');
+      return new PrismaClient({
+        datasources: {
+          db: {
+            url: process.env.DIRECT_DATABASE_URL,
+          },
+        },
+      });
+    }
+    
+    // Last resort fallback
     return new PrismaClient();
   }
 };

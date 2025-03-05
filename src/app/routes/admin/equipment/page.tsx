@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { getCurrentUser } from "@/lib/auth/auth-utils";
 import { db } from "@/lib/db";
 import { EQUIPMENT_CATEGORIES } from "@/lib/constants";
@@ -5,6 +7,7 @@ import Link from "next/link";
 import { EquipmentBulkActions } from "@/components/admin/equipment-bulk-actions";
 import { ContentModerationPanel } from "@/components/admin/content-moderation-panel";
 import { Prisma, ModerationStatus } from "@prisma/client";
+import { EquipmentFilters } from "@/components/admin/equipment-filters";
 
 interface AdminEquipmentPageProps {
   searchParams: {
@@ -76,9 +79,25 @@ export default async function AdminEquipmentPage({ searchParams }: AdminEquipmen
     _count: true,
   });
   
-  const formattedStats = moderationStats.map(stat => ({
+  // Convert to serializable format
+  const serializedStats = moderationStats.map(stat => ({
     moderationStatus: stat.moderationStatus,
-    _count: stat._count,
+    count: stat._count,
+  }));
+  
+  // Convert equipment to serializable format
+  const serializedEquipment = equipment.map(item => ({
+    id: item.id,
+    title: item.title,
+    category: item.category,
+    isAvailable: item.isAvailable,
+    moderationStatus: item.moderationStatus,
+    rentalsCount: item._count.rentals,
+    owner: {
+      id: item.owner.id,
+      name: item.owner.name,
+      email: item.owner.email
+    }
   }));
   
   return (
@@ -102,57 +121,13 @@ export default async function AdminEquipmentPage({ searchParams }: AdminEquipmen
       </div>
       
       {/* Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <select
-          className="p-2 border rounded-md"
-          onChange={(e) => {
-            const url = new URL(window.location.href);
-            url.searchParams.set("category", e.target.value);
-            window.location.href = url.toString();
-          }}
-          value={searchParams.category || ""}
-        >
-          <option value="">All Categories</option>
-          {EQUIPMENT_CATEGORIES.map((category) => (
-            <option key={category} value={category}>
-              {category}
-            </option>
-          ))}
-        </select>
-        
-        <select
-          className="p-2 border rounded-md"
-          onChange={(e) => {
-            const url = new URL(window.location.href);
-            url.searchParams.set("status", e.target.value);
-            window.location.href = url.toString();
-          }}
-          value={searchParams.status || ""}
-        >
-          <option value="">All Status</option>
-          <option value="available">Available</option>
-          <option value="unavailable">Unavailable</option>
-        </select>
-        
-        <select
-          className="p-2 border rounded-md"
-          onChange={(e) => {
-            const url = new URL(window.location.href);
-            url.searchParams.set("moderation", e.target.value);
-            window.location.href = url.toString();
-          }}
-          value={searchParams.moderation || ""}
-        >
-          <option value="">All Moderation Status</option>
-          <option value="pending">Pending Review</option>
-          <option value="approved">Approved</option>
-          <option value="rejected">Rejected</option>
-          <option value="flagged">Flagged</option>
-        </select>
-      </div>
+      <EquipmentFilters 
+        searchParams={searchParams} 
+        categories={EQUIPMENT_CATEGORIES} 
+      />
       
       {/* Content Moderation Panel */}
-      <ContentModerationPanel stats={formattedStats} />
+      <ContentModerationPanel stats={serializedStats} />
       
       {/* Equipment Table with Bulk Actions */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -189,7 +164,7 @@ export default async function AdminEquipmentPage({ searchParams }: AdminEquipmen
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {equipment.map((item) => (
+              {serializedEquipment.map((item) => (
                 <tr key={item.id} data-equipment-id={item.id}>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <input type="checkbox" className="rounded border-gray-300" />
@@ -218,11 +193,11 @@ export default async function AdminEquipmentPage({ searchParams }: AdminEquipmen
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 py-1 text-xs rounded-full ${
-                      item.moderationStatus === ModerationStatus.APPROVED
+                      item.moderationStatus === "APPROVED"
                         ? "bg-green-100 text-green-800"
-                        : item.moderationStatus === ModerationStatus.PENDING
+                        : item.moderationStatus === "PENDING"
                         ? "bg-yellow-100 text-yellow-800"
-                        : item.moderationStatus === ModerationStatus.FLAGGED
+                        : item.moderationStatus === "FLAGGED"
                         ? "bg-orange-100 text-orange-800"
                         : "bg-red-100 text-red-800"
                     }`}>
@@ -230,7 +205,7 @@ export default async function AdminEquipmentPage({ searchParams }: AdminEquipmen
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {item._count.rentals}
+                    {item.rentalsCount}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <Link
@@ -250,7 +225,7 @@ export default async function AdminEquipmentPage({ searchParams }: AdminEquipmen
         <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
           <div className="flex justify-between items-center">
             <p className="text-sm text-gray-700">
-              Showing {skip + 1} to {Math.min(skip + equipment.length, totalCount)} of {totalCount} results
+              Showing {skip + 1} to {Math.min(skip + serializedEquipment.length, totalCount)} of {totalCount} results
             </p>
             <div className="space-x-2">
               {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (

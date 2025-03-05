@@ -1,7 +1,10 @@
+export const dynamic = 'force-dynamic';
+
 import { getCurrentUser } from "@/lib/auth/auth-utils";
 import { db } from "@/lib/db";
 import Link from "next/link";
 import { Prisma } from "@prisma/client";
+import { UserFilters } from "@/components/admin/user-filters";
 
 interface AdminUsersPageProps {
   searchParams: {
@@ -13,35 +16,38 @@ interface AdminUsersPageProps {
 }
 
 export default async function AdminUsersPage({ searchParams }: AdminUsersPageProps) {
+  // Make searchParams awaitable to fix Next.js error
+  const params = await Promise.resolve(searchParams);
+  
   const user = await getCurrentUser();
   
   if (!user?.isAdmin) {
     throw new Error("Unauthorized");
   }
   
-  const page = Number(searchParams.page) || 1;
+  const page = Number(params.page) || 1;
   const pageSize = 20;
   const skip = (page - 1) * pageSize;
   
   // Build where clause based on filters
   let whereClause: Prisma.UserWhereInput = {};
   
-  if (searchParams.verified) {
-    whereClause.idVerified = searchParams.verified === "true";
+  if (params.verified) {
+    whereClause.idVerified = params.verified === "true";
   }
   
-  if (searchParams.role) {
-    if (searchParams.role === "admin") {
+  if (params.role) {
+    if (params.role === "admin") {
       whereClause.isAdmin = true;
-    } else if (searchParams.role === "user") {
+    } else if (params.role === "user") {
       whereClause.isAdmin = false;
     }
   }
   
-  if (searchParams.search) {
+  if (params.search) {
     whereClause.OR = [
-      { name: { contains: searchParams.search, mode: "insensitive" } },
-      { email: { contains: searchParams.search, mode: "insensitive" } },
+      { name: { contains: params.search, mode: "insensitive" } },
+      { email: { contains: params.search, mode: "insensitive" } },
     ];
   }
   
@@ -50,12 +56,12 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
     db.user.findMany({
       where: whereClause,
       orderBy: {
-        createdAt: "desc",
+        createdAt: 'desc',
       },
       include: {
         _count: {
           select: {
-            equipment: true,
+            equipmentListings: true,
             rentals: true,
           },
         },
@@ -74,6 +80,26 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
     _count: true,
   });
   
+  // Convert the stats to a serializable format
+  const serializedStats = verificationStats.map(stat => ({
+    idVerificationStatus: stat.idVerificationStatus || "unknown",
+    count: stat._count
+  }));
+  
+  // Convert users to a serializable format
+  const serializedUsers = users.map(user => ({
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    image: user.image,
+    createdAt: user.createdAt.toISOString(),
+    isAdmin: user.isAdmin,
+    idVerified: user.idVerified,
+    idVerificationStatus: user.idVerificationStatus,
+    equipmentCount: user._count.equipmentListings,
+    rentalsCount: user._count.rentals
+  }));
+  
   return (
     <div className="container py-8">
       <div className="flex justify-between items-center mb-6">
@@ -89,72 +115,15 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
       </div>
       
       {/* Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <select
-          className="p-2 border rounded-md"
-          onChange={(e) => {
-            const url = new URL(window.location.href);
-            url.searchParams.set("verified", e.target.value);
-            window.location.href = url.toString();
-          }}
-          value={searchParams.verified || ""}
-        >
-          <option value="">All Verification Status</option>
-          <option value="true">Verified</option>
-          <option value="false">Not Verified</option>
-        </select>
-        
-        <select
-          className="p-2 border rounded-md"
-          onChange={(e) => {
-            const url = new URL(window.location.href);
-            url.searchParams.set("role", e.target.value);
-            window.location.href = url.toString();
-          }}
-          value={searchParams.role || ""}
-        >
-          <option value="">All Roles</option>
-          <option value="admin">Admin</option>
-          <option value="user">User</option>
-        </select>
-        
-        <div className="md:col-span-2">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              const formData = new FormData(e.currentTarget);
-              const searchValue = formData.get("search") as string;
-              
-              const url = new URL(window.location.href);
-              url.searchParams.set("search", searchValue);
-              window.location.href = url.toString();
-            }}
-            className="flex"
-          >
-            <input
-              type="text"
-              name="search"
-              placeholder="Search by name or email"
-              className="flex-1 p-2 border rounded-l-md"
-              defaultValue={searchParams.search || ""}
-            />
-            <button
-              type="submit"
-              className="px-4 py-2 bg-jacker-blue text-white rounded-r-md hover:bg-opacity-90"
-            >
-              Search
-            </button>
-          </form>
-        </div>
-      </div>
+      <UserFilters searchParams={params} />
       
       {/* Verification Stats */}
       <div className="bg-white p-6 rounded-lg shadow mb-6">
         <h2 className="text-lg font-semibold mb-4">ID Verification Overview</h2>
         
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {verificationStats.map((stat) => {
-            const status = stat.idVerificationStatus || "unknown";
+          {serializedStats.map((stat) => {
+            const status = stat.idVerificationStatus;
             const statusColor = 
               status === "approved" ? "bg-green-100 text-green-800" :
               status === "pending" ? "bg-yellow-100 text-yellow-800" :
@@ -171,7 +140,7 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
                   <span className={`px-2 py-1 text-xs rounded-full ${statusColor}`}>
                     {status.charAt(0).toUpperCase() + status.slice(1)}
                   </span>
-                  <span className="text-2xl font-bold">{stat._count}</span>
+                  <span className="text-2xl font-bold">{stat.count}</span>
                 </div>
               </div>
             );
@@ -209,7 +178,7 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {users.map((user) => (
+              {serializedUsers.map((user) => (
                 <tr key={user.id}>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
@@ -262,10 +231,10 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {user._count.equipment}
+                    {user.equipmentCount}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {user._count.rentals}
+                    {user.rentalsCount}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <Link
@@ -293,7 +262,7 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
                   href={{
                     pathname: "/routes/admin/users",
                     query: {
-                      ...searchParams,
+                      ...params,
                       page: page - 1,
                     },
                   }}
@@ -307,7 +276,7 @@ export default async function AdminUsersPage({ searchParams }: AdminUsersPagePro
                   href={{
                     pathname: "/routes/admin/users",
                     query: {
-                      ...searchParams,
+                      ...params,
                       page: page + 1,
                     },
                   }}

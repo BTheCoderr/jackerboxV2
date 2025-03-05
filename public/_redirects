@@ -1,0 +1,8 @@
+# Redirect for Next.js static assets
+/_next/*  /_next/:splat  200
+
+# Redirect for API routes (placeholder)
+/api/*  /api/index.html  200
+
+# For client-side routing with Next.js static export
+/*  /index.html  200
