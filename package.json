@@ -7,7 +7,7 @@
     "dev": "next dev",
     "build": "next build --no-lint",
     "build:vercel": "./setup-ui.sh && next build --no-lint",
-    "build:netlify": "npm install @arcjet/next && npm install @prisma/extension-accelerate && chmod +x setup-ui.sh && ./setup-ui.sh && next build --no-lint",
+    "build:netlify": "chmod +x setup-ui.sh && ./setup-ui.sh && next build --no-lint",
     "start": "next start",
     "lint": "next lint",
     "postinstall": "prisma generate",
