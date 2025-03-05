@@ -7,7 +7,7 @@
     "dev": "next dev",
     "build": "next build --no-lint",
     "build:vercel": "./setup-ui.sh && next build --no-lint",
-    "build:netlify": "chmod +x setup-ui.sh && ./setup-ui.sh && next build --no-lint",
+    "build:netlify": "chmod +x setup-ui.sh && ./setup-ui.sh && next build",
     "start": "next start",
     "lint": "next lint",
     "postinstall": "prisma generate",
@@ -70,6 +70,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@netlify/plugin-nextjs": "^5.9.4",
     "@tailwindcss/postcss": "^4",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
