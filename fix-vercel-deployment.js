@@ -116,7 +116,9 @@ const nextConfig = {
   // Enable server components and actions
   experimental: {
     serverComponentsExternalPackages: ['@prisma/client'],
-    serverActions: true
+    serverActions: {
+      allowedOrigins: ['localhost:3000', 'jackerbox.vercel.app', 'jackerbox.netlify.app']
+    }
   },
   images: {
     domains: ['res.cloudinary.com'],
@@ -148,11 +150,11 @@ console.log('Creating new vercel-build.sh script...');
 const vercelBuildContent = `#!/bin/bash
 
 # Create UI components directory
-mkdir -p src/components/ui
+mkdir -p components/ui
 
 # Create utils.ts if it doesn't exist
-mkdir -p src/lib
-cat > src/lib/utils.ts << 'EOL'
+mkdir -p lib
+cat > lib/utils.ts << 'EOL'
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -179,7 +181,7 @@ export function formatCurrency(amount: number): string {
 EOL
 
 # Create button component
-cat > src/components/ui/button.tsx << 'EOL'
+cat > components/ui/button.tsx << 'EOL'
 "use client";
 
 import * as React from "react";
@@ -235,7 +237,7 @@ export { Button, buttonVariants };
 EOL
 
 # Create card component
-cat > src/components/ui/card.tsx << 'EOL'
+cat > components/ui/card.tsx << 'EOL'
 "use client";
 
 import * as React from "react";
@@ -316,7 +318,7 @@ export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent }
 EOL
 
 # Create alert component
-cat > src/components/ui/alert.tsx << 'EOL'
+cat > components/ui/alert.tsx << 'EOL'
 "use client";
 
 import * as React from "react";
@@ -366,7 +368,7 @@ export { Alert, AlertTitle, AlertDescription };
 EOL
 
 # Create cloudinary-image component
-cat > src/components/ui/cloudinary-image.tsx << 'EOL'
+cat > components/ui/cloudinary-image.tsx << 'EOL'
 "use client";
 
 import React from 'react';
@@ -510,7 +512,7 @@ export { CloudinaryImage, CloudinaryBlurImage };
 EOL
 
 # Create cloudinary-upload component
-cat > src/components/ui/cloudinary-upload.tsx << 'EOL'
+cat > components/ui/cloudinary-upload.tsx << 'EOL'
 "use client";
 
 import React, { useCallback } from 'react';
@@ -650,6 +652,19 @@ mkdir -p src/app/routes/messages
 echo "export const dynamic = 'force-dynamic';" > src/app/routes/messages/dynamic.js
 
 echo "Dynamic exports created successfully!"
+
+# Also create the components in the src directory as a fallback
+mkdir -p src/components/ui
+cp components/ui/button.tsx src/components/ui/
+cp components/ui/card.tsx src/components/ui/
+cp components/ui/alert.tsx src/components/ui/
+cp components/ui/cloudinary-image.tsx src/components/ui/
+cp components/ui/cloudinary-upload.tsx src/components/ui/
+
+mkdir -p src/lib
+cp lib/utils.ts src/lib/
+
+echo "Also created components in src directory as fallback"
 
 # Run the build
 npm run build --no-lint
