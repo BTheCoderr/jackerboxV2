@@ -13,6 +13,15 @@ const nextConfig = {
     // your project has ESLint errors.
     ignoreDuringBuilds: true,
   },
+  // Add output configuration for Netlify
+  output: 'standalone',
+  // Ensure images work correctly
+  images: {
+    domains: ['res.cloudinary.com'],
+    unoptimized: true,
+  },
+  // Ensure trailing slashes are handled correctly
+  trailingSlash: false,
 };
 
 export default nextConfig; 

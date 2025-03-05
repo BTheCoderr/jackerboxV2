@@ -3,9 +3,31 @@
   publish = ".next"
 
 [build.environment]
-  NETLIFY_NEXT_PLUGIN_SKIP = "true"
+  NETLIFY_NEXT_PLUGIN_SKIP = "false"
   NODE_VERSION = "20"
   PRISMA_GENERATE_DATAPROXY = "true"
+  NEXT_USE_NETLIFY_EDGE = "true"
 
 [[plugins]]
-  package = "@netlify/plugin-nextjs" 
+  package = "@netlify/plugin-nextjs"
+
+# Handle Next.js routing
+[[redirects]]
+  from = "/*"
+  to = "/_next/static/:splat"
+  status = 200
+  force = true
+  condition = {Path = {matches = "^/_next/static/.*$"}}
+
+[[redirects]]
+  from = "/*"
+  to = "/api/:splat"
+  status = 200
+  force = true
+  condition = {Path = {matches = "^/api/.*$"}}
+
+[[redirects]]
+  from = "/*"
+  to = "/.netlify/functions/nextjs-server"
+  status = 200
+  force = true 
