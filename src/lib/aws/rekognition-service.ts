@@ -6,13 +6,14 @@ import {
   DetectTextCommand,
   TextDetection
 } from "@aws-sdk/client-rekognition";
+import { getAwsRegion, getAwsAccessKeyId, getAwsSecretAccessKey } from './env';
 
 // Initialize Rekognition client
 const rekognitionClient = new RekognitionClient({
-  region: process.env.AWS_REGION || "us-east-1",
+  region: getAwsRegion(),
   credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
+    accessKeyId: getAwsAccessKeyId(),
+    secretAccessKey: getAwsSecretAccessKey(),
   },
 });
 
