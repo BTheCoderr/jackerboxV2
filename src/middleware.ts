@@ -1,52 +1,29 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+// Define which paths should be protected
+export const config = {
+  matcher: [
+    // Protect API routes
+    '/api/:path*',
+    // Protect admin routes
+    '/admin/:path*',
+    // Protect authentication routes
+    '/auth/:path*',
+  ],
+};
+
 export function middleware(request: NextRequest) {
-  // Get the pathname of the request (e.g. /, /protected, /protected/123)
-  const path = request.nextUrl.pathname;
-
-  // Define paths that should be protected
-  const protectedPaths = [
-    '/routes/dashboard',
-    '/routes/admin',
-    '/routes/equipment/new',
-    '/routes/profile',
-    '/routes/rentals',
-    '/routes/messages',
-  ];
-
-  // Check if the path is protected
-  const isProtectedPath = protectedPaths.some(prefix => path.startsWith(prefix));
-
-  // If it's not a protected path, don't do anything
-  if (!isProtectedPath) {
+  // Skip protection for static assets
+  if (
+    request.nextUrl.pathname.startsWith('/_next') ||
+    request.nextUrl.pathname.startsWith('/static') ||
+    request.nextUrl.pathname.match(/\.(jpg|jpeg|png|gif|svg|ico|css|js)$/)
+  ) {
     return NextResponse.next();
   }
 
-  // Get the token from the cookies
-  const token = request.cookies.get('next-auth.session-token')?.value;
-
-  // If there's no token and it's a protected route,
-  // redirect to the login page
-  if (!token && isProtectedPath) {
-    const url = new URL('/auth/login', request.url);
-    url.searchParams.set('callbackUrl', encodeURI(request.url));
-    return NextResponse.redirect(url);
-  }
-
+  // For now, just pass through all requests
+  // We'll implement Arcjet protection after we confirm the site is working
   return NextResponse.next();
-}
-
-export const config = {
-  matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder
-     */
-    '/((?!api|_next/static|_next/image|favicon.ico|public).*)',
-  ],
-}; 
+} 

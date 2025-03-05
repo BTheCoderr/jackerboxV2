@@ -2,30 +2,32 @@
 const nextConfig = {
   reactStrictMode: true,
   typescript: {
+    // !! WARN !!
+    // Dangerously allow production builds to successfully complete even if
+    // your project has type errors.
+    // !! WARN !!
     ignoreBuildErrors: true,
   },
   eslint: {
+    // Warning: This allows production builds to successfully complete even if
+    // your project has ESLint errors.
     ignoreDuringBuilds: true,
   },
-  output: 'export',
+  // Set output to standalone for Netlify
+  output: 'standalone',
+  // Ensure images work correctly
   images: {
-    unoptimized: true,
     domains: ['res.cloudinary.com'],
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'res.cloudinary.com',
-        pathname: '/**',
-      },
-    ],
+    unoptimized: true,
   },
-  trailingSlash: true,
+  // Ensure trailing slashes are handled correctly
+  trailingSlash: false,
+  // Disable source maps in production
+  productionBrowserSourceMaps: false,
+  // Enable experimental features for Netlify
   experimental: {
-    serverActions: {
-      bodySizeLimit: '2mb',
-      allowedOrigins: ['localhost:3000', 'jackerbox.vercel.app', 'jackerbox.netlify.app']
-    }
+    serverActions: true,
   },
 };
 
-export default nextConfig;
+export default nextConfig; 
