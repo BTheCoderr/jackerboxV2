@@ -3,6 +3,34 @@
 # Create UI components directory
 mkdir -p src/components/ui
 
+# Create utils.ts if it doesn't exist
+mkdir -p src/lib
+cat > src/lib/utils.ts << 'EOL'
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
+// Add formatDate function that was missing
+export function formatDate(date: Date): string {
+  return new Intl.DateTimeFormat('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  }).format(date);
+}
+
+// Add formatCurrency function
+export function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  }).format(amount);
+}
+EOL
+
 # Create button component
 cat > src/components/ui/button.tsx << 'EOL'
 "use client";
@@ -195,300 +223,283 @@ cat > src/components/ui/cloudinary-image.tsx << 'EOL'
 "use client";
 
 import React from 'react';
+import Image from 'next/image';
+import { cn } from '@/lib/utils';
 
 interface CloudinaryImageProps {
-  publicId: string;
+  src?: string;
+  publicId?: string;
   alt: string;
-  width: number;
-  height: number;
+  width?: number;
+  height?: number;
+  className?: string;
+  priority?: boolean;
+  sizes?: string;
+  quality?: number;
+  fill?: boolean;
+  style?: React.CSSProperties;
   effect?: string;
   transformations?: string;
-  className?: string;
 }
 
-export function CloudinaryImage({
+interface CloudinaryBlurImageProps extends CloudinaryImageProps {
+  blurDataURL?: string;
+}
+
+const CloudinaryImage = ({
+  src,
   publicId,
   alt,
-  width,
-  height,
+  width = 800,
+  height = 600,
+  className,
+  priority = false,
+  sizes = '(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw',
+  quality = 80,
+  fill = false,
+  style,
   effect,
   transformations,
-  className,
-}: CloudinaryImageProps) {
-  // Construct the Cloudinary URL
-  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'dgtqpyphg';
+  ...props
+}: CloudinaryImageProps & Omit<React.ComponentProps<typeof Image>, 'src' | 'alt' | 'width' | 'height'>) => {
+  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
   
-  let transformationString = '';
-  if (effect) {
-    transformationString += `e_${effect}/`;
+  // Handle both src and publicId
+  let imageUrl = src;
+  if (publicId && cloudName) {
+    let transformation = 'q_auto,f_auto';
+    if (effect) transformation += `,e_${effect}`;
+    if (transformations) transformation += `,${transformations}`;
+    imageUrl = `https://res.cloudinary.com/${cloudName}/image/upload/${transformation}/${publicId}`;
+  } else if (src && !src.includes('res.cloudinary.com') && cloudName) {
+    imageUrl = `https://res.cloudinary.com/${cloudName}/image/upload/q_auto,f_auto/${src}`;
   }
-  if (transformations) {
-    transformationString += `${transformations}/`;
-  }
-  
-  const imageUrl = `https://res.cloudinary.com/${cloudName}/image/upload/${transformationString}w_${width},h_${height},c_fill,q_auto,f_auto/${publicId}`;
-  
-  return (
-    <img
-      src={imageUrl}
-      alt={alt}
-      width={width}
-      height={height}
-      className={className}
-    />
-  );
-}
 
-export function CloudinaryBlurImage({
-  publicId,
-  alt,
-  width,
-  height,
-  className,
-}: Omit<CloudinaryImageProps, 'effect' | 'transformations'>) {
-  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'dgtqpyphg';
-  
-  // Low quality placeholder
-  const placeholderUrl = `https://res.cloudinary.com/${cloudName}/image/upload/w_${width},h_${height},c_fill,q_10,f_auto/${publicId}`;
-  
-  // Full quality image
-  const imageUrl = `https://res.cloudinary.com/${cloudName}/image/upload/w_${width},h_${height},c_fill,q_auto,f_auto/${publicId}`;
-  
-  const [isLoaded, setIsLoaded] = React.useState(false);
-  
+  if (!imageUrl && !publicId) {
+    console.error('Either src or publicId must be provided to CloudinaryImage');
+    return null;
+  }
+
   return (
-    <div className="relative" style={{ width, height }}>
-      {/* Placeholder image (blurred) */}
-      <img
-        src={placeholderUrl}
+    <div className={cn('relative', className)} style={style}>
+      <Image
+        src={imageUrl || `https://res.cloudinary.com/${cloudName}/image/upload/q_auto,f_auto/${publicId}`}
         alt={alt}
-        width={width}
-        height={height}
-        className={`${className} ${isLoaded ? 'opacity-0' : 'blur-sm'} transition-opacity duration-500 absolute inset-0`}
-      />
-      
-      {/* Main image (loads in the background) */}
-      <img
-        src={imageUrl}
-        alt={alt}
-        width={width}
-        height={height}
-        className={`${className} ${isLoaded ? 'opacity-100' : 'opacity-0'} transition-opacity duration-500`}
-        onLoad={() => setIsLoaded(true)}
+        width={fill ? undefined : width}
+        height={fill ? undefined : height}
+        priority={priority}
+        sizes={sizes}
+        quality={quality}
+        fill={fill}
+        className={cn('object-cover', className)}
+        {...props}
       />
     </div>
   );
-}
+};
+
+const CloudinaryBlurImage = ({
+  src,
+  publicId,
+  alt,
+  width = 800,
+  height = 600,
+  className,
+  priority = false,
+  sizes = '(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw',
+  quality = 80,
+  fill = false,
+  style,
+  blurDataURL,
+  effect,
+  transformations,
+  ...props
+}: CloudinaryBlurImageProps) => {
+  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+  
+  // Handle both src and publicId
+  let imageUrl = src;
+  if (publicId && cloudName) {
+    let transformation = 'q_auto,f_auto';
+    if (effect) transformation += `,e_${effect}`;
+    if (transformations) transformation += `,${transformations}`;
+    imageUrl = `https://res.cloudinary.com/${cloudName}/image/upload/${transformation}/${publicId}`;
+  } else if (src && !src.includes('res.cloudinary.com') && cloudName) {
+    imageUrl = `https://res.cloudinary.com/${cloudName}/image/upload/q_auto,f_auto/${src}`;
+  }
+
+  if (!imageUrl && !publicId) {
+    console.error('Either src or publicId must be provided to CloudinaryBlurImage');
+    return null;
+  }
+
+  // Generate blur URL if not provided
+  const generatedBlurDataURL = blurDataURL || 
+    (cloudName && (publicId || src)) 
+      ? `https://res.cloudinary.com/${cloudName}/image/upload/w_10,e_blur:1000/${publicId || src}`
+      : undefined;
+
+  return (
+    <div className={cn('relative', className)} style={style}>
+      <Image
+        src={imageUrl || `https://res.cloudinary.com/${cloudName}/image/upload/q_auto,f_auto/${publicId}`}
+        alt={alt}
+        width={fill ? undefined : width}
+        height={fill ? undefined : height}
+        priority={priority}
+        sizes={sizes}
+        quality={quality}
+        fill={fill}
+        className={cn('object-cover', className)}
+        placeholder="blur"
+        blurDataURL={generatedBlurDataURL}
+        {...props}
+      />
+    </div>
+  );
+};
+
+export { CloudinaryImage, CloudinaryBlurImage };
 EOL
 
 # Create cloudinary-upload component
 cat > src/components/ui/cloudinary-upload.tsx << 'EOL'
 "use client";
 
-import React, { useState, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
+import { cn } from '@/lib/utils';
 
 interface CloudinaryUploadProps {
-  onUploadComplete: (files: any[]) => void;
-  onUploadError: (error: Error) => void;
-  folder?: string;
+  onUploadSuccess?: (result: any) => void;
+  onUploadError?: (error: any) => void;
+  buttonText?: string;
+  uploadPreset?: string;
+  className?: string;
+  buttonClassName?: string;
   multiple?: boolean;
   maxFiles?: number;
-  maxSize?: number; // in bytes
-  acceptedFileTypes?: string[];
-  className?: string;
-  disabled?: boolean;
+  acceptedFileTypes?: string;
 }
 
 export function CloudinaryUpload({
-  onUploadComplete,
+  onUploadSuccess,
   onUploadError,
-  folder = 'uploads',
+  buttonText = 'Upload Image',
+  uploadPreset = 'jackerbox_uploads',
+  className,
+  buttonClassName,
   multiple = false,
-  maxFiles = 5,
-  maxSize = 10 * 1024 * 1024, // 10MB default
-  acceptedFileTypes = ['image/*'],
-  className = '',
-  disabled = false,
+  maxFiles = 10,
+  acceptedFileTypes = 'image/*',
 }: CloudinaryUploadProps) {
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
-  
-  const uploadToCloudinary = async (file: File) => {
+  const onDrop = useCallback(async (acceptedFiles: File[]) => {
+    if (acceptedFiles.length === 0) return;
+    
     try {
-      // Create a FormData object to send the file
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('folder', folder);
-      
-      // Call your API endpoint that handles the Cloudinary upload
-      const response = await fetch('/api/cloudinary/upload', {
-        method: 'POST',
-        body: formData,
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to upload file');
+      const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+      if (!cloudName) {
+        throw new Error('Cloudinary cloud name is not defined');
       }
+
+      const uploads = acceptedFiles.map(async (file) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('upload_preset', uploadPreset);
+
+        const response = await fetch(
+          `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+          {
+            method: 'POST',
+            body: formData,
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`Upload failed: ${response.statusText}`);
+        }
+
+        return await response.json();
+      });
+
+      const results = await Promise.all(uploads);
       
-      return await response.json();
+      if (onUploadSuccess) {
+        if (multiple) {
+          onUploadSuccess(results);
+        } else {
+          onUploadSuccess(results[0]);
+        }
+      }
     } catch (error) {
       console.error('Error uploading to Cloudinary:', error);
-      throw error;
-    }
-  };
-  
-  const onDrop = useCallback(
-    async (acceptedFiles: File[]) => {
-      if (acceptedFiles.length === 0) return;
-      
-      setUploading(true);
-      setUploadProgress({});
-      
-      try {
-        // Initialize progress for each file
-        const initialProgress: Record<string, number> = {};
-        acceptedFiles.forEach((file) => {
-          initialProgress[file.name] = 0;
-        });
-        setUploadProgress(initialProgress);
-        
-        // Upload each file and track progress
-        const uploadPromises = acceptedFiles.map(async (file) => {
-          // Simulate progress updates
-          const updateInterval = setInterval(() => {
-            setUploadProgress((prev) => {
-              const current = prev[file.name] || 0;
-              if (current < 90) {
-                return { ...prev, [file.name]: current + 10 };
-              }
-              return prev;
-            });
-          }, 300);
-          
-          try {
-            const result = await uploadToCloudinary(file);
-            
-            // Complete progress
-            clearInterval(updateInterval);
-            setUploadProgress((prev) => ({ ...prev, [file.name]: 100 }));
-            
-            return {
-              ...result,
-              originalFilename: file.name,
-            };
-          } catch (error) {
-            clearInterval(updateInterval);
-            throw error;
-          }
-        });
-        
-        const results = await Promise.all(uploadPromises);
-        onUploadComplete(results);
-      } catch (error) {
-        onUploadError(error instanceof Error ? error : new Error('Upload failed'));
-      } finally {
-        setUploading(false);
+      if (onUploadError) {
+        onUploadError(error);
       }
-    },
-    [folder, onUploadComplete, onUploadError]
-  );
-  
-  const { getRootProps, getInputProps, isDragActive, fileRejections } = useDropzone({
+    }
+  }, [onUploadSuccess, onUploadError, uploadPreset, multiple]);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: acceptedFileTypes.reduce((acc, type) => ({ ...acc, [type]: [] }), {}),
-    maxFiles: multiple ? maxFiles : 1,
-    maxSize,
+    accept: {
+      'image/*': ['.jpeg', '.jpg', '.png', '.gif', '.webp']
+    },
     multiple,
-    disabled: disabled || uploading,
+    maxFiles
   });
-  
-  // Handle file rejections (e.g., file too large, wrong type)
-  const fileRejectionItems = fileRejections.map(({ file, errors }) => (
-    <li key={file.name} className="text-red-500 text-sm mt-1">
-      {file.name} - {errors.map((e) => e.message).join(', ')}
-    </li>
-  ));
-  
+
   return (
-    <div className={`w-full ${className}`}>
-      <div
-        {...getRootProps()}
-        className={`border-2 border-dashed rounded-lg p-6 cursor-pointer transition-colors ${
-          isDragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-blue-400'
-        }`}
-      >
-        <input {...getInputProps()} />
-        <div className="text-center">
-          <svg
-            className="mx-auto h-12 w-12 text-gray-400"
-            stroke="currentColor"
-            fill="none"
-            viewBox="0 0 48 48"
-            aria-hidden="true"
-          >
-            <path
-              d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          
-          <p className="mt-2 text-sm text-gray-600">
-            {isDragActive ? (
-              <span className="text-blue-500">Drop the files here...</span>
-            ) : (
-              <span>
-                Drag and drop {multiple ? 'files' : 'a file'}, or{' '}
-                <span className="text-blue-500">browse</span>
-              </span>
-            )}
-          </p>
-          <p className="mt-1 text-xs text-gray-500">
-            {acceptedFileTypes.join(', ')} (max {(maxSize / (1024 * 1024)).toFixed(0)}MB)
-          </p>
-        </div>
+    <div
+      {...getRootProps()}
+      className={cn(
+        'border-2 border-dashed rounded-lg p-6 cursor-pointer transition-colors',
+        isDragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400',
+        className
+      )}
+    >
+      <input {...getInputProps()} />
+      <div className="text-center">
+        {isDragActive ? (
+          <p>Drop the files here ...</p>
+        ) : (
+          <>
+            <p className="mb-2">Drag & drop files here, or click to select</p>
+            <button 
+              type="button"
+              className={cn(
+                "px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700",
+                buttonClassName
+              )}
+            >
+              {buttonText}
+            </button>
+          </>
+        )}
       </div>
-      
-      {fileRejectionItems.length > 0 && (
-        <ul className="mt-2">{fileRejectionItems}</ul>
-      )}
-      
-      {uploading && Object.keys(uploadProgress).length > 0 && (
-        <div className="mt-4 space-y-2">
-          <p className="text-sm font-medium">Uploading...</p>
-          {Object.entries(uploadProgress).map(([fileName, progress]) => (
-            <div key={fileName} className="space-y-1">
-              <div className="flex justify-between text-xs">
-                <span className="truncate max-w-[80%]">{fileName}</span>
-                <span>{progress}%</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div
-                  className="bg-blue-600 h-2 rounded-full"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
 EOL
 
-# Create utils.ts if it doesn't exist
-mkdir -p src/lib
-cat > src/lib/utils.ts << 'EOL'
-import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
+echo "UI components created successfully!"
 
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
-EOL
+# Create dynamic export files for protected routes
+mkdir -p src/app/routes/dashboard
+echo "export const dynamic = 'force-dynamic';" > src/app/routes/dashboard/dynamic.js
 
-echo "UI components created successfully!" 
+mkdir -p src/app/routes/admin
+echo "export const dynamic = 'force-dynamic';" > src/app/routes/admin/dynamic.js
+
+mkdir -p src/app/routes/equipment/new
+echo "export const dynamic = 'force-dynamic';" > src/app/routes/equipment/new/dynamic.js
+
+mkdir -p src/app/routes/profile
+echo "export const dynamic = 'force-dynamic';" > src/app/routes/profile/dynamic.js
+
+mkdir -p src/app/routes/rentals
+echo "export const dynamic = 'force-dynamic';" > src/app/routes/rentals/dynamic.js
+
+mkdir -p src/app/routes/messages
+echo "export const dynamic = 'force-dynamic';" > src/app/routes/messages/dynamic.js
+
+echo "Dynamic exports created successfully!" 
