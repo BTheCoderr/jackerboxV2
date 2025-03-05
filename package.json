@@ -7,7 +7,7 @@
     "dev": "next dev",
     "build": "next build --no-lint",
     "build:vercel": "./setup-ui.sh && next build --no-lint",
-    "build:netlify": "chmod +x setup-ui.sh && ./setup-ui.sh && next build",
+    "build:netlify": "npm install @arcjet/next && npm install @prisma/extension-accelerate && chmod +x setup-ui.sh && ./setup-ui.sh && next build",
     "start": "next start",
     "lint": "next lint",
     "postinstall": "prisma generate",
@@ -30,6 +30,7 @@
     "create-s3-bucket": "ts-node --esm scripts/create-s3-bucket.ts"
   },
   "dependencies": {
+    "@arcjet/next": "^1.0.0-beta.2",
     "@auth/prisma-adapter": "^2.8.0",
     "@aws-sdk/client-rekognition": "^3.758.0",
     "@aws-sdk/client-s3": "^3.758.0",
@@ -39,6 +40,7 @@
     "@heroicons/react": "^2.2.0",
     "@hookform/resolvers": "^4.1.3",
     "@prisma/client": "^6.4.1",
+    "@prisma/extension-accelerate": "^1.2.2",
     "@stripe/react-stripe-js": "^3.1.1",
     "@stripe/stripe-js": "^5.7.0",
     "@types/uuid": "^10.0.0",
