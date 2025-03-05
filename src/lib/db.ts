@@ -9,7 +9,13 @@ declare global {
 
 // Initialize Prisma Client with Accelerate extension
 const prismaClientSingleton = () => {
-  return new PrismaClient().$extends(withAccelerate());
+  try {
+    return new PrismaClient().$extends(withAccelerate());
+  } catch (error) {
+    console.error("Error initializing Prisma client:", error);
+    // Fallback to regular Prisma client without extension
+    return new PrismaClient();
+  }
 };
 
 export const db = globalThis.prisma || prismaClientSingleton();
