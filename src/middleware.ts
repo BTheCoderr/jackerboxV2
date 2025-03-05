@@ -13,7 +13,7 @@ export const config = {
   ],
 };
 
-export async function middleware(request: NextRequest) {
+export function middleware(request: NextRequest) {
   // Skip protection for static assets
   if (
     request.nextUrl.pathname.startsWith('/_next') ||

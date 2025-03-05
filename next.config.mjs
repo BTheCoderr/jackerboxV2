@@ -13,8 +13,8 @@ const nextConfig = {
     // your project has ESLint errors.
     ignoreDuringBuilds: true,
   },
-  // Add output configuration for Netlify
-  output: process.env.NETLIFY ? 'export' : 'standalone',
+  // Remove the export output for Netlify to allow API routes to work
+  // output: process.env.NETLIFY ? 'export' : 'standalone',
   // Ensure images work correctly
   images: {
     domains: ['res.cloudinary.com'],

@@ -7,7 +7,6 @@
   NODE_VERSION = "20"
   PRISMA_GENERATE_DATAPROXY = "true"
   NEXT_USE_NETLIFY_EDGE = "true"
-  NEXT_FORCE_EDGE_RUNTIME = "true"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
@@ -30,7 +29,7 @@
 
 [[redirects]]
   from = "/api/*"
-  to = "/api/:splat"
+  to = "/.netlify/functions/nextjs-server/api/:splat"
   status = 200
 
 [[redirects]]
