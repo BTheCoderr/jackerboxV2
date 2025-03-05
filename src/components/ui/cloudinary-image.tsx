@@ -17,6 +17,10 @@ interface CloudinaryImageProps {
   style?: React.CSSProperties;
 }
 
+interface CloudinaryBlurImageProps extends CloudinaryImageProps {
+  blurDataURL?: string;
+}
+
 const CloudinaryImage = ({
   src,
   alt,
@@ -59,4 +63,53 @@ const CloudinaryImage = ({
   );
 };
 
-export { CloudinaryImage };
+const CloudinaryBlurImage = ({
+  src,
+  alt,
+  width = 800,
+  height = 600,
+  className,
+  priority = false,
+  sizes = '(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw',
+  quality = 80,
+  fill = false,
+  style,
+  blurDataURL,
+  ...props
+}: CloudinaryBlurImageProps) => {
+  // Check if the src is already a Cloudinary URL
+  const isCloudinaryUrl = src.includes('res.cloudinary.com');
+  
+  // If it's not a Cloudinary URL and we have a cloud name, construct the URL
+  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+  const imageUrl = isCloudinaryUrl 
+    ? src 
+    : cloudName 
+      ? `https://res.cloudinary.com/${cloudName}/image/upload/q_auto,f_auto/${src}` 
+      : src;
+
+  // Generate blur URL if not provided
+  const generatedBlurDataURL = blurDataURL || 
+    `https://res.cloudinary.com/${cloudName}/image/upload/w_10,e_blur:1000/${src}`;
+
+  return (
+    <div className={cn('relative', className)} style={style}>
+      <Image
+        src={imageUrl}
+        alt={alt}
+        width={fill ? undefined : width}
+        height={fill ? undefined : height}
+        priority={priority}
+        sizes={sizes}
+        quality={quality}
+        fill={fill}
+        className={cn('object-cover', className)}
+        placeholder="blur"
+        blurDataURL={generatedBlurDataURL}
+        {...props}
+      />
+    </div>
+  );
+};
+
+export { CloudinaryImage, CloudinaryBlurImage };
