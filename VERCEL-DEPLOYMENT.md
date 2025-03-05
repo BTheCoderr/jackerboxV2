@@ -30,6 +30,26 @@ We've already prepared your application for Vercel deployment by:
 
 5. **Testing the Build**: Successfully ran a build to ensure everything compiles correctly.
 
+## Handling Secrets Securely
+
+⚠️ **Important**: Never commit sensitive information like API keys, passwords, or tokens to your repository.
+
+1. **Use Environment Variables**:
+   - Store all secrets in `.env` files locally
+   - Add `.env*` files to your `.gitignore`
+   - Set up these variables in the Vercel dashboard
+
+2. **Check for Secrets Before Pushing**:
+   - Run `node scripts/clean-secrets.js` to scan for potential secrets
+   - Remove any hardcoded secrets found in your code
+   - Replace them with environment variable references
+
+3. **If GitHub Blocks Your Push**:
+   - GitHub has secret scanning protection that may block pushes containing secrets
+   - Follow the URL provided by GitHub to review the detected secrets
+   - Remove the secrets from your code and try again
+   - If they're false positives, you can follow GitHub's instructions to allow them
+
 ## Deploying to Vercel
 
 1. **Push your changes to GitHub**:
@@ -126,6 +146,15 @@ If you encounter runtime errors:
 1. Check the Vercel logs for error details
 2. Verify that all API routes are working correctly
 3. Check that server components are properly configured with `dynamic = 'force-dynamic'`
+
+### GitHub Push Protection Issues
+
+If GitHub blocks your push due to detected secrets:
+
+1. Review the detected secrets in the error message
+2. Remove any actual secrets from your code
+3. Use environment variables instead of hardcoded values
+4. If they're false positives, follow the URL provided by GitHub to allow them
 
 ## Monitoring and Logs
 
