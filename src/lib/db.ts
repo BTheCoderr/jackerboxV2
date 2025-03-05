@@ -14,10 +14,13 @@ const prismaClientSingleton = () => {
     
     // Only use Accelerate extension if the URL starts with prisma://
     if (databaseUrl.startsWith('prisma://')) {
+      console.log('Using Prisma Accelerate for database connection');
       return new PrismaClient().$extends(withAccelerate());
     } else {
-      // Use regular Prisma client for standard database URLs
-      return new PrismaClient();
+      console.log('Using standard Prisma client for database connection');
+      return new PrismaClient({
+        log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+      });
     }
   } catch (error) {
     console.error("Error initializing Prisma client:", error);

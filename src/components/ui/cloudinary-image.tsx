@@ -1,87 +1,62 @@
 "use client";
 
 import React from 'react';
+import Image from 'next/image';
+import { cn } from '@/lib/utils';
 
 interface CloudinaryImageProps {
-  publicId: string;
+  src: string;
   alt: string;
-  width: number;
-  height: number;
-  effect?: string;
-  transformations?: string;
+  width?: number;
+  height?: number;
   className?: string;
+  priority?: boolean;
+  sizes?: string;
+  quality?: number;
+  fill?: boolean;
+  style?: React.CSSProperties;
 }
 
-export function CloudinaryImage({
-  publicId,
+const CloudinaryImage = ({
+  src,
   alt,
-  width,
-  height,
-  effect,
-  transformations,
+  width = 800,
+  height = 600,
   className,
-}: CloudinaryImageProps) {
-  // Construct the Cloudinary URL
-  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'dgtqpyphg';
+  priority = false,
+  sizes = '(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw',
+  quality = 80,
+  fill = false,
+  style,
+  ...props
+}: CloudinaryImageProps & Omit<React.ComponentProps<typeof Image>, 'src' | 'alt' | 'width' | 'height'>) => {
+  // Check if the src is already a Cloudinary URL
+  const isCloudinaryUrl = src.includes('res.cloudinary.com');
   
-  let transformationString = '';
-  if (effect) {
-    transformationString += `e_${effect}/`;
-  }
-  if (transformations) {
-    transformationString += `${transformations}/`;
-  }
-  
-  const imageUrl = `https://res.cloudinary.com/${cloudName}/image/upload/${transformationString}w_${width},h_${height},c_fill,q_auto,f_auto/${publicId}`;
-  
-  return (
-    <img
-      src={imageUrl}
-      alt={alt}
-      width={width}
-      height={height}
-      className={className}
-    />
-  );
-}
+  // If it's not a Cloudinary URL and we have a cloud name, construct the URL
+  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+  const imageUrl = isCloudinaryUrl 
+    ? src 
+    : cloudName 
+      ? `https://res.cloudinary.com/${cloudName}/image/upload/q_auto,f_auto/${src}` 
+      : src;
 
-export function CloudinaryBlurImage({
-  publicId,
-  alt,
-  width,
-  height,
-  className,
-}: Omit<CloudinaryImageProps, 'effect' | 'transformations'>) {
-  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'dgtqpyphg';
-  
-  // Low quality placeholder
-  const placeholderUrl = `https://res.cloudinary.com/${cloudName}/image/upload/w_${width},h_${height},c_fill,q_10,f_auto/${publicId}`;
-  
-  // Full quality image
-  const imageUrl = `https://res.cloudinary.com/${cloudName}/image/upload/w_${width},h_${height},c_fill,q_auto,f_auto/${publicId}`;
-  
-  const [isLoaded, setIsLoaded] = React.useState(false);
-  
   return (
-    <div className="relative" style={{ width, height }}>
-      {/* Placeholder image (blurred) */}
-      <img
-        src={placeholderUrl}
-        alt={alt}
-        width={width}
-        height={height}
-        className={`${className} ${isLoaded ? 'opacity-0' : 'blur-sm'} transition-opacity duration-500 absolute inset-0`}
-      />
-      
-      {/* Main image (loads in the background) */}
-      <img
+    <div className={cn('relative', className)} style={style}>
+      <Image
         src={imageUrl}
         alt={alt}
-        width={width}
-        height={height}
-        className={`${className} ${isLoaded ? 'opacity-100' : 'opacity-0'} transition-opacity duration-500`}
-        onLoad={() => setIsLoaded(true)}
+        width={fill ? undefined : width}
+        height={fill ? undefined : height}
+        priority={priority}
+        sizes={sizes}
+        quality={quality}
+        fill={fill}
+        className={cn('object-cover', className)}
+        {...props}
       />
     </div>
   );
-}
+};
+
+export { CloudinaryImage };

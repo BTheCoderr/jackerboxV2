@@ -15,27 +15,31 @@ const nextConfig = {
   },
   // Static export configuration
   output: 'export',
+  distDir: 'out',
   // Ensure images work correctly in static export
   images: {
     unoptimized: true,
   },
-  // Disable server components for static export
+  // Disable server components and API routes for static export
   experimental: {
-    serverComponentsExternalPackages: [],
+    serverActions: false,
+    serverComponents: false
   },
-  // Only include specific routes in the static export
-  exportPathMap: async function (defaultPathMap, { dev, dir, outDir, distDir, buildId }) {
-    // In development, use all routes
-    if (dev) {
-      return defaultPathMap;
-    }
-    
-    // In production, only include specific routes
+  // Only include specific static routes
+  exportPathMap: async function () {
     return {
       '/': { page: '/' },
-      '/about': { page: '/about' },
+      '/routes/browse': { page: '/routes/browse' },
+      '/routes/about': { page: '/routes/about' },
+      '/routes/contact': { page: '/routes/contact' },
+      '/routes/how-it-works': { page: '/routes/how-it-works' },
+      '/routes/privacy': { page: '/routes/privacy' },
+      '/routes/terms': { page: '/routes/terms' },
+      '/routes/cookies': { page: '/routes/cookies' }
     };
   },
+  // Disable dynamic routes for static export
+  trailingSlash: true,
 };
 
 export default nextConfig; 
