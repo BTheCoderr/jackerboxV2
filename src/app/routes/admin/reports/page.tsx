@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { getCurrentUser, ExtendedUser } from "@/lib/auth/session";
+import { getCurrentUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 
 // Define extended types to include the fields that exist in the schema but TypeScript doesn't recognize
 interface ExtendedPayment {
@@ -74,33 +73,6 @@ export default async function AdminReportsPage() {
     return sum;
   }, 0);
   
-  // Group payments by month
-  const paymentsByMonth: Record<string, number> = {};
-  
-  payments.forEach(payment => {
-    if (payment.status === "COMPLETED") {
-      const month = new Date(payment.createdAt).toLocaleString('default', { month: 'short' });
-      paymentsByMonth[month] = (paymentsByMonth[month] || 0) + payment.amount;
-    }
-  });
-  
-  const monthlyRevenueData = Object.entries(paymentsByMonth).map(([month, amount]) => ({
-    month,
-    amount: Number(amount.toFixed(2))
-  }));
-  
-  // Payment status distribution
-  const paymentStatusCounts: Record<string, number> = {};
-  
-  payments.forEach(payment => {
-    paymentStatusCounts[payment.status] = (paymentStatusCounts[payment.status] || 0) + 1;
-  });
-  
-  const paymentStatusData = Object.entries(paymentStatusCounts).map(([status, count]) => ({
-    status,
-    count
-  }));
-  
   // Format currency
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -108,9 +80,6 @@ export default async function AdminReportsPage() {
       currency: 'USD',
     }).format(amount);
   };
-  
-  // Colors for pie chart
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
   
   return (
     <div className="container py-8">
@@ -120,12 +89,6 @@ export default async function AdminReportsPage() {
           <Link href="/routes/admin" className="text-blue-600 hover:underline">
             Back to Dashboard
           </Link>
-          <button 
-            onClick={() => window.print()} 
-            className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300"
-          >
-            Export PDF
-          </button>
         </div>
       </div>
       
@@ -143,54 +106,6 @@ export default async function AdminReportsPage() {
         <div className="bg-white p-6 rounded-lg shadow">
           <h2 className="text-lg font-semibold mb-2">Owner Payouts</h2>
           <p className="text-3xl font-bold text-purple-600">{formatCurrency(totalOwnerPayouts)}</p>
-        </div>
-      </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-lg font-semibold mb-4">Monthly Revenue</h2>
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={monthlyRevenueData}
-                margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                <Legend />
-                <Bar dataKey="amount" name="Revenue" fill="#3B82F6" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-        
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-lg font-semibold mb-4">Payment Status Distribution</h2>
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={paymentStatusData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="count"
-                  nameKey="status"
-                >
-                  {paymentStatusData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
         </div>
       </div>
       
@@ -251,6 +166,12 @@ export default async function AdminReportsPage() {
             </tbody>
           </table>
         </div>
+      </div>
+      
+      <div className="mt-8 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+        <p className="text-yellow-700">
+          Charts are temporarily unavailable. We're working on updating the visualization library to be compatible with the latest React version.
+        </p>
       </div>
     </div>
   );

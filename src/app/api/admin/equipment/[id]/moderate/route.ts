@@ -15,15 +15,20 @@ const moderateEquipmentSchema = z.object({
   moderationNotes: z.string().optional(),
 });
 
-interface RouteParams {
+// Use the correct Next.js App Router parameter type
+type RouteParams = {
   params: {
     id: string;
   };
-}
+};
 
-export async function POST(req: Request, { params }: RouteParams) {
+export async function POST(
+  req: Request,
+  context: RouteParams
+) {
   try {
     const user = await getCurrentUser();
+    const { id } = context.params;
     
     if (!user?.isAdmin) {
       return NextResponse.json(
@@ -37,7 +42,7 @@ export async function POST(req: Request, { params }: RouteParams) {
     
     // Check if equipment exists
     const equipment = await db.equipment.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
     
     if (!equipment) {
@@ -49,7 +54,7 @@ export async function POST(req: Request, { params }: RouteParams) {
     
     // Update equipment moderation status
     await db.equipment.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         moderationStatus,
         moderationNotes,

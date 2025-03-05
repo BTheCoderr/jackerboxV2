@@ -1,0 +1,8 @@
+.eslintrc*
+.eslintignore
+# Don't ignore the UI components
+!src/components/ui/
+tsconfig.json
+netlify.toml
+netlify.yml
+.netlify/ 

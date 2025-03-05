@@ -3,89 +3,112 @@ import { getCurrentUser } from "@/lib/auth/auth-utils";
 import { db } from "@/lib/db";
 import { z } from "zod";
 
-// Define schema for updating rental status
+// Schema for updating rental status
 const updateRentalStatusSchema = z.object({
   status: z.enum([
-    "PENDING", 
-    "CONFIRMED", 
-    "IN_PROGRESS", 
-    "COMPLETED", 
-    "CANCELLED", 
-    "DISPUTED"
+    "PENDING",
+    "CONFIRMED",
+    "ACTIVE",
+    "COMPLETED",
+    "CANCELLED",
+    "DISPUTED",
   ]),
-  adminNote: z.string().optional(),
+  notes: z.string().optional(),
 });
 
-interface RouteParams {
+// Use the correct Next.js App Router parameter type
+type RouteParams = {
   params: {
     id: string;
   };
-}
+};
 
-export async function POST(req: Request, { params }: RouteParams) {
+export async function POST(
+  req: Request,
+  context: RouteParams
+) {
   try {
     const user = await getCurrentUser();
-
-    // Check if user is admin
+    const { id } = context.params;
+    
     if (!user?.isAdmin) {
       return NextResponse.json(
-        { error: "Unauthorized. Admin access required." },
-        { status: 403 }
+        { message: "Unauthorized" },
+        { status: 401 }
       );
     }
-
-    // Get and validate request body
+    
     const body = await req.json();
-    const validationResult = updateRentalStatusSchema.safeParse(body);
-
-    if (!validationResult.success) {
-      return NextResponse.json(
-        { error: "Invalid input", details: validationResult.error.format() },
-        { status: 400 }
-      );
-    }
-
-    const { status, adminNote } = validationResult.data;
-
+    const { status, notes } = updateRentalStatusSchema.parse(body);
+    
     // Check if rental exists
     const rental = await db.rental.findUnique({
-      where: {
-        id: params.id,
+      where: { id },
+      include: {
+        renter: true,
+        equipment: {
+          include: {
+            owner: true,
+          },
+        },
       },
     });
-
+    
     if (!rental) {
       return NextResponse.json(
-        { error: "Rental not found" },
+        { message: "Rental not found" },
         { status: 404 }
       );
     }
-
+    
     // Update rental status
     const updatedRental = await db.rental.update({
-      where: {
-        id: params.id,
-      },
+      where: { id },
       data: {
         status,
-        // Add admin note if provided
-        ...(adminNote && {
-          adminNotes: adminNote,
-        }),
       },
     });
-
-    // Log the status change (to console for now)
-    console.log(`Rental ${rental.id} status updated from ${rental.status} to ${status} by admin ${user.id}`);
-
+    
+    // Create notifications for both renter and owner
+    await db.notification.create({
+      data: {
+        userId: rental.renterId,
+        type: "RENTAL_UPDATE",
+        data: {
+          title: "Rental Status Updated",
+          message: `Your rental for ${rental.equipment.title} has been updated to ${status} by an admin.`,
+          linkUrl: `/routes/rentals/${rental.id}`,
+        },
+      },
+    });
+    
+    await db.notification.create({
+      data: {
+        userId: rental.equipment.ownerId,
+        type: "RENTAL_UPDATE",
+        data: {
+          title: "Rental Status Updated",
+          message: `The rental of your ${rental.equipment.title} has been updated to ${status} by an admin.`,
+          linkUrl: `/routes/rentals/${rental.id}`,
+        },
+      },
+    });
+    
     return NextResponse.json({
       message: "Rental status updated successfully",
       rental: updatedRental,
     });
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { message: "Invalid input data", errors: error.errors },
+        { status: 400 }
+      );
+    }
+    
     console.error("Error updating rental status:", error);
     return NextResponse.json(
-      { error: "An error occurred while updating the rental status" },
+      { message: "Something went wrong. Please try again." },
       { status: 500 }
     );
   }
