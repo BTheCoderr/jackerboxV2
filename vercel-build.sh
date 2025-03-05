@@ -371,43 +371,81 @@ import { useDropzone } from 'react-dropzone';
 import { cn } from '@/lib/utils';
 
 interface CloudinaryUploadProps {
-  onUpload: (url: string) => void;
+  onUploadSuccess?: (result: any) => void;
+  onUploadError?: (error: any) => void;
+  buttonText?: string;
+  uploadPreset?: string;
   className?: string;
-  children?: React.ReactNode;
+  buttonClassName?: string;
+  multiple?: boolean;
+  maxFiles?: number;
+  acceptedFileTypes?: string;
 }
 
-const CloudinaryUpload = ({ onUpload, className, children }: CloudinaryUploadProps) => {
+export function CloudinaryUpload({
+  onUploadSuccess,
+  onUploadError,
+  buttonText = 'Upload Image',
+  uploadPreset = 'jackerbox_uploads',
+  className,
+  buttonClassName,
+  multiple = false,
+  maxFiles = 10,
+  acceptedFileTypes = 'image/*',
+}: CloudinaryUploadProps) {
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
-    const file = acceptedFiles[0];
-    if (!file) return;
-
+    if (acceptedFiles.length === 0) return;
+    
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('upload_preset', 'ml_default');
-
       const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-      const response = await fetch(
-        `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
-        {
-          method: 'POST',
-          body: formData,
-        }
-      );
+      if (!cloudName) {
+        throw new Error('Cloudinary cloud name is not defined');
+      }
 
-      const data = await response.json();
-      onUpload(data.secure_url);
+      const uploads = acceptedFiles.map(async (file) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('upload_preset', uploadPreset);
+
+        const response = await fetch(
+          `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+          {
+            method: 'POST',
+            body: formData,
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`Upload failed: ${response.statusText}`);
+        }
+
+        return await response.json();
+      });
+
+      const results = await Promise.all(uploads);
+      
+      if (onUploadSuccess) {
+        if (multiple) {
+          onUploadSuccess(results);
+        } else {
+          onUploadSuccess(results[0]);
+        }
+      }
     } catch (error) {
       console.error('Error uploading to Cloudinary:', error);
+      if (onUploadError) {
+        onUploadError(error);
+      }
     }
-  }, [onUpload]);
+  }, [onUploadSuccess, onUploadError, uploadPreset, multiple]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
       'image/*': ['.jpeg', '.jpg', '.png', '.gif', '.webp']
     },
-    multiple: false
+    multiple,
+    maxFiles
   });
 
   return (
@@ -420,20 +458,27 @@ const CloudinaryUpload = ({ onUpload, className, children }: CloudinaryUploadPro
       )}
     >
       <input {...getInputProps()} />
-      {children || (
-        <div className="text-center">
-          {isDragActive ? (
-            <p>Drop the image here ...</p>
-          ) : (
-            <p>Drag & drop an image here, or click to select one</p>
-          )}
-        </div>
-      )}
+      <div className="text-center">
+        {isDragActive ? (
+          <p>Drop the files here ...</p>
+        ) : (
+          <>
+            <p className="mb-2">Drag & drop files here, or click to select</p>
+            <button 
+              type="button"
+              className={cn(
+                "px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700",
+                buttonClassName
+              )}
+            >
+              {buttonText}
+            </button>
+          </>
+        )}
+      </div>
     </div>
   );
-};
-
-export { CloudinaryUpload };
+}
 EOL
 
 echo "UI components created successfully!"
@@ -523,7 +568,7 @@ EOL
 
 # Run the fix-dynamic-routes.js script
 echo "Running fix for dynamic server usage..."
-node fix-dynamic-routes.js || echo "Note: Dynamic server usage fix may fail during build, but the script has been created and will be run during deployment."
+node --experimental-modules fix-dynamic-routes.js || echo "Note: Dynamic server usage fix may fail during build, but the script has been created and will be run during deployment."
 
 # Run the build
 npm run build --no-lint 
