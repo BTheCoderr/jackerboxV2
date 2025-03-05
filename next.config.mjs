@@ -16,9 +16,7 @@ const nextConfig = {
   // Enable server components and actions
   experimental: {
     serverComponentsExternalPackages: ['@prisma/client'],
-    serverActions: {
-      bodySizeLimit: '2mb'
-    }
+    serverActions: true,
   },
   images: {
     domains: ['res.cloudinary.com'],
