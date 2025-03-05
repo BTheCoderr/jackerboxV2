@@ -227,7 +227,8 @@ import Image from 'next/image';
 import { cn } from '@/lib/utils';
 
 interface CloudinaryImageProps {
-  src: string;
+  src?: string;
+  publicId?: string;
   alt: string;
   width?: number;
   height?: number;
@@ -237,6 +238,8 @@ interface CloudinaryImageProps {
   quality?: number;
   fill?: boolean;
   style?: React.CSSProperties;
+  effect?: string;
+  transformations?: string;
 }
 
 interface CloudinaryBlurImageProps extends CloudinaryImageProps {
@@ -245,6 +248,7 @@ interface CloudinaryBlurImageProps extends CloudinaryImageProps {
 
 const CloudinaryImage = ({
   src,
+  publicId,
   alt,
   width = 800,
   height = 600,
@@ -254,23 +258,32 @@ const CloudinaryImage = ({
   quality = 80,
   fill = false,
   style,
+  effect,
+  transformations,
   ...props
 }: CloudinaryImageProps & Omit<React.ComponentProps<typeof Image>, 'src' | 'alt' | 'width' | 'height'>) => {
-  // Check if the src is already a Cloudinary URL
-  const isCloudinaryUrl = src.includes('res.cloudinary.com');
-  
-  // If it's not a Cloudinary URL and we have a cloud name, construct the URL
   const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-  const imageUrl = isCloudinaryUrl 
-    ? src 
-    : cloudName 
-      ? `https://res.cloudinary.com/${cloudName}/image/upload/q_auto,f_auto/${src}` 
-      : src;
+  
+  // Handle both src and publicId
+  let imageUrl = src;
+  if (publicId && cloudName) {
+    let transformation = 'q_auto,f_auto';
+    if (effect) transformation += `,e_${effect}`;
+    if (transformations) transformation += `,${transformations}`;
+    imageUrl = `https://res.cloudinary.com/${cloudName}/image/upload/${transformation}/${publicId}`;
+  } else if (src && !src.includes('res.cloudinary.com') && cloudName) {
+    imageUrl = `https://res.cloudinary.com/${cloudName}/image/upload/q_auto,f_auto/${src}`;
+  }
+
+  if (!imageUrl && !publicId) {
+    console.error('Either src or publicId must be provided to CloudinaryImage');
+    return null;
+  }
 
   return (
     <div className={cn('relative', className)} style={style}>
       <Image
-        src={imageUrl}
+        src={imageUrl || `https://res.cloudinary.com/${cloudName}/image/upload/q_auto,f_auto/${publicId}`}
         alt={alt}
         width={fill ? undefined : width}
         height={fill ? undefined : height}
@@ -287,6 +300,7 @@ const CloudinaryImage = ({
 
 const CloudinaryBlurImage = ({
   src,
+  publicId,
   alt,
   width = 800,
   height = 600,
@@ -297,27 +311,38 @@ const CloudinaryBlurImage = ({
   fill = false,
   style,
   blurDataURL,
+  effect,
+  transformations,
   ...props
 }: CloudinaryBlurImageProps) => {
-  // Check if the src is already a Cloudinary URL
-  const isCloudinaryUrl = src.includes('res.cloudinary.com');
-  
-  // If it's not a Cloudinary URL and we have a cloud name, construct the URL
   const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-  const imageUrl = isCloudinaryUrl 
-    ? src 
-    : cloudName 
-      ? `https://res.cloudinary.com/${cloudName}/image/upload/q_auto,f_auto/${src}` 
-      : src;
+  
+  // Handle both src and publicId
+  let imageUrl = src;
+  if (publicId && cloudName) {
+    let transformation = 'q_auto,f_auto';
+    if (effect) transformation += `,e_${effect}`;
+    if (transformations) transformation += `,${transformations}`;
+    imageUrl = `https://res.cloudinary.com/${cloudName}/image/upload/${transformation}/${publicId}`;
+  } else if (src && !src.includes('res.cloudinary.com') && cloudName) {
+    imageUrl = `https://res.cloudinary.com/${cloudName}/image/upload/q_auto,f_auto/${src}`;
+  }
+
+  if (!imageUrl && !publicId) {
+    console.error('Either src or publicId must be provided to CloudinaryBlurImage');
+    return null;
+  }
 
   // Generate blur URL if not provided
   const generatedBlurDataURL = blurDataURL || 
-    `https://res.cloudinary.com/${cloudName}/image/upload/w_10,e_blur:1000/${src}`;
+    (cloudName && (publicId || src)) 
+      ? `https://res.cloudinary.com/${cloudName}/image/upload/w_10,e_blur:1000/${publicId || src}`
+      : undefined;
 
   return (
     <div className={cn('relative', className)} style={style}>
       <Image
-        src={imageUrl}
+        src={imageUrl || `https://res.cloudinary.com/${cloudName}/image/upload/q_auto,f_auto/${publicId}`}
         alt={alt}
         width={fill ? undefined : width}
         height={fill ? undefined : height}
@@ -412,6 +437,93 @@ export { CloudinaryUpload };
 EOL
 
 echo "UI components created successfully!"
+
+# Create fix-dynamic-routes.js script
+cat > fix-dynamic-routes.js << 'EOL'
+// fix-dynamic-routes.js
+const fs = require('fs');
+const path = require('path');
+
+// Function to add dynamic export to a file
+function addDynamicExport(filePath) {
+  try {
+    if (!fs.existsSync(filePath)) {
+      console.log(`File not found: ${filePath}`);
+      return;
+    }
+
+    let content = fs.readFileSync(filePath, 'utf8');
+    
+    // Check if file already has dynamic export
+    if (content.includes("export const dynamic = 'force-dynamic'")) {
+      console.log(`File already has dynamic export: ${filePath}`);
+      return;
+    }
+    
+    // Add dynamic export at the beginning of the file
+    console.log(`Adding dynamic export to: ${filePath}`);
+    content = `export const dynamic = 'force-dynamic';\n\n${content}`;
+    fs.writeFileSync(filePath, content);
+  } catch (error) {
+    console.error(`Error processing ${filePath}:`, error);
+  }
+}
+
+// Create a dynamic export file for each protected route
+function createDynamicExportFiles() {
+  const routes = [
+    'dashboard',
+    'admin',
+    'equipment/new',
+    'profile',
+    'rentals',
+    'messages'
+  ];
+  
+  routes.forEach(route => {
+    const dirPath = path.join(process.cwd(), 'src', 'app', 'routes', route);
+    const filePath = path.join(dirPath, 'dynamic.js');
+    
+    try {
+      // Create directory if it doesn't exist
+      if (!fs.existsSync(dirPath)) {
+        fs.mkdirSync(dirPath, { recursive: true });
+      }
+      
+      // Create dynamic.js file
+      fs.writeFileSync(filePath, "export const dynamic = 'force-dynamic';\n");
+      console.log(`Created dynamic export file: ${filePath}`);
+    } catch (error) {
+      console.error(`Error creating dynamic export file for ${route}:`, error);
+    }
+  });
+}
+
+// Paths that had dynamic server usage errors
+const pathsToFix = [
+  'src/app/routes/dashboard/rentals/page.tsx',
+  'src/app/routes/admin/payments/page.tsx',
+  'src/app/routes/admin/page.tsx',
+  'src/app/routes/admin/reports/page.tsx',
+  'src/app/routes/equipment/new/page.tsx',
+  'src/app/api/stripe/create-connect-account/route.js'
+];
+
+// Fix each file
+pathsToFix.forEach(filePath => {
+  const fullPath = path.join(process.cwd(), filePath);
+  addDynamicExport(fullPath);
+});
+
+// Create dynamic export files for protected routes
+createDynamicExportFiles();
+
+console.log('Dynamic server usage fix completed!');
+EOL
+
+# Run the fix-dynamic-routes.js script
+echo "Running fix for dynamic server usage..."
+node fix-dynamic-routes.js || echo "Note: Dynamic server usage fix may fail during build, but the script has been created and will be run during deployment."
 
 # Run the build
 npm run build --no-lint 

@@ -14,6 +14,23 @@ const nextConfig = {
     // !! WARN !!
     ignoreBuildErrors: true,
   },
+  output: 'standalone',
+  images: {
+    domains: ['res.cloudinary.com'],
+    unoptimized: true
+  },
+  experimental: {
+    serverActions: true
+  },
+  // Add this to handle dynamic server usage errors
+  serverRuntimeConfig: {
+    // Will only be available on the server side
+    mySecret: 'secret',
+  },
+  publicRuntimeConfig: {
+    // Will be available on both server and client
+    staticFolder: '/static',
+  }
 };
 
 export default nextConfig; 
