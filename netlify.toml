@@ -28,7 +28,7 @@
 
 [[redirects]]
   from = "/api/*"
-  to = "/.netlify/functions/nextjs-server/api/:splat"
+  to = "/.netlify/functions/nextjs-server"
   status = 200
 
 [[redirects]]
