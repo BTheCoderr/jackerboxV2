@@ -50,21 +50,6 @@ envFiles.forEach(file => {
   }
 });
 
-// Create a temporary .vercel.env file with all environment variables
-console.log('📝 Creating temporary environment file for Vercel...');
-const vercelEnvPath = path.join(rootDir, '.vercel.env');
-let vercelEnvContent = '';
-
-Object.entries(envVars).forEach(([key, value]) => {
-  // Skip empty values and comments
-  if (value && !key.startsWith('#')) {
-    vercelEnvContent += `${key}=${value}\n`;
-  }
-});
-
-fs.writeFileSync(vercelEnvPath, vercelEnvContent);
-console.log('✅ Temporary environment file created.');
-
 // Run the Vercel preparation script
 console.log('🔧 Running Vercel preparation script...');
 try {
@@ -85,33 +70,66 @@ try {
   // Continue anyway
 }
 
-// Deploy to Vercel with environment variables
-console.log('🚀 Deploying to Vercel...');
-console.log('⚠️ You will be prompted to log in if not already logged in.');
-console.log('⚠️ When asked about environment variables, choose to import from .vercel.env');
+// Create a .vercel.env file for reference (not used directly by CLI)
+console.log('📝 Creating reference environment file...');
+const vercelEnvPath = path.join(rootDir, '.vercel.env');
+let vercelEnvContent = '';
 
-try {
-  // Deploy with environment variables from the temporary file
-  execSync('vercel --env-file .vercel.env', { stdio: 'inherit' });
-  console.log('✅ Deployment initiated!');
-} catch (error) {
-  console.error('❌ Deployment failed:', error.message);
-  console.log('Please try deploying manually: vercel --env-file .vercel.env');
-}
+Object.entries(envVars).forEach(([key, value]) => {
+  // Skip empty values and comments
+  if (value && !key.startsWith('#')) {
+    vercelEnvContent += `${key}=${value}\n`;
+  }
+});
 
-// Clean up the temporary environment file
-console.log('🧹 Cleaning up temporary files...');
-try {
-  fs.unlinkSync(vercelEnvPath);
-  console.log('✅ Temporary environment file removed.');
-} catch (error) {
-  console.error('❌ Failed to remove temporary file:', error.message);
-  console.log(`Please remove it manually: rm ${vercelEnvPath}`);
-}
+fs.writeFileSync(vercelEnvPath, vercelEnvContent);
+console.log('✅ Reference environment file created.');
 
-console.log('\n🎉 Deployment process completed!');
+// Deploy to Vercel
+console.log('🚀 Preparing for Vercel deployment...');
+console.log('\n⚠️ Automated deployment encountered an issue.');
+console.log('\n📋 Please follow these manual deployment steps:');
+console.log('1. Run the following command in your terminal:');
+console.log('   vercel');
+console.log('2. Follow the prompts to log in if needed');
+console.log('3. When asked about environment variables, select "Yes" to customize them');
+console.log('4. Enter your environment variables from the reference file');
+console.log('\n📝 Your environment variables are available in the .vercel.env file for reference');
+console.log('\n🔍 After deployment, check your application at the provided URL');
+console.log('🧹 The reference environment file will remain for your convenience');
+console.log('   Remember to delete it after successful deployment with:');
+console.log('   rm .vercel.env');
+
+// Don't try to run vercel command automatically
+// try {
+//   console.log('🚀 Deploying to Vercel...');
+//   console.log('⚠️ You will be prompted to log in if not already logged in.');
+//   console.log('⚠️ When asked about environment variables, select "Yes" to customize them.');
+//   console.log('Starting Vercel deployment...');
+//   console.log('When prompted for environment variables, please enter them manually from the .vercel.env file.');
+//   console.log('This file contains all your environment variables for reference.');
+//   
+//   execSync('vercel', { stdio: 'inherit' });
+//   console.log('✅ Deployment successful!');
+// } catch (error) {
+//   console.error('❌ Deployment failed:', error.message);
+//   console.log('Please try deploying manually with: vercel');
+// }
+
+// Don't remove the reference file automatically
+// console.log('🧹 Cleaning up temporary files...');
+// try {
+//   fs.unlinkSync('.vercel.env');
+//   console.log('✅ Reference environment file removed.');
+// } catch (error) {
+//   console.error('❌ Failed to remove reference environment file:', error.message);
+// }
+
+console.log('\n🎉 Preparation process completed!');
 console.log('\nNext steps:');
-console.log('1. Verify your deployment in the Vercel dashboard');
-console.log('2. Check that all environment variables were correctly set');
-console.log('3. Test your application functionality');
-console.log('4. Set up a custom domain if needed'); 
+console.log('1. Run "vercel" in your terminal to start the deployment');
+console.log('2. Verify your deployment in the Vercel dashboard');
+console.log('3. Check that all environment variables were correctly set');
+console.log('4. Test your application functionality');
+console.log('5. Set up a custom domain if needed');
+console.log('6. Delete the .vercel.env file after successful deployment'); 

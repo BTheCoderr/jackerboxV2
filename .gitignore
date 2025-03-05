@@ -30,8 +30,15 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# env files
+.env
+.env.*
+.env.local
+.env.development
+.env.test
+.env.production
+.env.production.local
+!.env.example
 
 # vercel
 .vercel
@@ -42,3 +49,21 @@ next-env.d.ts
 
 # Local Netlify folder
 .netlify
+
+# Temporary files
+.temp
+.tmp
+*.log
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Prisma
+/prisma/dev.db
+/prisma/dev.db-journal
+
+# Reference files
+.vercel.env
