@@ -7,24 +7,31 @@
   NODE_VERSION = "20"
   PRISMA_GENERATE_DATAPROXY = "true"
   NEXT_USE_NETLIFY_EDGE = "true"
+  NEXT_FORCE_EDGE_RUNTIME = "true"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
-# Handle Next.js routing
+# These redirects are crucial for Next.js App Router to work correctly
 [[redirects]]
-  from = "/*"
+  from = "/_next/static/*"
   to = "/_next/static/:splat"
   status = 200
-  force = true
-  condition = {Path = {matches = "^/_next/static/.*$"}}
 
 [[redirects]]
-  from = "/*"
+  from = "/_next/image*"
+  to = "/_next/image:splat"
+  status = 200
+
+[[redirects]]
+  from = "/_next/data/*"
+  to = "/_next/data/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/api/*"
   to = "/api/:splat"
   status = 200
-  force = true
-  condition = {Path = {matches = "^/api/.*$"}}
 
 [[redirects]]
   from = "/*"
