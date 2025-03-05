@@ -13,33 +13,32 @@ const nextConfig = {
     // your project has ESLint errors.
     ignoreDuringBuilds: true,
   },
-  // Static export configuration
-  output: 'export',
-  distDir: 'out',
-  // Ensure images work correctly in static export
-  images: {
-    unoptimized: true,
-  },
-  // Disable server components and API routes for static export
+  // Enable server components and actions
   experimental: {
-    serverActions: false,
-    serverComponents: false
+    serverComponentsExternalPackages: ['@prisma/client'],
+    serverActions: {
+      bodySizeLimit: '2mb'
+    }
   },
-  // Only include specific static routes
-  exportPathMap: async function () {
-    return {
-      '/': { page: '/' },
-      '/routes/browse': { page: '/routes/browse' },
-      '/routes/about': { page: '/routes/about' },
-      '/routes/contact': { page: '/routes/contact' },
-      '/routes/how-it-works': { page: '/routes/how-it-works' },
-      '/routes/privacy': { page: '/routes/privacy' },
-      '/routes/terms': { page: '/routes/terms' },
-      '/routes/cookies': { page: '/routes/cookies' }
-    };
+  images: {
+    domains: ['res.cloudinary.com'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'res.cloudinary.com',
+        pathname: '/**',
+      },
+    ],
   },
-  // Disable dynamic routes for static export
-  trailingSlash: true,
+  // Add this to handle dynamic server usage errors
+  serverRuntimeConfig: {
+    // Will only be available on the server side
+    mySecret: 'secret',
+  },
+  publicRuntimeConfig: {
+    // Will be available on both server and client
+    staticFolder: '/static',
+  }
 };
 
 export default nextConfig; 

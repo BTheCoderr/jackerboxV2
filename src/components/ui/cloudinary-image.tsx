@@ -5,7 +5,8 @@ import Image from 'next/image';
 import { cn } from '@/lib/utils';
 
 interface CloudinaryImageProps {
-  src: string;
+  src?: string;
+  publicId?: string;
   alt: string;
   width?: number;
   height?: number;
@@ -15,6 +16,8 @@ interface CloudinaryImageProps {
   quality?: number;
   fill?: boolean;
   style?: React.CSSProperties;
+  effect?: string;
+  transformations?: string;
 }
 
 interface CloudinaryBlurImageProps extends CloudinaryImageProps {
@@ -23,6 +26,7 @@ interface CloudinaryBlurImageProps extends CloudinaryImageProps {
 
 const CloudinaryImage = ({
   src,
+  publicId,
   alt,
   width = 800,
   height = 600,
@@ -32,23 +36,32 @@ const CloudinaryImage = ({
   quality = 80,
   fill = false,
   style,
+  effect,
+  transformations,
   ...props
 }: CloudinaryImageProps & Omit<React.ComponentProps<typeof Image>, 'src' | 'alt' | 'width' | 'height'>) => {
-  // Check if the src is already a Cloudinary URL
-  const isCloudinaryUrl = src.includes('res.cloudinary.com');
-  
-  // If it's not a Cloudinary URL and we have a cloud name, construct the URL
   const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-  const imageUrl = isCloudinaryUrl 
-    ? src 
-    : cloudName 
-      ? `https://res.cloudinary.com/${cloudName}/image/upload/q_auto,f_auto/${src}` 
-      : src;
+  
+  // Handle both src and publicId
+  let imageUrl = src;
+  if (publicId && cloudName) {
+    let transformation = 'q_auto,f_auto';
+    if (effect) transformation += `,e_${effect}`;
+    if (transformations) transformation += `,${transformations}`;
+    imageUrl = `https://res.cloudinary.com/${cloudName}/image/upload/${transformation}/${publicId}`;
+  } else if (src && !src.includes('res.cloudinary.com') && cloudName) {
+    imageUrl = `https://res.cloudinary.com/${cloudName}/image/upload/q_auto,f_auto/${src}`;
+  }
+
+  if (!imageUrl && !publicId) {
+    console.error('Either src or publicId must be provided to CloudinaryImage');
+    return null;
+  }
 
   return (
     <div className={cn('relative', className)} style={style}>
       <Image
-        src={imageUrl}
+        src={imageUrl || `https://res.cloudinary.com/${cloudName}/image/upload/q_auto,f_auto/${publicId}`}
         alt={alt}
         width={fill ? undefined : width}
         height={fill ? undefined : height}
@@ -65,6 +78,7 @@ const CloudinaryImage = ({
 
 const CloudinaryBlurImage = ({
   src,
+  publicId,
   alt,
   width = 800,
   height = 600,
@@ -75,27 +89,38 @@ const CloudinaryBlurImage = ({
   fill = false,
   style,
   blurDataURL,
+  effect,
+  transformations,
   ...props
 }: CloudinaryBlurImageProps) => {
-  // Check if the src is already a Cloudinary URL
-  const isCloudinaryUrl = src.includes('res.cloudinary.com');
-  
-  // If it's not a Cloudinary URL and we have a cloud name, construct the URL
   const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-  const imageUrl = isCloudinaryUrl 
-    ? src 
-    : cloudName 
-      ? `https://res.cloudinary.com/${cloudName}/image/upload/q_auto,f_auto/${src}` 
-      : src;
+  
+  // Handle both src and publicId
+  let imageUrl = src;
+  if (publicId && cloudName) {
+    let transformation = 'q_auto,f_auto';
+    if (effect) transformation += `,e_${effect}`;
+    if (transformations) transformation += `,${transformations}`;
+    imageUrl = `https://res.cloudinary.com/${cloudName}/image/upload/${transformation}/${publicId}`;
+  } else if (src && !src.includes('res.cloudinary.com') && cloudName) {
+    imageUrl = `https://res.cloudinary.com/${cloudName}/image/upload/q_auto,f_auto/${src}`;
+  }
+
+  if (!imageUrl && !publicId) {
+    console.error('Either src or publicId must be provided to CloudinaryBlurImage');
+    return null;
+  }
 
   // Generate blur URL if not provided
   const generatedBlurDataURL = blurDataURL || 
-    `https://res.cloudinary.com/${cloudName}/image/upload/w_10,e_blur:1000/${src}`;
+    (cloudName && (publicId || src)) 
+      ? `https://res.cloudinary.com/${cloudName}/image/upload/w_10,e_blur:1000/${publicId || src}`
+      : undefined;
 
   return (
     <div className={cn('relative', className)} style={style}>
       <Image
-        src={imageUrl}
+        src={imageUrl || `https://res.cloudinary.com/${cloudName}/image/upload/q_auto,f_auto/${publicId}`}
         alt={alt}
         width={fill ? undefined : width}
         height={fill ? undefined : height}
