@@ -1,9 +1,10 @@
 [build]
-  command = "./vercel-build.sh"
+  command = "chmod +x setup-ui.sh && ./setup-ui.sh && npm run build:simple"
   publish = ".next"
 
 [build.environment]
   PRISMA_GENERATE_DATAPROXY = "true"
+  NODE_VERSION = "20"
 
 [context.production.environment]
   DATABASE_URL = "${PRISMA_ACCELERATE_URL}"
