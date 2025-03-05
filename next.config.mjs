@@ -16,9 +16,7 @@ const nextConfig = {
   // Enable server components and actions
   experimental: {
     serverComponentsExternalPackages: ['@prisma/client'],
-    serverActions: {
-      allowedOrigins: ['localhost:3000', 'jackerbox.vercel.app', 'jackerbox.netlify.app']
-    }
+    serverActions: true
   },
   images: {
     domains: ['res.cloudinary.com'],
@@ -41,4 +39,4 @@ const nextConfig = {
   }
 };
 
-export default nextConfig; 
+export default nextConfig;

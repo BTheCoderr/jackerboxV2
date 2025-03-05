@@ -3,7 +3,6 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-// Get current directory
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -81,4 +80,4 @@ pathsToFix.forEach(filePath => {
 // Create dynamic export files for protected routes
 createDynamicExportFiles();
 
-console.log('Dynamic server usage fix completed!'); 
+console.log('Dynamic server usage fix completed!');
