@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --no-lint",
+    "build:vercel": "./setup-ui.sh && next build --no-lint",
+    "build:netlify": "chmod +x setup-ui.sh && ./setup-ui.sh && next build --no-lint",
     "start": "next start",
     "lint": "next lint",
     "postinstall": "prisma generate",
@@ -41,6 +43,7 @@
     "@stripe/stripe-js": "^5.7.0",
     "@types/uuid": "^10.0.0",
     "@vercel/analytics": "^1.5.0",
+    "@vercel/speed-insights": "^1.2.0",
     "bcryptjs": "^3.0.2",
     "class-variance-authority": "^0.7.1",
     "cloudinary": "^2.5.1",

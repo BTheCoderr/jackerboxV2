@@ -2,55 +2,52 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth-utils";
 import { db } from "@/lib/db";
 
-interface RouteParams {
+// Use the correct Next.js App Router parameter type
+type RouteParams = {
   params: {
     id: string;
   };
-}
+};
 
-export async function DELETE(req: Request, { params }: RouteParams) {
+export async function DELETE(
+  req: Request,
+  context: RouteParams
+) {
   try {
     const user = await getCurrentUser();
-
-    // Check if user is admin
+    const { id } = context.params;
+    
     if (!user?.isAdmin) {
       return NextResponse.json(
-        { error: "Unauthorized. Admin access required." },
-        { status: 403 }
+        { message: "Unauthorized" },
+        { status: 401 }
       );
     }
-
+    
     // Check if rental exists
     const rental = await db.rental.findUnique({
-      where: {
-        id: params.id,
-      },
+      where: { id },
     });
-
+    
     if (!rental) {
       return NextResponse.json(
-        { error: "Rental not found" },
+        { message: "Rental not found" },
         { status: 404 }
       );
     }
-
-    // Delete the rental
+    
+    // Delete rental
     await db.rental.delete({
-      where: {
-        id: params.id,
-      },
+      where: { id },
     });
-
-    // Log the deletion
-    console.log(`Rental ${rental.id} deleted by admin ${user.id}`);
-
+    
     return NextResponse.json({
       message: "Rental deleted successfully",
     });
   } catch (error) {
     console.error("Error deleting rental:", error);
     return NextResponse.json(
-      { error: "An error occurred while deleting the rental" },
+      { message: "Something went wrong. Please try again." },
       { status: 500 }
     );
   }

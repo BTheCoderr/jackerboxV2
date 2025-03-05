@@ -2,15 +2,20 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth-utils";
 import { db } from "@/lib/db";
 
-interface RouteParams {
+// Use the correct Next.js App Router parameter type
+type RouteParams = {
   params: {
     id: string;
   };
-}
+};
 
-export async function DELETE(req: Request, { params }: RouteParams) {
+export async function DELETE(
+  req: Request,
+  context: RouteParams
+) {
   try {
     const user = await getCurrentUser();
+    const { id } = context.params;
     
     if (!user?.isAdmin) {
       return NextResponse.json(
@@ -21,7 +26,7 @@ export async function DELETE(req: Request, { params }: RouteParams) {
     
     // Check if equipment exists
     const equipment = await db.equipment.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
     
     if (!equipment) {
@@ -31,9 +36,26 @@ export async function DELETE(req: Request, { params }: RouteParams) {
       );
     }
     
+    // Check if equipment has active rentals
+    const activeRentals = await db.rental.count({
+      where: {
+        equipmentId: id,
+        status: {
+          in: ["PENDING", "CONFIRMED", "ACTIVE"],
+        },
+      },
+    });
+    
+    if (activeRentals > 0) {
+      return NextResponse.json(
+        { message: "Cannot delete equipment with active rentals" },
+        { status: 400 }
+      );
+    }
+    
     // Delete equipment
     await db.equipment.delete({
-      where: { id: params.id },
+      where: { id },
     });
     
     return NextResponse.json({
