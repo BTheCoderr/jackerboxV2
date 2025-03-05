@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build --no-lint",
-    "build:vercel": "./vercel-build.sh && next build --no-lint",
+    "build:vercel": "chmod +x vercel-build.sh && ./vercel-build.sh && next build --no-lint",
+    "build:simple": "next build --no-lint",
     "build:netlify": "chmod +x vercel-build.sh && ./vercel-build.sh && next build --no-lint",
     "build:static": "chmod +x vercel-build.sh && ./vercel-build.sh && NEXT_PUBLIC_STATIC_ONLY=true next build --no-lint && rm -rf out && mkdir -p out && cp -r .next/static out/ && cp -r .next/server/app/* out/ && cp -r .next/server/pages/* out/ && cp -r public/* out/",
     "start": "next start",
