@@ -1,142 +1,115 @@
 # Jackerbox Deployment Guide
 
-This guide will help you deploy your Jackerbox application to either Vercel or Netlify.
+This guide provides instructions on how to deploy the Jackerbox application to Netlify.
 
 ## Prerequisites
 
-Before deploying, make sure you have:
+- Node.js (v18 or later)
+- npm (v8 or later)
+- Netlify CLI (`npm install -g netlify-cli`)
+- A Netlify account
 
-1. A GitHub account with your Jackerbox repository
-2. A Prisma Accelerate API key (or a direct database connection)
-3. All environment variables ready
+## Deployment Options
 
-## Deploying to Vercel
+There are two main deployment options:
 
-### Step 1: Connect Your Repository
+1. **Static Export Deployment** (Recommended)
+2. **Serverless Deployment** (Not currently working reliably)
 
-1. Go to [Vercel](https://vercel.com/) and sign in with your GitHub account
-2. Click "Add New..." and select "Project"
-3. Import your Jackerbox repository
-4. Select the "Next.js" framework preset
+## Option 1: Static Export Deployment (Recommended)
 
-### Step 2: Configure Environment Variables
+This option creates a static export of the application, which is simpler to deploy but doesn't support API routes.
 
-Vercel will automatically detect your `vercel.json` file, but you should verify the environment variables:
+### Steps:
 
-1. In the Vercel dashboard, go to your project settings
-2. Navigate to the "Environment Variables" section
-3. Verify that all required environment variables are set:
-   - `DATABASE_URL` (Prisma Accelerate URL)
-   - `DIRECT_DATABASE_URL` (Direct database connection)
-   - `NEXTAUTH_URL` (Your Vercel deployment URL)
-   - `NEXTAUTH_SECRET`
-   - Cloudinary credentials
-   - Firebase credentials
-   - Stripe credentials
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/your-username/jackerbox.git
+   cd jackerbox
+   ```
 
-### Step 3: Deploy
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-1. Click "Deploy" and wait for the build to complete
-2. Vercel will automatically run your `vercel-build.sh` script
+3. Run the static deployment script:
+   ```bash
+   chmod +x deploy-static.sh
+   ./deploy-static.sh
+   ```
 
-## Deploying to Netlify
+This script will:
+- Create UI components
+- Configure environment variables
+- Update Next.js config for static export
+- Build the application
+- Deploy to Netlify
 
-### Step 1: Connect Your Repository
+### What to Expect:
 
-1. Go to [Netlify](https://netlify.com/) and sign in with your GitHub account
-2. Click "Add new site" and select "Import an existing project"
-3. Connect to your GitHub repository
+- The application will be deployed as a static site
+- API routes will not be functional
+- The site will be accessible at `https://jackerbox.netlify.app` (or your custom domain)
 
-### Step 2: Configure Build Settings
+### Configuration Details:
 
-1. Set the build command to `./vercel-build.sh`
-2. Set the publish directory to `.next`
-3. Add the Netlify Next.js plugin
+The static export approach requires the following configuration:
 
-### Step 3: Configure Environment Variables
+1. In `next.config.mjs`:
+   ```javascript
+   output: 'export',
+   images: {
+     unoptimized: true,
+   },
+   trailingSlash: true,
+   experimental: {
+     serverActions: false
+   },
+   ```
 
-1. In the Netlify dashboard, go to your site settings
-2. Navigate to "Build & deploy" > "Environment"
-3. Add all required environment variables:
-   - `DATABASE_URL` (Prisma Accelerate URL)
-   - `DIRECT_DATABASE_URL` (Direct database connection)
-   - `NEXTAUTH_URL` (Your Netlify deployment URL)
-   - `NEXTAUTH_SECRET`
-   - Cloudinary credentials
-   - Firebase credentials
-   - Stripe credentials
+2. In `netlify.toml`:
+   ```toml
+   [build]
+     command = "chmod +x setup-ui.sh && ./setup-ui.sh && NODE_OPTIONS='--max-old-space-size=4096' npm run build"
+     publish = "out"
 
-### Step 4: Deploy
+   # For client-side routing with Next.js static export
+   [[redirects]]
+     from = "/*"
+     to = "/index.html"
+     status = 200
+   ```
 
-1. Click "Deploy site" and wait for the build to complete
+## Option 2: Serverless Deployment (Not Recommended)
+
+The serverless deployment option is currently not working reliably with the Netlify Next.js plugin. If you need API routes, consider deploying to Vercel instead.
 
 ## Troubleshooting
 
-### Missing UI Components
+### Static Export Limitations
 
-If you encounter errors about missing UI components:
+When using the static export approach, be aware of these limitations:
 
-1. Make sure your `vercel-build.sh` script is executable:
-   ```bash
-   chmod +x vercel-build.sh
-   ```
+1. No API routes available
+2. Server components are statically generated at build time
+3. Server actions are not available
+4. All data must be fetched at build time
 
-2. Verify that the script is creating all required UI components:
-   - Button
-   - Card
-   - Alert
-   - CloudinaryImage
-   - CloudinaryUpload
+### 404 Errors
 
-### Database Connection Issues
+If you're getting 404 errors after deployment:
 
-If you encounter database connection errors:
+1. Check the Netlify redirects in `netlify.toml`
+2. Make sure the `[[redirects]]` section is correctly configured for client-side routing
 
-1. Check that your Prisma Accelerate API key is correct
-2. Verify that your direct database connection string is valid
-3. Make sure your Prisma schema is compatible with Prisma Accelerate
+## Monitoring and Logs
 
-### Missing formatDate Function
+- Build logs: `https://app.netlify.com/sites/jackerbox/deploys/[deploy-id]`
+- Function logs: `https://app.netlify.com/sites/jackerbox/logs/functions` (only for serverless deployment)
 
-If you encounter errors about missing functions:
+## Conclusion
 
-1. Check that all required utility functions are exported from `src/lib/utils.ts`
-2. Verify that the function signatures match what's expected in your components
+The static export deployment is recommended for simplicity and reliability. If you need full functionality with API routes, consider deploying to Vercel instead.
 
-## Vercel vs. Netlify
-
-### Vercel Advantages
-- Native Next.js support
-- Better performance for Next.js applications
-- Simpler configuration for Next.js projects
-
-### Netlify Advantages
-- More flexible build options
-- Better support for static sites
-- More generous free tier
-
-Choose the platform that best fits your needs and budget.
-
-## Monitoring Your Deployment
-
-After deploying, monitor your application for any issues:
-
-1. Check the deployment logs for errors
-2. Test all critical functionality
-3. Monitor database performance
-4. Set up alerts for any critical errors
-
-## Updating Your Deployment
-
-To update your deployment:
-
-1. Push changes to your GitHub repository
-2. Both Vercel and Netlify will automatically rebuild and deploy your application
-
-## Need Help?
-
-If you encounter any issues with your deployment, refer to:
-
-- [Vercel Documentation](https://vercel.com/docs)
-- [Netlify Documentation](https://docs.netlify.com/)
-- [Prisma Accelerate Documentation](https://www.prisma.io/docs/data-platform/accelerate/getting-started) 
+For more information, refer to the [Netlify documentation](https://docs.netlify.com/) and the [Next.js documentation](https://nextjs.org/docs/deployment). 

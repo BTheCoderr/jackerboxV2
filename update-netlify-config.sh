@@ -1,9 +1,12 @@
+#!/bin/bash
+
+# Create a new Netlify configuration file for static export
+cat > netlify.toml << 'EOL'
 [build]
-  command = "chmod +x setup-ui.sh && ./setup-ui.sh && NODE_OPTIONS='--max-old-space-size=4096' npm run build"
+  command = "chmod +x setup-ui.sh && ./setup-ui.sh && NODE_OPTIONS='--max-old-space-size=4096' npm run build:simple"
   publish = "out"
 
 [build.environment]
-  PRISMA_GENERATE_DATAPROXY = "true"
   NODE_VERSION = "20"
 
 [context.production.environment]
@@ -14,7 +17,7 @@
   NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME = "${NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}"
   CLOUDINARY_API_KEY = "${CLOUDINARY_API_KEY}"
   CLOUDINARY_API_SECRET = "${CLOUDINARY_API_SECRET}"
-  CLOUDINARY_URL = "cloudinary://${CLOUDINARY_API_KEY}:${CLOUDINARY_API_SECRET}@${NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}"
+  CLOUDINARY_URL = "${CLOUDINARY_URL}"
   NEXT_PUBLIC_FIREBASE_API_KEY = "${NEXT_PUBLIC_FIREBASE_API_KEY}"
   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN = "${NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN}"
   NEXT_PUBLIC_FIREBASE_PROJECT_ID = "${NEXT_PUBLIC_FIREBASE_PROJECT_ID}"
@@ -31,3 +34,6 @@
   from = "/*"
   to = "/index.html"
   status = 200
+EOL
+
+echo "Netlify configuration updated for static export!" 

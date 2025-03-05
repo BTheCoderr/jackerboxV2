@@ -1,11 +1,11 @@
 #!/bin/bash
 
 # Create UI components directory
-mkdir -p components/ui
+mkdir -p src/components/ui
 
 # Create utils.ts if it doesn't exist
-mkdir -p lib
-cat > lib/utils.ts << 'EOL'
+mkdir -p src/lib
+cat > src/lib/utils.ts << 'EOL'
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -32,7 +32,7 @@ export function formatCurrency(amount: number): string {
 EOL
 
 # Create button component
-cat > components/ui/button.tsx << 'EOL'
+cat > src/components/ui/button.tsx << 'EOL'
 "use client";
 
 import * as React from "react";
@@ -88,7 +88,7 @@ export { Button, buttonVariants };
 EOL
 
 # Create card component
-cat > components/ui/card.tsx << 'EOL'
+cat > src/components/ui/card.tsx << 'EOL'
 "use client";
 
 import * as React from "react";
@@ -169,7 +169,7 @@ export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent }
 EOL
 
 # Create alert component
-cat > components/ui/alert.tsx << 'EOL'
+cat > src/components/ui/alert.tsx << 'EOL'
 "use client";
 
 import * as React from "react";
@@ -219,7 +219,7 @@ export { Alert, AlertTitle, AlertDescription };
 EOL
 
 # Create cloudinary-image component
-cat > components/ui/cloudinary-image.tsx << 'EOL'
+cat > src/components/ui/cloudinary-image.tsx << 'EOL'
 "use client";
 
 import React from 'react';
@@ -363,7 +363,7 @@ export { CloudinaryImage, CloudinaryBlurImage };
 EOL
 
 # Create cloudinary-upload component
-cat > components/ui/cloudinary-upload.tsx << 'EOL'
+cat > src/components/ui/cloudinary-upload.tsx << 'EOL'
 "use client";
 
 import React, { useCallback } from 'react';
@@ -504,18 +504,6 @@ echo "export const dynamic = 'force-dynamic';" > src/app/routes/messages/dynamic
 
 echo "Dynamic exports created successfully!"
 
-# Also create the components in the src directory as a fallback
-mkdir -p src/components/ui
-cp components/ui/button.tsx src/components/ui/
-cp components/ui/card.tsx src/components/ui/
-cp components/ui/alert.tsx src/components/ui/
-cp components/ui/cloudinary-image.tsx src/components/ui/
-cp components/ui/cloudinary-upload.tsx src/components/ui/
-
-mkdir -p src/lib
-cp lib/utils.ts src/lib/
-
-echo "Also created components in src directory as fallback"
-
 # Run the build
-npm run build --no-lint
+# Removing this line as it conflicts with the build:simple script in vercel.json
+# npm run build --no-lint

@@ -1,10 +1,14 @@
 #!/bin/bash
 
-# Create UI components directory
+# Create UI components directory and ensure it exists
 mkdir -p src/components/ui
+echo "Creating UI components in src/components/ui..."
+
+# Create lib directory and ensure it exists
+mkdir -p src/lib
+echo "Creating utils.ts in src/lib..."
 
 # Create utils.ts if it doesn't exist
-mkdir -p src/lib
 cat > src/lib/utils.ts << 'EOL'
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -481,8 +485,6 @@ export function CloudinaryUpload({
 }
 EOL
 
-echo "UI components created successfully!"
-
 # Create dynamic export files for protected routes
 mkdir -p src/app/routes/dashboard
 echo "export const dynamic = 'force-dynamic';" > src/app/routes/dashboard/dynamic.js
@@ -501,5 +503,26 @@ echo "export const dynamic = 'force-dynamic';" > src/app/routes/rentals/dynamic.
 
 mkdir -p src/app/routes/messages
 echo "export const dynamic = 'force-dynamic';" > src/app/routes/messages/dynamic.js
+
+# Verify that the components were created
+echo "Verifying UI components..."
+if [ -f "src/components/ui/button.tsx" ] && \
+   [ -f "src/components/ui/card.tsx" ] && \
+   [ -f "src/components/ui/alert.tsx" ] && \
+   [ -f "src/components/ui/cloudinary-image.tsx" ] && \
+   [ -f "src/components/ui/cloudinary-upload.tsx" ]; then
+  echo "UI components created successfully!"
+else
+  echo "Error: Some UI components are missing!"
+  ls -la src/components/ui/
+fi
+
+# Verify that the utils file was created
+if [ -f "src/lib/utils.ts" ]; then
+  echo "Utils file created successfully!"
+else
+  echo "Error: Utils file is missing!"
+  ls -la src/lib/
+fi
 
 echo "Dynamic exports created successfully!" 

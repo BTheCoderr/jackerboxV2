@@ -1,19 +1,22 @@
 #!/bin/bash
 
-# Make sure the vercel-build.sh script is executable
-chmod +x vercel-build.sh
+# Make the script executable
+chmod +x setup-ui.sh
 
-# Run the fix-dynamic script to add dynamic exports
-npm run fix-dynamic
+# Run the UI setup script to create the UI components
+echo "Creating UI components..."
+./setup-ui.sh
 
-# Commit the changes
-git add .
-git commit -m "Fix: Update configuration for server rendering"
+# Check if the UI components were created successfully
+echo "Verifying UI components..."
+node check-ui-components.js
+if [ $? -ne 0 ]; then
+  echo "Error: UI components verification failed. Please check the output above."
+  exit 1
+fi
 
-# Push to GitHub
-git push
+# Deploy to Vercel
+echo "Deploying to Vercel..."
+vercel deploy --prod
 
-echo "Changes pushed to GitHub. Vercel should automatically start a new deployment."
-echo "Check your Vercel dashboard at: https://vercel.com/be-forreals-projects/jackerbox"
-echo ""
-echo "If the deployment doesn't start automatically, you can manually trigger it from the Vercel dashboard." 
+echo "Deployment completed!" 

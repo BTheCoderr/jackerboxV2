@@ -20,7 +20,10 @@ const nextConfig = {
     unoptimized: true
   },
   experimental: {
-    serverActions: true
+    serverActions: {
+      bodySizeLimit: '2mb',
+      allowedOrigins: ['localhost:3000', 'jackerbox.vercel.app', 'jackerbox.netlify.app']
+    }
   },
   // Add this to handle dynamic server usage errors
   serverRuntimeConfig: {
