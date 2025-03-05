@@ -23,6 +23,19 @@ const nextConfig = {
   experimental: {
     serverComponentsExternalPackages: [],
   },
+  // Only include specific routes in the static export
+  exportPathMap: async function (defaultPathMap, { dev, dir, outDir, distDir, buildId }) {
+    // In development, use all routes
+    if (dev) {
+      return defaultPathMap;
+    }
+    
+    // In production, only include specific routes
+    return {
+      '/': { page: '/' },
+      '/about': { page: '/about' },
+    };
+  },
 };
 
 export default nextConfig; 
