@@ -1,16 +1,16 @@
 [build]
   command = "npm run build:netlify"
-  publish = ".next"
+  publish = "out"
 
 [build.environment]
-  NETLIFY_NEXT_PLUGIN_SKIP = "true"
   NODE_VERSION = "20"
-  PRISMA_GENERATE_DATAPROXY = "true"
 
-[[plugins]]
-  package = "@netlify/plugin-nextjs"
+# For client-side routing with Next.js static export
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
 
-# These redirects are crucial for Next.js App Router to work correctly
 [[redirects]]
   from = "/_next/static/*"
   to = "/_next/static/:splat"
