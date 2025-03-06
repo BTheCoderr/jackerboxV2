@@ -1,0 +1,38 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+  
+[build.environment]
+  NEXT_USE_NETLIFY_EDGE = "true"
+  NODE_VERSION = "18"
+  
+[functions]
+  # Set the directory where your serverless functions are located
+  directory = ".netlify/functions"
+  # Set the maximum size of your serverless functions
+  node_bundler = "esbuild"
+  
+# Handle Next.js routing
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# Redirect all requests to Next.js
+[[redirects]]
+  from = "/*"
+  to = "/.netlify/functions/nextjs-server"
+  status = 200
+  force = true
+
+# Set security headers
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    
+# Cache static assets
+[[headers]]
+  for = "/_next/static/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
