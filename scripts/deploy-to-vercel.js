@@ -1,6 +1,8 @@
 import { execSync } from 'child_process';
 import fs from 'fs';
 import readline from 'readline';
+import dotenv from 'dotenv';
+import path from 'path';
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -132,21 +134,49 @@ async function main() {
     const useEnv = await question('Would you like to use environment variables from .env file? (y/n): ');
     
     if (useEnv.toLowerCase() === 'y' && fs.existsSync('.env')) {
-      console.log('📝 Using environment variables from .env file...');
-      execSync('vercel --env-file .env --prod', { stdio: 'inherit' });
+      console.log('📝 Loading environment variables from .env file...');
+      
+      // Load environment variables from .env file
+      const envConfig = dotenv.parse(fs.readFileSync('.env'));
+      
+      // Create a temporary .vercel.env file
+      console.log('📝 Creating temporary environment variable file...');
+      const vercelEnvPath = path.join(process.cwd(), '.vercel.env');
+      
+      // Generate the content for the .vercel.env file
+      let vercelEnvContent = '';
+      for (const key in envConfig) {
+        vercelEnvContent += `${key}=${envConfig[key]}\n`;
+      }
+      
+      // Write the .vercel.env file
+      fs.writeFileSync(vercelEnvPath, vercelEnvContent);
+      
+      console.log('📝 Deploying with environment variables...');
+      console.log('⚠️ Note: You will need to manually enter environment variables when prompted by Vercel CLI');
+      
+      // Deploy to Vercel
+      execSync('vercel --prod', { stdio: 'inherit' });
+      
+      // Clean up the temporary file
+      if (fs.existsSync(vercelEnvPath)) {
+        fs.unlinkSync(vercelEnvPath);
+      }
     } else {
       console.log('📝 Proceeding without .env file...');
+      console.log('⚠️ Note: You will need to manually set environment variables in the Vercel dashboard after deployment');
       execSync('vercel --prod', { stdio: 'inherit' });
     }
     
-    console.log('✅ Deployment successful!');
+    console.log('✅ Deployment initiated!');
+    console.log('⚠️ Important: After deployment completes, make sure to set up all environment variables in the Vercel dashboard');
   } catch (error) {
     console.error('❌ Deployment failed:', error.message);
     console.log('🔍 Check the error message above for details.');
   }
   
   console.log('🎉 Vercel deployment process completed!');
-  console.log('📝 Note: Your API routes should now be functional.');
+  console.log('📝 Note: Your API routes should now be functional once environment variables are set up.');
   console.log('📝 You can access your site at the URL provided by Vercel above.');
   console.log('📝 You can manage your site settings in the Vercel dashboard.');
   
