@@ -7,6 +7,12 @@ import {
   sendVerificationSMS, 
   validatePhoneNumber 
 } from "@/lib/phone-verification";
+import { 
+  isTestMode, 
+  isTestPhoneNumber, 
+  isTestVerificationCode,
+  TEST_VERIFICATION_CODE
+} from "@/lib/test-utils";
 
 // Schema for phone verification request
 const phoneVerificationSchema = z.object({
@@ -58,7 +64,9 @@ export async function POST(req: Request) {
     }
     
     // Generate verification code
-    const verificationCode = generateVerificationCode();
+    const verificationCode = isTestPhoneNumber(phone) 
+      ? TEST_VERIFICATION_CODE 
+      : generateVerificationCode();
     
     // Store verification code in database
     await db.user.update({
@@ -69,7 +77,18 @@ export async function POST(req: Request) {
       },
     });
     
-    // Send SMS with verification code
+    // For test phone numbers, automatically "succeed" without sending SMS
+    if (isTestPhoneNumber(phone)) {
+      console.log(`TEST MODE: Verification code for ${phone} is ${verificationCode}`);
+      return NextResponse.json({
+        success: true,
+        message: "Test verification code set successfully",
+        testMode: true,
+        code: verificationCode // Only send code in test mode
+      });
+    }
+    
+    // Send SMS with verification code for real phone numbers
     const smsSent = await sendVerificationSMS(phone, verificationCode);
     
     if (!smsSent) {
@@ -113,6 +132,24 @@ export async function PUT(req: Request) {
     
     const body = await req.json();
     const { phone, code } = verifyCodeSchema.parse(body);
+    
+    // Special handling for test phone numbers
+    if (isTestPhoneNumber(phone) && isTestVerificationCode(code)) {
+      // Update user record to mark phone as verified
+      await db.user.update({
+        where: { id: user.id },
+        data: {
+          phoneVerified: true,
+          verificationToken: null, // Clear the token after successful verification
+        },
+      });
+      
+      return NextResponse.json({
+        success: true,
+        message: "Test phone number verified successfully",
+        testMode: true
+      });
+    }
     
     // Get user with verification token
     const currentUser = await db.user.findUnique({

@@ -9,6 +9,8 @@ import {
   sendVerificationCode, 
   verifyCode 
 } from "@/lib/firebase-auth";
+import { TestModeInfo } from "@/components/auth/test-mode-info";
+import { isTestMode, isTestPhoneNumber, TEST_VERIFICATION_CODE } from "@/lib/test-utils";
 
 interface PhoneVerificationFormProps {
   user: {
@@ -28,11 +30,15 @@ export function PhoneVerificationForm({ user, onVerificationComplete }: PhoneVer
   const [success, setSuccess] = useState<string | null>(null);
   const [codeSent, setCodeSent] = useState(false);
   const [confirmationResult, setConfirmationResult] = useState<any>(null);
+  const [testMode, setTestMode] = useState(false);
   
   const recaptchaContainerRef = useRef<HTMLDivElement>(null);
   const recaptchaVerifierRef = useRef<any>(null);
   
   useEffect(() => {
+    // Check if test mode is active
+    setTestMode(isTestMode());
+    
     // Clean up recaptcha when component unmounts
     return () => {
       if (recaptchaVerifierRef.current) {
@@ -66,29 +72,51 @@ export function PhoneVerificationForm({ user, onVerificationComplete }: PhoneVer
     setIsLoading(true);
     
     try {
-      // Initialize recaptcha if not already initialized
-      if (!recaptchaVerifierRef.current) {
-        initializeRecaptcha();
-      }
-      
-      // Send verification code
-      const result = await sendVerificationCode(phone, recaptchaVerifierRef.current);
-      
-      if (result.success) {
-        setCodeSent(true);
-        setConfirmationResult(result.confirmationResult);
-        setSuccess('Verification code sent successfully');
-        
-        // Update user's phone number in the database
-        await fetch('/api/users/update-phone', {
+      // Check if this is a test phone number
+      if (isTestPhoneNumber(phone)) {
+        // For test phone numbers, skip Firebase and use our API directly
+        const response = await fetch('/api/auth/verify-phone', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ phone }),
         });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          setCodeSent(true);
+          setSuccess('Test verification code set successfully. Use code: ' + TEST_VERIFICATION_CODE);
+        } else {
+          setError(data.message || 'Failed to send verification code. Please try again.');
+        }
       } else {
-        setError('Failed to send verification code. Please try again.');
+        // For real phone numbers, use Firebase
+        // Initialize recaptcha if not already initialized
+        if (!recaptchaVerifierRef.current) {
+          initializeRecaptcha();
+        }
+        
+        // Send verification code
+        const result = await sendVerificationCode(phone, recaptchaVerifierRef.current);
+        
+        if (result.success) {
+          setCodeSent(true);
+          setConfirmationResult(result.confirmationResult);
+          setSuccess('Verification code sent successfully');
+          
+          // Update user's phone number in the database
+          await fetch('/api/users/update-phone', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ phone }),
+          });
+        } else {
+          setError('Failed to send verification code. Please try again.');
+        }
       }
     } catch (error) {
       console.error('Error sending verification code:', error);
@@ -111,20 +139,20 @@ export function PhoneVerificationForm({ user, onVerificationComplete }: PhoneVer
     setIsLoading(true);
     
     try {
-      // Verify the code
-      const result = await verifyCode(confirmationResult, verificationCode);
-      
-      if (result.success) {
-        // Update user's phone verification status in the database
-        const response = await fetch('/api/users/verify-phone', {
-          method: 'POST',
+      // Check if this is a test phone number
+      if (isTestPhoneNumber(phone)) {
+        // For test phone numbers, use our API directly
+        const response = await fetch('/api/auth/verify-phone', {
+          method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ phone }),
+          body: JSON.stringify({ phone, code: verificationCode }),
         });
         
-        if (response.ok) {
+        const data = await response.json();
+        
+        if (data.success) {
           setSuccess('Phone number verified successfully');
           
           // Call the callback if provided
@@ -135,10 +163,39 @@ export function PhoneVerificationForm({ user, onVerificationComplete }: PhoneVer
           // Refresh the page to update the UI
           router.refresh();
         } else {
-          setError('Failed to update verification status. Please try again.');
+          setError(data.message || 'Failed to verify code. Please try again.');
         }
       } else {
-        setError('Invalid verification code. Please try again.');
+        // For real phone numbers, use Firebase
+        // Verify the code
+        const result = await verifyCode(confirmationResult, verificationCode);
+        
+        if (result.success) {
+          // Update user's phone verification status in the database
+          const response = await fetch('/api/users/verify-phone', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ phone }),
+          });
+          
+          if (response.ok) {
+            setSuccess('Phone number verified successfully');
+            
+            // Call the callback if provided
+            if (onVerificationComplete) {
+              onVerificationComplete();
+            }
+            
+            // Refresh the page to update the UI
+            router.refresh();
+          } else {
+            setError('Failed to update verification status. Please try again.');
+          }
+        } else {
+          setError('Invalid verification code. Please try again.');
+        }
       }
     } catch (error) {
       console.error('Error verifying code:', error);
@@ -172,6 +229,9 @@ export function PhoneVerificationForm({ user, onVerificationComplete }: PhoneVer
         Verifying your phone number helps secure your account and enables important notifications.
       </p>
       
+      {/* Show test mode information if in test mode */}
+      {testMode && <TestModeInfo />}
+      
       {error && (
         <div className="p-3 bg-red-100 text-red-600 rounded-md text-sm mb-4">
           {error}
@@ -204,7 +264,10 @@ export function PhoneVerificationForm({ user, onVerificationComplete }: PhoneVer
             </p>
           </div>
           
-          <div id="recaptcha-container" ref={recaptchaContainerRef}></div>
+          {/* Only show recaptcha for non-test phone numbers */}
+          {!isTestPhoneNumber(phone) && (
+            <div id="recaptcha-container" ref={recaptchaContainerRef}></div>
+          )}
           
           <Button
             type="submit"
