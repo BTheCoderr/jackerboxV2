@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { getCurrentUser } from "@/lib/auth/auth-utils";
 import { db } from "@/lib/db";
 import { EQUIPMENT_CATEGORIES } from "@/lib/constants";
@@ -77,8 +78,15 @@ export default async function HomePage() {
                 <div className="absolute -top-6 -left-6 w-72 h-72 bg-jacker-blue bg-opacity-20 rounded-lg"></div>
                 <div className="absolute -bottom-6 -right-6 w-72 h-72 bg-jacker-orange bg-opacity-20 rounded-lg"></div>
                 <div className="relative z-10 bg-white p-4 rounded-lg shadow-lg">
-                  <div className="w-full h-64 bg-gray-200 rounded-lg flex items-center justify-center">
-                    <span className="text-gray-500">Equipment Image</span>
+                  <div className="w-full h-64 bg-gray-100 rounded-lg overflow-hidden">
+                    <Image 
+                      src="https://res.cloudinary.com/dgtqpyphg/image/upload/v1741276322/jackerbox/hero-equipment.jpg"
+                      alt="Professional equipment rental"
+                      width={600}
+                      height={400}
+                      className="w-full h-full object-cover transition-transform hover:scale-105 duration-500"
+                      priority
+                    />
                   </div>
                 </div>
               </div>
@@ -152,9 +160,23 @@ export default async function HomePage() {
                   className="block rounded-lg overflow-hidden border hover:shadow-md transition-shadow"
                 >
                   <div className="relative h-48 bg-gray-100">
-                    <div className="w-full h-full flex items-center justify-center bg-gray-200">
-                      <span className="text-gray-400">No image</span>
-                    </div>
+                    {equipment.images && equipment.images.length > 0 ? (
+                      <Image
+                        src={equipment.images[0]}
+                        alt={equipment.title}
+                        width={400}
+                        height={300}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <Image
+                        src={`https://res.cloudinary.com/dgtqpyphg/image/upload/v1741276323/jackerbox/equipment-sample-${(equipment.id.charCodeAt(0) % 5) + 1}.jpg`}
+                        alt={equipment.title}
+                        width={400}
+                        height={300}
+                        className="w-full h-full object-cover"
+                      />
+                    )}
                     {equipment.isVerified && (
                       <div className="absolute top-2 right-2 bg-blue-500 text-white text-xs px-2 py-1 rounded-full">
                         Verified
