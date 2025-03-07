@@ -3,52 +3,46 @@ import { getCurrentUser } from "@/lib/auth/auth-utils";
 import { db } from "@/lib/db";
 import { z } from "zod";
 
-// Define the message schema
+// Schema for creating a message
 const messageSchema = z.object({
-  rentalId: z.string(),
-  content: z.string().min(1, "Message cannot be empty"),
+  content: z.string().min(1, "Message content is required"),
+  receiverId: z.string().min(1, "Receiver ID is required"),
+  equipmentId: z.string().optional(),
+  attachments: z.array(
+    z.object({
+      type: z.string(),
+      url: z.string().url(),
+      name: z.string(),
+      size: z.number().optional(),
+    })
+  ).optional(),
 });
 
+// POST endpoint to create a new message
 export async function POST(req: Request) {
   try {
-    // Get the current user
     const user = await getCurrentUser();
     
-    if (!user || !user.id) {
+    if (!user) {
       return NextResponse.json(
         { message: "Unauthorized" },
         { status: 401 }
       );
     }
     
-    // Parse the request body
+    // Validate request body
     const body = await req.json();
-    
-    // Validate the request body
     const validatedData = messageSchema.parse(body);
     
-    // Check if the rental exists and the user is involved
-    const rental = await db.rental.findUnique({
-      where: {
-        id: validatedData.rentalId,
-      },
-      include: {
-        equipment: true,
-      },
+    // Check if receiver exists
+    const receiver = await db.user.findUnique({
+      where: { id: validatedData.receiverId },
     });
     
-    if (!rental) {
+    if (!receiver) {
       return NextResponse.json(
-        { message: "Rental not found" },
+        { message: "Receiver not found" },
         { status: 404 }
-      );
-    }
-    
-    // Check if the user is the renter or the owner
-    if (rental.renterId !== user.id && rental.equipment.ownerId !== user.id) {
-      return NextResponse.json(
-        { message: "You are not authorized to send messages for this rental" },
-        { status: 403 }
       );
     }
     
@@ -57,90 +51,98 @@ export async function POST(req: Request) {
       data: {
         content: validatedData.content,
         senderId: user.id,
-        rentalId: validatedData.rentalId,
+        receiverId: validatedData.receiverId,
+        attachmentsJson: validatedData.attachments ? JSON.stringify(validatedData.attachments) : "[]",
+      },
+      include: {
+        sender: {
+          select: {
+            id: true,
+            name: true,
+            image: true,
+          },
+        },
       },
     });
     
-    // Update the rental's updatedAt timestamp
-    await db.rental.update({
-      where: {
-        id: validatedData.rentalId,
-      },
+    // Create a notification for the receiver
+    await db.notification.create({
       data: {
-        updatedAt: new Date(),
+        type: "NEW_MESSAGE",
+        userId: validatedData.receiverId,
+        data: {
+          messageId: message.id,
+          senderId: user.id,
+          senderName: user.name,
+          content: validatedData.content.substring(0, 50) + (validatedData.content.length > 50 ? "..." : ""),
+          equipmentId: validatedData.equipmentId,
+          hasAttachments: validatedData.attachments && validatedData.attachments.length > 0,
+        },
       },
     });
     
-    return NextResponse.json(message);
-  } catch (error) {
-    console.error("Error sending message:", error);
+    // Parse attachments from JSON
+    const attachments = message.attachmentsJson ? JSON.parse(message.attachmentsJson) : [];
     
+    // Return the message with parsed attachments
+    return NextResponse.json({
+      message: {
+        ...message,
+        attachments,
+        attachmentsJson: undefined, // Remove the JSON string from the response
+      },
+    });
+  } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { message: "Invalid data", errors: error.errors },
+        { message: "Invalid input data", errors: error.errors },
         { status: 400 }
       );
     }
     
+    console.error("Error creating message:", error);
     return NextResponse.json(
-      { message: "Failed to send message" },
+      { message: "Something went wrong. Please try again." },
       { status: 500 }
     );
   }
 }
 
+// GET endpoint to fetch messages
 export async function GET(req: Request) {
   try {
-    // Get the current user
     const user = await getCurrentUser();
     
-    if (!user || !user.id) {
+    if (!user) {
       return NextResponse.json(
         { message: "Unauthorized" },
         { status: 401 }
       );
     }
     
-    // Get the rental ID from the query parameters
     const url = new URL(req.url);
-    const rentalId = url.searchParams.get("rentalId");
+    const otherUserId = url.searchParams.get("otherUserId");
     
-    if (!rentalId) {
+    if (!otherUserId) {
       return NextResponse.json(
-        { message: "Rental ID is required" },
+        { message: "Other user ID is required" },
         { status: 400 }
       );
     }
     
-    // Check if the rental exists and the user is involved
-    const rental = await db.rental.findUnique({
-      where: {
-        id: rentalId,
-      },
-      include: {
-        equipment: true,
-      },
-    });
-    
-    if (!rental) {
-      return NextResponse.json(
-        { message: "Rental not found" },
-        { status: 404 }
-      );
-    }
-    
-    // Check if the user is the renter or the owner
-    if (rental.renterId !== user.id && rental.equipment.ownerId !== user.id) {
-      return NextResponse.json(
-        { message: "You are not authorized to view messages for this rental" },
-        { status: 403 }
-      );
-    }
-    
-    // Get the messages for the rental
+    // Fetch messages between the current user and the other user
     const messages = await db.message.findMany({
       where: {
-        rentalId,
+        OR: [
+          {
+            senderId: user.id,
+            receiverId: otherUserId,
+          },
+          {
+            senderId: otherUserId,
+            receiverId: user.id,
+          },
+        ],
       },
       orderBy: {
         createdAt: "asc",
@@ -156,12 +158,24 @@ export async function GET(req: Request) {
       },
     });
     
-    return NextResponse.json(messages);
-  } catch (error) {
-    console.error("Error getting messages:", error);
+    // Parse attachments from JSON for each message
+    const messagesWithAttachments = messages.map(message => {
+      const attachments = message.attachmentsJson ? JSON.parse(message.attachmentsJson) : [];
+      
+      return {
+        ...message,
+        attachments,
+        attachmentsJson: undefined, // Remove the JSON string from the response
+      };
+    });
     
+    return NextResponse.json({
+      messages: messagesWithAttachments,
+    });
+  } catch (error) {
+    console.error("Error fetching messages:", error);
     return NextResponse.json(
-      { message: "Failed to get messages" },
+      { message: "Something went wrong. Please try again." },
       { status: 500 }
     );
   }

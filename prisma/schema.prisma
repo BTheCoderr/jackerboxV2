@@ -40,6 +40,8 @@ model User {
   reviews                Review[]       @relation("ReviewAuthor")
   receivedReviews        Review[]       @relation("ReviewReceiver")
   sessions               Session[]
+  calendarSyncs          CalendarSync[]
+  reviewVotes            ReviewVote[]
 }
 
 model Account {
@@ -106,7 +108,8 @@ model Equipment {
   owner            User             @relation("OwnerEquipment", fields: [ownerId], references: [id])
   rentals          Rental[]
   reviews          Review[]         @relation("EquipmentReviews")
-
+  calendarSync     CalendarSync?
+  
   @@index([ownerId])
   @@index([moderationStatus])
   @@index([moderatedBy])
@@ -118,6 +121,13 @@ model Availability {
   endDate     DateTime
   equipmentId String
   equipment   Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  
+  // New fields for recurring availability
+  isRecurring Boolean   @default(false)
+  recurrenceType String? // "daily", "weekly", "monthly"
+  recurrenceEndDate DateTime?
+  recurrenceInterval Int? // e.g., every 1 week, every 2 weeks
+  recurrenceDaysOfWeek String? // JSON string of days (for weekly recurrence)
 }
 
 model Rental {
@@ -147,10 +157,34 @@ model Review {
   receiverId  String?
   equipmentId String?
   rentalId    String?    @unique
+  
+  // New fields for enhanced reviews
+  ownerResponse String?
+  ownerResponseDate DateTime?
+  helpfulVotes Int @default(0)
+  unhelpfulVotes Int @default(0)
+  reportCount Int @default(0)
+  isVerifiedRental Boolean @default(true)
+  
+  // Relations
   author      User       @relation("ReviewAuthor", fields: [authorId], references: [id])
   equipment   Equipment? @relation("EquipmentReviews", fields: [equipmentId], references: [id])
   receiver    User?      @relation("ReviewReceiver", fields: [receiverId], references: [id])
   rental      Rental?    @relation(fields: [rentalId], references: [id])
+  votes       ReviewVote[]
+}
+
+model ReviewVote {
+  id        String   @id @default(cuid())
+  reviewId  String
+  userId    String
+  isHelpful Boolean
+  createdAt DateTime @default(now())
+  
+  review    Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([reviewId, userId])
 }
 
 model Payment {
@@ -184,6 +218,7 @@ model Message {
   createdAt  DateTime @default(now())
   senderId   String
   receiverId String
+  attachmentsJson String? @default("[]") // JSON string of attachments
   receiver   User     @relation("MessageReceiver", fields: [receiverId], references: [id])
   sender     User     @relation("MessageSender", fields: [senderId], references: [id])
 }
@@ -197,6 +232,26 @@ model Notification {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CalendarSync {
+  id              String   @id @default(cuid())
+  userId          String
+  equipmentId     String   @unique
+  calendarType    String   // "google", "ical"
+  calendarId      String?  // For Google Calendar
+  icalUrl         String?  // For iCal
+  syncDirection   String   // "import", "export", "both"
+  syncFrequency   String   // "hourly", "daily", "manual"
+  lastSynced      DateTime?
+  accessToken     String?  // For Google Calendar
+  refreshToken    String?  // For Google Calendar
+  tokenExpiry     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  equipment       Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  user            User      @relation(fields: [userId], references: [id])
 }
 
 enum ModerationStatus {

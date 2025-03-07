@@ -1,130 +1,96 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { requireAuth } from "@/lib/auth/auth-utils";
+import Image from "next/image";
+import { getCurrentUser } from "@/lib/auth/auth-utils";
 import { db } from "@/lib/db";
+import { formatDistanceToNow } from "date-fns";
 
-export default async function MessagesPage() {
-  // Ensure user is authenticated
-  const user = await requireAuth();
+export default async function MessagesInboxPage() {
+  const currentUser = await getCurrentUser();
   
-  // Fetch conversations (messages grouped by rental)
-  const conversations = await db.rental.findMany({
-    where: {
-      OR: [
-        { renterId: user.id },
-        { equipment: { ownerId: user.id } },
-      ],
-    },
-    include: {
-      equipment: {
-        include: {
-          owner: {
-            select: {
-              id: true,
-              name: true,
-              image: true,
-            },
-          },
+  if (!currentUser) {
+    redirect("/auth/login");
+  }
+  
+  // Get all users the current user has exchanged messages with
+  const conversations = await db.$queryRaw`
+    SELECT 
+      CASE 
+        WHEN m."senderId" = ${currentUser.id} THEN m."receiverId" 
+        ELSE m."senderId" 
+      END as "userId",
+      MAX(m."createdAt") as "lastMessageAt"
+    FROM "Message" m
+    WHERE m."senderId" = ${currentUser.id} OR m."receiverId" = ${currentUser.id}
+    GROUP BY "userId"
+    ORDER BY "lastMessageAt" DESC
+  `;
+  
+  // Get user details and last message for each conversation
+  const conversationsWithDetails = await Promise.all(
+    (conversations as { userId: string; lastMessageAt: Date }[]).map(async (conversation) => {
+      const user = await db.user.findUnique({
+        where: {
+          id: conversation.userId,
         },
-      },
-      renter: {
         select: {
           id: true,
           name: true,
           image: true,
         },
-      },
-      messages: {
+      });
+      
+      const lastMessage = await db.message.findFirst({
+        where: {
+          OR: [
+            {
+              senderId: currentUser.id,
+              receiverId: conversation.userId,
+            },
+            {
+              senderId: conversation.userId,
+              receiverId: currentUser.id,
+            },
+          ],
+        },
         orderBy: {
           createdAt: "desc",
         },
-        take: 1,
-      },
-    },
-    orderBy: {
-      updatedAt: "desc",
-    },
-  });
+        select: {
+          id: true,
+          content: true,
+          createdAt: true,
+          isRead: true,
+          senderId: true,
+        },
+      });
+      
+      const unreadCount = await db.message.count({
+        where: {
+          senderId: conversation.userId,
+          receiverId: currentUser.id,
+          isRead: false,
+        },
+      });
+      
+      return {
+        user,
+        lastMessage,
+        unreadCount,
+      };
+    })
+  );
   
   return (
-    <div className="max-w-7xl mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-8">Messages</h1>
+    <div className="max-w-4xl mx-auto px-4 py-8">
+      <h1 className="text-2xl font-bold mb-6">Messages</h1>
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Conversations List */}
-        <div className="md:col-span-1 border rounded-lg overflow-hidden">
-          <div className="bg-gray-50 px-4 py-3 border-b">
-            <h2 className="font-medium">Conversations</h2>
-          </div>
-          
-          {conversations.length === 0 ? (
-            <div className="p-6 text-center text-gray-500">
-              No conversations yet
-            </div>
-          ) : (
-            <div className="divide-y">
-              {conversations.map((rental) => {
-                // Determine the other party (owner or renter)
-                const isOwner = rental.equipment.ownerId === user.id;
-                const otherParty = isOwner ? rental.renter : rental.equipment.owner;
-                const lastMessage = rental.messages[0];
-                
-                return (
-                  <Link
-                    key={rental.id}
-                    href={`/routes/messages/${rental.id}`}
-                    className="block p-4 hover:bg-gray-50"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <div className="flex-shrink-0">
-                        <div className="w-12 h-12 rounded-full bg-gray-200 overflow-hidden">
-                          {otherParty.image ? (
-                            <img
-                              src={otherParty.image}
-                              alt={otherParty.name || "User"}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-gray-300 text-gray-600 text-xl font-bold">
-                              {otherParty.name
-                                ? otherParty.name.charAt(0).toUpperCase()
-                                : "U"}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-gray-900 truncate">
-                          {otherParty.name || "User"}
-                        </p>
-                        <p className="text-sm text-gray-500 truncate">
-                          {rental.equipment.title}
-                        </p>
-                        {lastMessage && (
-                          <p className="text-xs text-gray-500 truncate mt-1">
-                            {lastMessage.content}
-                          </p>
-                        )}
-                      </div>
-                      {lastMessage && (
-                        <div className="flex-shrink-0 text-xs text-gray-400">
-                          {new Date(lastMessage.createdAt).toLocaleDateString()}
-                        </div>
-                      )}
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-        </div>
-        
-        {/* Message Thread (Empty State) */}
-        <div className="md:col-span-2 border rounded-lg flex flex-col">
-          <div className="flex-1 p-6 flex flex-col items-center justify-center text-center text-gray-500">
+      {conversationsWithDetails.length === 0 ? (
+        <div className="bg-white rounded-lg shadow-sm p-8 text-center">
+          <div className="flex flex-col items-center justify-center text-gray-500">
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              className="h-12 w-12 text-gray-300 mb-4"
+              className="h-16 w-16 mb-4"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -136,20 +102,68 @@ export default async function MessagesPage() {
                 d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
               />
             </svg>
-            <h3 className="text-lg font-medium mb-1">Your Messages</h3>
-            <p className="max-w-md">
-              Select a conversation to view messages or start a new conversation
-              by renting equipment.
+            <p className="text-lg mb-2">No messages yet</p>
+            <p className="text-sm">
+              When you have conversations with other users, they will appear here.
             </p>
-            <Link
-              href="/routes/equipment"
-              className="mt-4 inline-block px-4 py-2 bg-black text-white rounded-md hover:bg-opacity-80"
-            >
-              Browse Equipment
-            </Link>
           </div>
         </div>
-      </div>
+      ) : (
+        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+          <ul className="divide-y divide-gray-200">
+            {conversationsWithDetails.map(({ user, lastMessage, unreadCount }) => (
+              <li key={user.id}>
+                <Link
+                  href={`/routes/messages/${user.id}`}
+                  className="block hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-center px-6 py-5">
+                    <div className="relative">
+                      <div className="w-12 h-12 relative rounded-full overflow-hidden mr-4">
+                        <Image
+                          src={user.image || "/images/placeholder-avatar.png"}
+                          alt={user.name || "User"}
+                          fill
+                          className="object-cover"
+                        />
+                      </div>
+                      {unreadCount > 0 && (
+                        <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                          {unreadCount}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <h2 className="text-base font-medium truncate">
+                          {user.name || "User"}
+                        </h2>
+                        <p className="text-xs text-gray-500">
+                          {formatDistanceToNow(new Date(lastMessage.createdAt), {
+                            addSuffix: true,
+                          })}
+                        </p>
+                      </div>
+                      <div className="flex items-center">
+                        <p
+                          className={`text-sm truncate ${
+                            !lastMessage.isRead && lastMessage.senderId !== currentUser.id
+                              ? "font-medium text-gray-900"
+                              : "text-gray-500"
+                          }`}
+                        >
+                          {lastMessage.senderId === currentUser.id && "You: "}
+                          {lastMessage.content}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 } 

@@ -2,13 +2,48 @@ import { Metadata } from "next";
 import { getCurrentUser } from "@/lib/auth/auth-utils";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Home, CreditCard, Bell, Settings, User, CreditCard as StripeIcon } from "lucide-react";
+import { Home, CreditCard, Bell, Settings, User, MessageCircle } from "lucide-react";
 import { db } from "@/lib/db";
 
 export const metadata: Metadata = {
   title: "Dashboard | Jackerbox",
   description: "Manage your Jackerbox account",
 };
+
+// Custom Stripe icon component
+function StripeIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      {...props}
+    >
+      <path
+        d="M14.5 9.5C14.5 11.0294 13.0294 12 11.5 12C9.97056 12 8.5 11.0294 8.5 9.5C8.5 7.97056 9.97056 7 11.5 7C13.0294 7 14.5 7.97056 14.5 9.5Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      />
+      <path
+        d="M14.5 14.5C14.5 16.0294 13.0294 17 11.5 17C9.97056 17 8.5 16.0294 8.5 14.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      />
+      <path
+        d="M8.5 14.5V9.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+      <path
+        d="M14.5 14.5V9.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
 
 export default async function DashboardLayout({
   children,
@@ -40,6 +75,11 @@ export default async function DashboardLayout({
       label: "Rentals",
       href: "/routes/dashboard/rentals",
       icon: CreditCard,
+    },
+    {
+      label: "Messages",
+      href: "/routes/messages",
+      icon: MessageCircle,
     },
     {
       label: "Notifications",

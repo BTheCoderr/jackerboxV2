@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth/auth-utils";
 import { Logo } from "./logo";
 import { NotificationDropdownWrapper } from "../notifications/notification-dropdown-wrapper";
 import { LogoutButton } from "../auth/logout-button";
+import { MessageCircle } from "lucide-react";
 
 export async function Navbar() {
   const user = await getCurrentUser();
@@ -41,6 +42,14 @@ export async function Navbar() {
                   Admin
                 </Link>
               )}
+              
+              <Link
+                href="/routes/messages"
+                className="p-2 text-gray-600 hover:text-jacker-blue rounded-full"
+                title="Messages"
+              >
+                <MessageCircle size={20} />
+              </Link>
               
               <NotificationDropdownWrapper />
               

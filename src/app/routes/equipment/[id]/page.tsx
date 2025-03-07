@@ -5,6 +5,8 @@ import { db } from "@/lib/db";
 import { formatCurrency } from "@/lib/utils/format";
 import { BookingForm } from "@/components/rentals/booking-form";
 import { EquipmentActions } from "@/components/equipment/equipment-actions";
+import { AvailabilityCalendar } from "@/components/equipment/availability-calendar";
+import { ReviewsSection } from "@/components/reviews/reviews-section";
 import Image from "next/image";
 
 interface EquipmentDetailPageProps {
@@ -33,18 +35,17 @@ export default async function EquipmentDetailPage({
           createdAt: true,
         },
       },
-      reviews: {
-        include: {
-          author: {
-            select: {
-              id: true,
-              name: true,
-              image: true,
-            },
+      rentals: {
+        where: {
+          status: {
+            in: ["Pending", "Approved"],
           },
         },
-        orderBy: {
-          createdAt: "desc",
+        select: {
+          id: true,
+          startDate: true,
+          endDate: true,
+          status: true,
         },
       },
     },
@@ -58,14 +59,16 @@ export default async function EquipmentDetailPage({
   const images = equipment.imagesJson ? JSON.parse(equipment.imagesJson) : [];
   const tags = equipment.tagsJson ? JSON.parse(equipment.tagsJson) : [];
   
-  // Calculate average rating
-  const averageRating =
-    equipment.reviews.length > 0
-      ? equipment.reviews.reduce((acc, review) => acc + review.rating, 0) /
-        equipment.reviews.length
-      : 0;
-  
   const isOwner = user?.id === equipment.ownerId;
+  
+  // Format existing bookings for the calendar
+  const existingBookings = equipment.rentals.map((rental) => ({
+    id: rental.id,
+    title: "Booking",
+    start: rental.startDate,
+    end: rental.endDate,
+    status: rental.status,
+  }));
   
   // Define rental rules (since there's no rulesJson field in the schema)
   const rentalRules = [
@@ -136,43 +139,56 @@ export default async function EquipmentDetailPage({
             </ul>
           </div>
 
+          {/* Availability Calendar */}
+          <div className="mb-8 bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+            <AvailabilityCalendar 
+              equipmentId={equipment.id} 
+              isOwner={isOwner}
+              existingBookings={existingBookings}
+            />
+          </div>
+
           {/* Owner Information */}
-          <div className="bg-gray-50 p-6 rounded-lg mb-8">
+          <div className="mb-8 bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
             <h2 className="text-xl font-semibold mb-4 text-jacker-blue">About the Owner</h2>
-            <div className="flex items-center">
-              <div className="relative w-16 h-16 mr-4">
-                {equipment.owner.image ? (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="w-16 h-16 relative rounded-full overflow-hidden mr-4">
                   <Image
-                    src={equipment.owner.image}
-                    alt={equipment.owner.name || "Owner"}
+                    src={equipment.owner.image || '/images/placeholder-avatar.png'}
+                    alt={equipment.owner.name || 'Equipment Owner'}
                     fill
-                    className="rounded-full object-cover"
+                    className="object-cover"
                   />
-                ) : (
-                  <div className="w-full h-full bg-gray-200 rounded-full flex items-center justify-center">
-                    <span className="text-gray-500 text-xl">?</span>
-                  </div>
-                )}
-              </div>
-              <div>
-                <h3 className="font-medium text-lg">{equipment.owner.name || "Owner"}</h3>
-                <div className="flex items-center mb-1">
-                  <svg className="w-5 h-5 text-jacker-orange" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                  </svg>
-                  <span className="ml-1 text-gray-700">
-                    {averageRating.toFixed(1)} ({equipment.reviews.length} reviews)
-                  </span>
                 </div>
-                <p className="text-gray-600 text-sm">
-                  Member since {new Date(equipment.owner.createdAt).toLocaleDateString()}
-                </p>
+                <div>
+                  <h3 className="font-medium text-lg">{equipment.owner.name}</h3>
+                  <p className="text-gray-600 text-sm">Member since {new Date(equipment.owner.createdAt).toLocaleDateString()}</p>
+                </div>
               </div>
+              
+              {user && !isOwner && (
+                <Link
+                  href={`/routes/messages/${equipment.owner.id}?equipmentId=${equipment.id}`}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+                >
+                  Contact Owner
+                </Link>
+              )}
             </div>
           </div>
-        </div>
 
-        {/* Right Column - Booking and Pricing */}
+          {/* Reviews */}
+          <div className="mb-8 bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+            <ReviewsSection 
+              equipmentId={equipment.id}
+              isOwner={isOwner}
+              currentUserId={user?.id}
+            />
+          </div>
+        </div>
+        
+        {/* Right Column - Booking Form */}
         <div>
           <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm sticky top-8">
             <div className="mb-6">
@@ -203,43 +219,36 @@ export default async function EquipmentDetailPage({
               )}
             </div>
             
-            {user ? (
-              <BookingForm equipment={equipment} />
-            ) : (
-              <div className="bg-gray-50 p-6 rounded-lg text-center">
-                <h3 className="text-lg font-medium text-jacker-blue mb-2">Want to rent this equipment?</h3>
-                <p className="text-gray-600 mb-4">Sign in or create an account to book this equipment.</p>
-                <div className="space-y-3">
-                  <Link 
-                    href="/auth/login" 
-                    className="block w-full py-2 bg-jacker-blue text-white rounded-md hover:bg-opacity-90 text-center"
-                  >
-                    Sign In
-                  </Link>
-                  <Link 
-                    href="/auth/register" 
-                    className="block w-full py-2 bg-jacker-orange text-white rounded-md hover:bg-opacity-90 text-center"
-                  >
-                    Create Account
-                  </Link>
-                </div>
+            {!isOwner && user && (
+              <BookingForm
+                equipment={{
+                  ...equipment,
+                  owner: {
+                    id: equipment.owner.id,
+                    name: equipment.owner.name,
+                    image: equipment.owner.image
+                  }
+                }}
+              />
+            )}
+            
+            {!isOwner && !user && (
+              <div className="text-center p-4 bg-gray-50 rounded-md">
+                <p className="text-gray-600 mb-4">Sign in to book this equipment</p>
+                <Link
+                  href="/auth/login"
+                  className="inline-block px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+                >
+                  Sign In
+                </Link>
               </div>
             )}
             
-            <div className="mt-6 text-center">
-              <p className="text-sm text-gray-500 mb-4">
-                You won't be charged yet. Payment will be processed after the owner approves your booking request.
-              </p>
-              <Link 
-                href="#" 
-                className="text-jacker-blue hover:underline text-sm inline-flex items-center"
-              >
-                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
-                View cancellation policy
-              </Link>
-            </div>
+            {isOwner && (
+              <div className="text-center p-4 bg-gray-50 rounded-md">
+                <p className="text-gray-600">This is your equipment listing</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
