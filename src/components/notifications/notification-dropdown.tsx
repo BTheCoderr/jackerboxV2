@@ -79,10 +79,10 @@ export function NotificationDropdown() {
         router.push(`/rentals/${notification.data.rentalId}`);
         break;
       case "PAYOUT_PROCESSED":
-        router.push(`/dashboard/earnings`);
+        router.push(`/routes/dashboard/earnings`);
         break;
       default:
-        router.push("/dashboard");
+        router.push("/routes/dashboard");
     }
     
     setIsOpen(false);
@@ -152,7 +152,7 @@ export function NotificationDropdown() {
           </div>
           <div className="py-2 px-4 bg-gray-50 border-t border-gray-200">
             <button
-              onClick={() => router.push("/dashboard/notifications")}
+              onClick={() => router.push("/routes/dashboard/notifications")}
               className="text-xs text-blue-600 hover:underline"
             >
               View all notifications
