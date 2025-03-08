@@ -19,10 +19,18 @@ export function ImageGallery({ images, title }: ImageGalleryProps) {
     if (!url) return '/images/placeholder.svg';
     
     // If it's an Unsplash URL, ensure it has the right parameters
-    if (url.includes('source.unsplash.com') || url.includes('images.unsplash.com')) {
+    if (url.includes('unsplash.com')) {
       // Add direct access parameters for Unsplash
-      return `${url}${url.includes('?') ? '&' : '?'}fit=crop&w=800&h=600&q=80&auto=format`;
+      const baseUrl = url.split('?')[0]; // Remove any existing parameters
+      return `${baseUrl}?fit=crop&w=800&h=600&q=80&auto=format`;
     }
+    
+    // If it's a Cloudinary URL, ensure it has the right parameters
+    if (url.includes('cloudinary.com')) {
+      // Keep Cloudinary URLs as they are, they should be properly formatted
+      return url;
+    }
+    
     return url;
   };
 
@@ -30,18 +38,20 @@ export function ImageGallery({ images, title }: ImageGalleryProps) {
   const getFallbackImageUrl = (index: number) => {
     const categories = ['equipment', 'tools', 'rental'];
     const category = categories[index % categories.length];
-    return `https://source.unsplash.com/featured/800x600?${category},${title.toLowerCase().replace(/\s+/g, '-')}&random=${index}`;
+    const uniqueParam = `&random=${Date.now()}-${index}`;
+    return `https://source.unsplash.com/featured/800x600?${category},${title.toLowerCase().replace(/\s+/g, '-')}${uniqueParam}`;
   };
 
   useEffect(() => {
     // Reset states when images prop changes
     setSelectedImageIndex(0);
     setLoadedImages([]);
-    setImageErrors(new Array(images.length).fill(false));
+    setImageErrors(new Array(images?.length || 0).fill(false));
     setIsLoading(true);
     
     // Use placeholder images if no images are provided
     if (!images || images.length === 0) {
+      setLoadedImages(['/images/placeholder.svg']);
       setIsLoading(false);
       return;
     }
@@ -56,6 +66,12 @@ export function ImageGallery({ images, title }: ImageGalleryProps) {
       
       for (let i = 0; i < processedImages.length; i++) {
         try {
+          if (!processedImages[i]) {
+            errors[i] = true;
+            validImages.push(getFallbackImageUrl(i));
+            continue;
+          }
+          
           // Try to load the image
           const img = document.createElement('img');
           img.src = processedImages[i];
@@ -73,7 +89,7 @@ export function ImageGallery({ images, title }: ImageGalleryProps) {
                 errors[i] = true;
                 reject();
               }
-            }, 3000); // Reduced timeout for faster feedback
+            }, 2000); // Reduced timeout for faster feedback
           });
           
           validImages.push(processedImages[i]);
@@ -86,7 +102,15 @@ export function ImageGallery({ images, title }: ImageGalleryProps) {
       }
       
       setImageErrors(errors);
-      setLoadedImages(validImages.length > 0 ? validImages : ['/images/placeholder.svg']);
+      
+      // If all images failed to load, use fallback images
+      if (validImages.every((_, i) => errors[i])) {
+        const fallbackImages = Array.from({ length: Math.min(7, processedImages.length) }, (_, i) => getFallbackImageUrl(i));
+        setLoadedImages(fallbackImages);
+      } else {
+        setLoadedImages(validImages);
+      }
+      
       setIsLoading(false);
     };
     
