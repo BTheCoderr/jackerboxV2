@@ -1,116 +1,159 @@
-"use client";
+export const dynamic = 'force-dynamic';
 
-import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { CheckCircle, AlertCircle, ExternalLink } from "lucide-react";
+import { Metadata } from "next";
+import { getCurrentUser } from "@/lib/auth/auth-utils";
+import { redirect } from "next/navigation";
+import { db } from "@/lib/db";
+import { CreditCard, CheckCircle, AlertCircle, ExternalLink } from "lucide-react";
+import Link from "next/link";
+import { ConnectStripeButton } from "@/components/stripe/connect-stripe-button";
 
-export default function StripeConnectPage() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
-  const router = useRouter();
-  const searchParams = useSearchParams();
+export const metadata: Metadata = {
+  title: "Stripe Connect Setup | Jackerbox",
+  description: "Connect your Stripe account to receive payments",
+};
 
-  useEffect(() => {
-    // Check URL parameters for success or error
-    const successParam = searchParams.get("success");
-    const errorParam = searchParams.get("error");
-
-    if (successParam === "true") {
-      setSuccess(true);
-    }
-
-    if (errorParam === "true") {
-      setError("There was an issue with your Stripe Connect onboarding. Please try again.");
-    }
-  }, [searchParams]);
-
-  const handleConnectStripe = async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch("/api/stripe/create-connect-account", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to create Stripe Connect account");
-      }
-
-      const data = await response.json();
-      
-      // Redirect to Stripe's onboarding page
-      window.location.href = data.url;
-    } catch (err) {
-      console.error("Error connecting Stripe account:", err);
-      setError(err instanceof Error ? err.message : "Failed to connect Stripe account");
-    } finally {
-      setLoading(false);
-    }
+interface StripeConnectPageProps {
+  searchParams: {
+    success?: string;
+    error?: string;
   };
+}
+
+export default async function StripeConnectPage({ searchParams }: StripeConnectPageProps) {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    redirect("/auth/login?callbackUrl=/routes/dashboard/stripe-connect");
+  }
+
+  const isSuccess = searchParams.success === "true";
+  const isError = searchParams.error === "true";
+
+  // Check if the user has a Stripe Connect account
+  const hasStripeAccount = !!user.stripeConnectAccountId;
 
   return (
-    <div className="container py-8">
+    <div className="max-w-6xl mx-auto px-4 py-8">
       <h1 className="text-2xl font-bold mb-6">Stripe Connect Setup</h1>
-      
-      {success && (
-        <Alert className="mb-6 bg-green-50 border-green-200">
-          <CheckCircle className="h-4 w-4 text-green-600" />
-          <AlertTitle className="text-green-800">Success!</AlertTitle>
-          <AlertDescription className="text-green-700">
-            Your Stripe Connect account has been successfully set up. You can now receive payouts for your equipment rentals.
-          </AlertDescription>
-        </Alert>
+
+      {isError && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 flex items-start">
+          <AlertCircle className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
+          <div>
+            <p className="font-medium">Error</p>
+            <p>Unexpected token 'E', "Error crea"... is not valid JSON</p>
+          </div>
+        </div>
       )}
-      
-      {error && (
-        <Alert className="mb-6 bg-red-50 border-red-200">
-          <AlertCircle className="h-4 w-4 text-red-600" />
-          <AlertTitle className="text-red-800">Error</AlertTitle>
-          <AlertDescription className="text-red-700">{error}</AlertDescription>
-        </Alert>
+
+      {isSuccess && (
+        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-6 flex items-start">
+          <CheckCircle className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
+          <div>
+            <p className="font-medium">Success!</p>
+            <p>Your Stripe Connect account has been set up successfully.</p>
+          </div>
+        </div>
       )}
-      
-      <Card>
-        <CardHeader>
-          <CardTitle>Connect Your Stripe Account</CardTitle>
-          <CardDescription>
-            To receive payouts for your equipment rentals, you need to connect your Stripe account.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-gray-500 mb-4">
-            Jackerbox uses Stripe Connect to securely transfer rental payments to equipment owners. 
-            By connecting your Stripe account, you'll be able to:
-          </p>
-          <ul className="list-disc pl-5 space-y-2 text-sm text-gray-500 mb-4">
-            <li>Receive automatic payouts for completed rentals</li>
-            <li>Track your earnings in one place</li>
-            <li>Manage your payout schedule and banking information</li>
-          </ul>
-          <p className="text-sm text-gray-500">
-            Your information is securely handled by Stripe, and Jackerbox never stores your banking details.
-          </p>
-        </CardContent>
-        <CardFooter>
-          <Button 
-            onClick={handleConnectStripe} 
-            disabled={loading || success}
-            className="w-full"
-          >
-            {loading ? "Processing..." : success ? "Connected" : "Connect with Stripe"}
-            {!loading && !success && <ExternalLink className="ml-2 h-4 w-4" />}
-          </Button>
-        </CardFooter>
-      </Card>
+
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h2 className="text-lg font-semibold">Connect Your Stripe Account</h2>
+        </div>
+        <div className="p-6">
+          <div className="flex items-start mb-6">
+            <div className="bg-blue-50 p-3 rounded-full mr-4">
+              <CreditCard className="h-6 w-6 text-blue-500" />
+            </div>
+            <div>
+              <h3 className="font-medium text-lg mb-1">
+                {hasStripeAccount ? "Your Stripe Account" : "Connect Your Stripe Account"}
+              </h3>
+              <p className="text-gray-600 mb-4">
+                To receive payouts for your equipment rentals, you need to connect your Stripe account.
+                By connecting your Stripe account, you'll be able to:
+              </p>
+              <ul className="list-disc pl-5 mb-6 space-y-2 text-gray-600">
+                <li>Receive automatic payouts for completed rentals</li>
+                <li>Track your earnings in one place</li>
+                <li>Manage your payout schedule and banking information</li>
+              </ul>
+              <p className="text-gray-600 mb-6">
+                Your information is securely handled by Stripe, and Jackerbox never stores your banking details.
+              </p>
+
+              {hasStripeAccount ? (
+                <div className="space-y-4">
+                  <div className="flex items-center">
+                    <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
+                    <span className="text-green-700">Your Stripe account is connected</span>
+                  </div>
+                  <div className="flex space-x-4">
+                    <button
+                      onClick={async () => {
+                        "use server";
+                        // This would be implemented in a client component
+                      }}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center"
+                    >
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      Update Account Details
+                    </button>
+                    <button
+                      onClick={async () => {
+                        "use server";
+                        // This would be implemented in a client component
+                      }}
+                      className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                    >
+                      View Payout History
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <ConnectStripeButton />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-8 bg-white rounded-lg shadow overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h2 className="text-lg font-semibold">Stripe Connect FAQ</h2>
+        </div>
+        <div className="p-6">
+          <div className="space-y-6">
+            <div>
+              <h3 className="font-medium mb-2">What is Stripe Connect?</h3>
+              <p className="text-gray-600">
+                Stripe Connect is a payment platform that allows Jackerbox to securely transfer rental payments to equipment owners. It handles all the payment processing, identity verification, and compliance requirements.
+              </p>
+            </div>
+            <div>
+              <h3 className="font-medium mb-2">Is there a fee for using Stripe Connect?</h3>
+              <p className="text-gray-600">
+                Jackerbox covers the Stripe Connect platform fees. However, standard payment processing fees apply to each transaction, which is typically 2.9% + $0.30 per successful charge.
+              </p>
+            </div>
+            <div>
+              <h3 className="font-medium mb-2">How long does it take to receive payouts?</h3>
+              <p className="text-gray-600">
+                Once a rental is completed, funds are typically available in your connected bank account within 2-3 business days, depending on your bank's processing times.
+              </p>
+            </div>
+            <div>
+              <h3 className="font-medium mb-2">What information do I need to provide?</h3>
+              <p className="text-gray-600">
+                To comply with financial regulations, you'll need to provide basic personal information, banking details, and in some cases, verification documents like a government-issued ID.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 } 
