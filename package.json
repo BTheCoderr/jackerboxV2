@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
+    "dev:clean": "node scripts/restart-dev-server.js",
     "build": "next build --no-lint",
     "build:simple": "next build --no-lint",
     "start": "next start",

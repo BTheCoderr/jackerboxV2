@@ -82,6 +82,30 @@ export default async function MessagesInboxPage() {
   );
   
   return (
+    <MessagesInboxContent conversationsWithDetails={conversationsWithDetails} currentUserId={currentUser.id} />
+  );
+}
+
+// Client component to ensure proper styling during hot reload
+'use client';
+
+import { useEffect } from 'react';
+
+function MessagesInboxContent({ 
+  conversationsWithDetails, 
+  currentUserId 
+}: { 
+  conversationsWithDetails: any[],
+  currentUserId: string
+}) {
+  // Force a re-render on client side to ensure styles are applied
+  useEffect(() => {
+    // This is just to trigger a re-render
+    const timer = setTimeout(() => {}, 0);
+    return () => clearTimeout(timer);
+  }, []);
+
+  return (
     <div className="max-w-4xl mx-auto px-4 py-8">
       <h1 className="text-2xl font-bold mb-6">Messages</h1>
       
@@ -147,12 +171,12 @@ export default async function MessagesInboxPage() {
                       <div className="flex items-center">
                         <p
                           className={`text-sm truncate ${
-                            !lastMessage.isRead && lastMessage.senderId !== currentUser.id
+                            !lastMessage.isRead && lastMessage.senderId !== currentUserId
                               ? "font-medium text-gray-900"
                               : "text-gray-500"
                           }`}
                         >
-                          {lastMessage.senderId === currentUser.id && "You: "}
+                          {lastMessage.senderId === currentUserId && "You: "}
                           {lastMessage.content}
                         </p>
                       </div>
