@@ -4,6 +4,7 @@ import "./globals.css";
 import { Footer } from "@/components/layout/footer";
 import { Navbar } from "@/components/layout/navbar";
 import { Analytics } from "@vercel/analytics/react";
+import { MobileLayout } from "@/components/mobile/mobile-layout";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
 const geistSans = Geist({
@@ -33,7 +34,7 @@ export default function RootLayout({
       >
         <Navbar />
         <div className="flex-grow">
-          {children}
+          <MobileLayout>{children}</MobileLayout>
         </div>
         <Footer />
         <Analytics />

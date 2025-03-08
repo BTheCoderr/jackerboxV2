@@ -1,3 +1,6 @@
+// Add dynamic export to ensure proper data fetching
+export const dynamic = 'force-dynamic';
+
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth/auth-utils";
@@ -19,12 +22,15 @@ interface EquipmentDetailPageProps {
 export default async function EquipmentDetailPage({
   params,
 }: EquipmentDetailPageProps) {
+  // Get the id from params
+  const { id } = params;
+  
   const user = await getCurrentUser();
   
   // Fetch the equipment with owner details
   const equipment = await db.equipment.findUnique({
     where: {
-      id: params.id,
+      id,
     },
     include: {
       owner: {
@@ -32,87 +38,28 @@ export default async function EquipmentDetailPage({
           id: true,
           name: true,
           image: true,
-          email: true,
-          createdAt: true,
-        },
-      },
-      rentals: {
-        where: {
-          status: {
-            in: ["Pending", "Approved"],
-          },
-        },
-        select: {
-          id: true,
-          startDate: true,
-          endDate: true,
-          status: true,
         },
       },
     },
   });
-  
+
   if (!equipment) {
     notFound();
   }
-  
-  // Parse JSON strings
-  let images: string[] = [];
-  try {
-    if (equipment.imagesJson) {
-      const parsedImages = JSON.parse(equipment.imagesJson);
-      // Ensure images is an array
-      if (Array.isArray(parsedImages)) {
-        images = parsedImages;
-      }
-      // Add default image if no images
-      if (images.length === 0) {
-        images = ['/images/placeholder.svg'];
-      }
-      // Log images for debugging
-      console.log('Parsed images:', images);
-    } else {
-      images = ['/images/placeholder.svg'];
-    }
-  } catch (error) {
-    console.error('Error parsing images JSON:', error);
-    images = ['/images/placeholder.svg'];
-  }
-  
-  // Parse tags
-  let tags: string[] = [];
-  try {
-    if (equipment.tagsJson) {
-      const parsedTags = JSON.parse(equipment.tagsJson);
-      if (Array.isArray(parsedTags)) {
-        tags = parsedTags;
-      }
-    }
-  } catch (error) {
-    console.error('Error parsing tags JSON:', error);
-    tags = [];
-  }
-  
+
+  // Parse images from JSON string
+  const images = equipment.imagesJson ? JSON.parse(equipment.imagesJson) : [];
+  console.log("Parsed images:", images);
+
+  // Parse tags from JSON string
+  const tags = equipment.tagsJson ? JSON.parse(equipment.tagsJson) : [];
+
+  // Format date for display
+  const memberSince = new Date(equipment.owner.createdAt || new Date()).toLocaleDateString();
+
+  // Check if the current user is the owner
   const isOwner = user?.id === equipment.ownerId;
-  
-  // Format existing bookings for the calendar
-  const existingBookings = equipment.rentals.map((rental) => ({
-    id: rental.id,
-    title: "Booking",
-    start: rental.startDate,
-    end: rental.endDate,
-    status: rental.status,
-  }));
-  
-  // Define rental rules (since there's no rulesJson field in the schema)
-  const rentalRules = [
-    "Valid ID and credit card required",
-    "No international travel without prior approval",
-    "Renter is responsible for any damage",
-    "Equipment must be returned in original condition",
-    "Late returns will incur additional daily rate"
-  ];
-  
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
@@ -139,14 +86,20 @@ export default async function EquipmentDetailPage({
             
             <h2 className="text-xl font-semibold mb-3 text-jacker-blue">Features</h2>
             <ul className="list-disc pl-5 mb-6 text-gray-700 grid grid-cols-1 md:grid-cols-2 gap-2">
-              {tags.map((tag: string) => (
+              {tags.map((tag) => (
                 <li key={tag}>{tag}</li>
               ))}
             </ul>
             
             <h2 className="text-xl font-semibold mb-3 text-jacker-blue">Rental Rules</h2>
             <ul className="list-disc pl-5 mb-6 text-gray-700">
-              {rentalRules.map((rule: string) => (
+              {[
+                "Valid ID and credit card required",
+                "No international travel without prior approval",
+                "Renter is responsible for any damage",
+                "Equipment must be returned in original condition",
+                "Late returns will incur additional daily rate",
+              ].map((rule) => (
                 <li key={rule}>{rule}</li>
               ))}
             </ul>
@@ -157,7 +110,7 @@ export default async function EquipmentDetailPage({
             <AvailabilityCalendar 
               equipmentId={equipment.id} 
               isOwner={isOwner}
-              existingBookings={existingBookings}
+              existingBookings={[]}
             />
           </div>
 
@@ -176,7 +129,7 @@ export default async function EquipmentDetailPage({
                 </div>
                 <div>
                   <h3 className="font-medium text-lg">{equipment.owner.name}</h3>
-                  <p className="text-gray-600 text-sm">Member since {new Date(equipment.owner.createdAt).toLocaleDateString()}</p>
+                  <p className="text-gray-600 text-sm">Member since {memberSince}</p>
                 </div>
               </div>
               

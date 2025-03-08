@@ -54,6 +54,7 @@ next-env.d.ts
 .temp
 .tmp
 *.log
+tmp/
 
 # IDE specific files
 .idea/
@@ -67,3 +68,40 @@ next-env.d.ts
 
 # Reference files
 .vercel.env
+
+# Large media files
+*.mp4
+*.mov
+*.avi
+*.wmv
+*.flv
+*.webm
+*.psd
+*.ai
+*.sketch
+*.fig
+*.xd
+
+# Cache directories
+.turbo
+.cache
+.npm
+.eslintcache
+
+# Generated files
+public/sw.js
+public/workbox-*.js
+public/worker-*.js
+public/sw.js.map
+public/workbox-*.js.map
+public/worker-*.js.map
+
+# Large data files
+*.csv
+*.xlsx
+*.xls
+*.zip
+*.tar
+*.gz
+*.rar
+*.7z

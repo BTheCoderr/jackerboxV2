@@ -54,6 +54,12 @@ export function AvailabilityCalendar({
   const [recurrenceInterval, setRecurrenceInterval] = useState<number>(1);
   const [recurrenceDaysOfWeek, setRecurrenceDaysOfWeek] = useState<string[]>([]);
 
+  // Define the date range type
+  interface DateRange {
+    start: Date;
+    end: Date;
+  }
+
   // Load existing bookings and availability
   useEffect(() => {
     const fetchAvailability = async () => {
@@ -112,6 +118,7 @@ export function AvailabilityCalendar({
     const adjustedEnd = new Date(end);
     adjustedEnd.setHours(23, 59, 59);
     
+    // Store the selection in state
     setNewAvailability({
       start: new Date(start),
       end: adjustedEnd,
@@ -121,21 +128,27 @@ export function AvailabilityCalendar({
     const defaultEndDate = new Date(start);
     defaultEndDate.setMonth(defaultEndDate.getMonth() + 3);
     setRecurrenceEndDate(defaultEndDate);
+    
+    // Ensure the selection is visible in the UI
+    setError(null); // Clear any previous errors
   };
 
   // Generate recurring dates based on the pattern
   const generateRecurringDates = () => {
     if (!newAvailability.start || !newAvailability.end || !recurrenceEndDate) return [];
     
-    const dates = [];
-    const startDate = new Date(newAvailability.start);
-    const endDate = new Date(newAvailability.end);
-    const duration = endDate.getTime() - startDate.getTime();
+    // Initialize dates array with proper type
+    const dates: Array<DateRange> = [];
     
-    let currentStart = new Date(startDate);
+    // Calculate duration in milliseconds
+    const duration = newAvailability.end.getTime() - newAvailability.start.getTime();
     
+    // Set up the current start date
+    let currentStart = new Date(newAvailability.start);
+    
+    // Generate dates based on recurrence pattern
     while (currentStart <= recurrenceEndDate) {
-      // Skip if not matching the selected days of week for weekly recurrence
+      // Skip dates that don't match the selected days of week
       if (recurrenceType === "weekly" && recurrenceDaysOfWeek.length > 0) {
         const dayOfWeek = format(currentStart, "EEEE").toLowerCase();
         if (!recurrenceDaysOfWeek.includes(dayOfWeek)) {
@@ -147,8 +160,8 @@ export function AvailabilityCalendar({
       const currentEnd = new Date(currentStart.getTime() + duration);
       
       dates.push({
-        startDate: new Date(currentStart),
-        endDate: new Date(currentEnd),
+        start: new Date(currentStart),
+        end: new Date(currentEnd),
       });
       
       // Advance to next occurrence based on recurrence type
@@ -170,7 +183,10 @@ export function AvailabilityCalendar({
 
   // Save new availability with recurrence
   const handleSaveAvailability = async () => {
-    if (!newAvailability.start || !newAvailability.end) return;
+    if (!newAvailability.start || !newAvailability.end) {
+      setError("Please select a date range first");
+      return;
+    }
     
     setIsLoading(true);
     setError(null);
@@ -179,6 +195,10 @@ export function AvailabilityCalendar({
       if (isRecurring && recurrenceEndDate) {
         // Handle recurring availability
         const recurringDates = generateRecurringDates();
+        
+        if (recurringDates.length === 0) {
+          throw new Error("No valid dates generated for recurring availability");
+        }
         
         // Create all recurring availabilities
         const response = await fetch(`/api/equipment/${equipmentId}/availability/recurring`, {
@@ -195,11 +215,11 @@ export function AvailabilityCalendar({
           }),
         });
 
-        if (!response.ok) {
-          throw new Error("Failed to save recurring availability");
-        }
-
         const data = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(data.message || "Failed to save recurring availability");
+        }
         
         // Add all the new availabilities to the calendar
         const newEvents = data.availabilities.map((availability: any) => ({
@@ -214,7 +234,7 @@ export function AvailabilityCalendar({
         
         setEvents([...events, ...newEvents]);
       } else {
-        // Handle single availability (existing code)
+        // Handle single availability
         const response = await fetch(`/api/equipment/${equipmentId}/availability`, {
           method: "POST",
           headers: {
@@ -226,11 +246,11 @@ export function AvailabilityCalendar({
           }),
         });
 
-        if (!response.ok) {
-          throw new Error("Failed to save availability");
-        }
-
         const data = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(data.message || "Failed to save availability");
+        }
         
         // Add the new availability to the calendar
         setEvents([
@@ -256,7 +276,7 @@ export function AvailabilityCalendar({
       setRecurrenceDaysOfWeek([]);
     } catch (error) {
       console.error("Error saving availability:", error);
-      setError("Failed to save availability. Please try again.");
+      setError(error instanceof Error ? error.message : "Failed to save availability. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -310,6 +330,9 @@ export function AvailabilityCalendar({
           eventPropGetter={eventStyleGetter}
           views={["month"]}
           defaultView="month"
+          longPressThreshold={10}
+          selected={newAvailability.start && newAvailability.end ? [newAvailability] : []}
+          onSelecting={() => true} // Always allow selection
         />
       </div>
       

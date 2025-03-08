@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 
 interface ImageGalleryProps {
@@ -10,21 +10,130 @@ interface ImageGalleryProps {
 
 export function ImageGallery({ images, title }: ImageGalleryProps) {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [loadedImages, setLoadedImages] = useState<string[]>([]);
+  const [imageErrors, setImageErrors] = useState<boolean[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // If no images, show placeholder
-  if (images.length === 0) {
+  // Process Unsplash URLs to ensure they work correctly
+  const processImageUrl = (url: string): string => {
+    if (!url) return '/images/placeholder.svg';
+    
+    // If it's an Unsplash URL, ensure it has the right parameters
+    if (url.includes('source.unsplash.com') || url.includes('images.unsplash.com')) {
+      // Add direct access parameters for Unsplash
+      return `${url}${url.includes('?') ? '&' : '?'}fit=crop&w=800&h=600&q=80&auto=format`;
+    }
+    return url;
+  };
+
+  // Generate a fallback image URL based on the equipment title
+  const getFallbackImageUrl = (index: number) => {
+    const categories = ['equipment', 'tools', 'rental'];
+    const category = categories[index % categories.length];
+    return `https://source.unsplash.com/featured/800x600?${category},${title.toLowerCase().replace(/\s+/g, '-')}&random=${index}`;
+  };
+
+  useEffect(() => {
+    // Reset states when images prop changes
+    setSelectedImageIndex(0);
+    setLoadedImages([]);
+    setImageErrors(new Array(images.length).fill(false));
+    setIsLoading(true);
+    
+    // Use placeholder images if no images are provided
+    if (!images || images.length === 0) {
+      setIsLoading(false);
+      return;
+    }
+    
+    // Process all image URLs
+    const processedImages = images.map(processImageUrl);
+    
+    // Preload images to check if they're valid
+    const preloadImages = async () => {
+      const errors = new Array(processedImages.length).fill(false);
+      const validImages: string[] = [];
+      
+      for (let i = 0; i < processedImages.length; i++) {
+        try {
+          // Try to load the image
+          const img = document.createElement('img');
+          img.src = processedImages[i];
+          
+          await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = () => {
+              errors[i] = true;
+              reject();
+            };
+            
+            // Set a timeout in case the image takes too long to load
+            setTimeout(() => {
+              if (!img.complete) {
+                errors[i] = true;
+                reject();
+              }
+            }, 3000); // Reduced timeout for faster feedback
+          });
+          
+          validImages.push(processedImages[i]);
+        } catch (error) {
+          console.error(`Error loading image ${i}:`, error);
+          errors[i] = true;
+          // Add fallback image when original fails
+          validImages.push(getFallbackImageUrl(i));
+        }
+      }
+      
+      setImageErrors(errors);
+      setLoadedImages(validImages.length > 0 ? validImages : ['/images/placeholder.svg']);
+      setIsLoading(false);
+    };
+    
+    preloadImages();
+  }, [images, title]);
+
+  // If no images or all images failed to load, show placeholder
+  if ((!images || images.length === 0) && !isLoading) {
     return (
       <div className="mb-8">
-        <div className="aspect-w-16 aspect-h-9 relative rounded-lg overflow-hidden">
+        <div className="aspect-w-16 aspect-h-9 relative rounded-lg overflow-hidden bg-gray-100">
           <img
             src="/images/placeholder.svg"
             alt="No image available"
-            className="w-full h-full object-cover"
+            className="w-full h-full object-contain"
           />
+        </div>
+        <div className="mt-2 text-sm text-gray-500 text-center">
+          No images available for this equipment
         </div>
       </div>
     );
   }
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="mb-8">
+        <div className="aspect-w-16 aspect-h-9 relative rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+        </div>
+        <div className="mt-2 text-sm text-gray-500 text-center">
+          Loading images...
+        </div>
+      </div>
+    );
+  }
+
+  // Get the current image, fallback to first valid image if selected image has an error
+  const currentImageIndex = imageErrors[selectedImageIndex] 
+    ? loadedImages.findIndex((_, i) => !imageErrors[i]) 
+    : selectedImageIndex;
+  
+  // If we have a valid current image, use it; otherwise use a fallback
+  const currentImage = currentImageIndex >= 0 && currentImageIndex < loadedImages.length
+    ? loadedImages[currentImageIndex]
+    : '/images/placeholder.svg';
 
   return (
     <div className="mb-8">
@@ -32,18 +141,39 @@ export function ImageGallery({ images, title }: ImageGalleryProps) {
         {/* Main Image */}
         <div className="aspect-w-16 aspect-h-9 mb-4 relative rounded-lg overflow-hidden bg-gray-100">
           <img
-            src={images[selectedImageIndex]}
+            src={currentImage}
             alt={`${title} - main view`}
             className="w-full h-full object-contain"
             style={{ maxHeight: '400px' }}
+            onError={(e) => {
+              // If image fails to load, try a fallback
+              const target = e.target as HTMLImageElement;
+              const index = currentImageIndex >= 0 ? currentImageIndex : 0;
+              target.src = getFallbackImageUrl(index);
+              
+              // Mark the original image as having an error
+              if (currentImageIndex >= 0) {
+                const newErrors = [...imageErrors];
+                newErrors[currentImageIndex] = true;
+                setImageErrors(newErrors);
+              }
+            }}
           />
         </div>
         
         {/* Image Navigation Arrows */}
-        {images.length > 1 && (
+        {loadedImages.length > 1 && (
           <>
             <button 
-              onClick={() => setSelectedImageIndex(prev => (prev === 0 ? images.length - 1 : prev - 1))}
+              onClick={() => {
+                // Find the previous non-error image
+                let prevIndex = selectedImageIndex;
+                do {
+                  prevIndex = prevIndex === 0 ? loadedImages.length - 1 : prevIndex - 1;
+                } while (imageErrors[prevIndex] && prevIndex !== selectedImageIndex);
+                
+                setSelectedImageIndex(prevIndex);
+              }}
               className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-2 shadow-md z-10"
               aria-label="Previous image"
             >
@@ -52,7 +182,15 @@ export function ImageGallery({ images, title }: ImageGalleryProps) {
               </svg>
             </button>
             <button 
-              onClick={() => setSelectedImageIndex(prev => (prev === images.length - 1 ? 0 : prev + 1))}
+              onClick={() => {
+                // Find the next non-error image
+                let nextIndex = selectedImageIndex;
+                do {
+                  nextIndex = nextIndex === loadedImages.length - 1 ? 0 : nextIndex + 1;
+                } while (imageErrors[nextIndex] && nextIndex !== selectedImageIndex);
+                
+                setSelectedImageIndex(nextIndex);
+              }}
               className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-2 shadow-md z-10"
               aria-label="Next image"
             >
@@ -64,38 +202,53 @@ export function ImageGallery({ images, title }: ImageGalleryProps) {
         )}
         
         {/* Image Counter */}
-        {images.length > 1 && (
+        {loadedImages.length > 1 && (
           <div className="absolute bottom-4 right-4 bg-black/60 text-white px-2 py-1 rounded-md text-sm z-10">
-            {selectedImageIndex + 1} / {images.length}
+            {currentImageIndex + 1} / {loadedImages.length}
           </div>
         )}
         
         {/* Thumbnail Gallery */}
-        {images.length > 1 && (
+        {loadedImages.length > 1 && (
           <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-8 gap-2 mt-2">
-            {images.map((image, index) => (
-              <div 
-                key={index} 
-                className={`aspect-w-1 aspect-h-1 cursor-pointer relative rounded-md overflow-hidden border-2 transition-all ${
-                  selectedImageIndex === index ? 'border-blue-500 ring-2 ring-blue-300' : 'border-gray-200 hover:border-blue-300'
-                }`}
-                onClick={() => setSelectedImageIndex(index)}
-              >
-                <img
-                  src={image}
-                  alt={`${title} - thumbnail ${index + 1}`}
-                  className="w-full h-full object-cover"
-                />
-              </div>
+            {loadedImages.map((image, index) => (
+              !imageErrors[index] && (
+                <div 
+                  key={index} 
+                  className={`aspect-w-1 aspect-h-1 cursor-pointer relative rounded-md overflow-hidden border-2 transition-all ${
+                    selectedImageIndex === index ? 'border-blue-500 ring-2 ring-blue-300' : 'border-gray-200 hover:border-blue-300'
+                  }`}
+                  onClick={() => setSelectedImageIndex(index)}
+                >
+                  <img
+                    src={image}
+                    alt={`${title} - thumbnail ${index + 1}`}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      // If thumbnail fails to load, try a fallback
+                      const target = e.target as HTMLImageElement;
+                      target.src = getFallbackImageUrl(index);
+                      
+                      // Mark the original image as having an error
+                      const newErrors = [...imageErrors];
+                      newErrors[index] = true;
+                      setImageErrors(newErrors);
+                    }}
+                  />
+                </div>
+              )
             ))}
           </div>
         )}
       </div>
       
-      {/* Debug information */}
-      <div className="mt-2 text-xs text-gray-400">
-        <p>Image URL: {images[selectedImageIndex]}</p>
-      </div>
+      {/* Debug information - only show in development */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="mt-2 text-xs text-gray-400">
+          <p>Image URL: {currentImage}</p>
+          <p>Valid images: {loadedImages.length} / {images?.length || 0}</p>
+        </div>
+      )}
     </div>
   );
 } 

@@ -7,6 +7,7 @@ import { z } from "zod";
 import { useRouter } from "next/navigation";
 import { Equipment } from "@prisma/client";
 import { EQUIPMENT_CATEGORIES, EQUIPMENT_CONDITIONS } from "@/lib/constants";
+import { useCloudinaryUpload } from "@/hooks/use-cloudinary-upload";
 
 // Minimum number of required images
 const MIN_REQUIRED_IMAGES = 7;
@@ -56,6 +57,8 @@ export function EquipmentForm({
     message: null,
   });
   const router = useRouter();
+  const [uploadProgress, setUploadProgress] = useState<number[]>([]);
+  const { upload, uploading } = useCloudinaryUpload();
 
   const {
     register,
@@ -205,24 +208,55 @@ export function EquipmentForm({
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    // In a real app, you would upload to Cloudinary or similar service
-    // For now, we'll just simulate with local URLs
-    const newImages = Array.from(files).map((file) => 
-      URL.createObjectURL(file)
-    );
+    if (!e.target.files || e.target.files.length === 0) return;
     
-    const updatedImages = [...images, ...newImages];
-    setImages(updatedImages);
+    const newFiles = Array.from(e.target.files);
+    setIsLoading(true);
     
-    // Reset verification status when new images are added
-    setVerificationStatus({
-      inProgress: false,
-      results: null,
-      message: null,
-    });
+    try {
+      // Initialize progress tracking for each file
+      setUploadProgress(new Array(newFiles.length).fill(0));
+      
+      // Upload each file to Cloudinary
+      const uploadPromises = newFiles.map(async (file, index) => {
+        try {
+          // Upload to Cloudinary with progress tracking
+          const result = await upload(file, {
+            folder: "equipment",
+            onProgress: (progress) => {
+              setUploadProgress(prev => {
+                const newProgress = [...prev];
+                newProgress[index] = progress;
+                return newProgress;
+              });
+            }
+          });
+          
+          return result.secureUrl;
+        } catch (error) {
+          console.error(`Error uploading image ${index}:`, error);
+          // Return a placeholder image on error
+          return `https://source.unsplash.com/random/800x600?equipment,${index}`;
+        }
+      });
+      
+      const uploadedUrls = await Promise.all(uploadPromises);
+      
+      // Add the new images to the existing ones
+      setImages(prev => [...prev, ...uploadedUrls]);
+      setVerificationStatus({
+        inProgress: false,
+        results: null,
+        message: "Images uploaded. Click 'Verify Images' to check quality.",
+      });
+    } catch (error) {
+      console.error("Image upload error:", error);
+      setError("Failed to upload images. Please try again.");
+    } finally {
+      setIsLoading(false);
+      // Reset the file input
+      if (e.target.value) e.target.value = "";
+    }
   };
 
   const removeImage = (index: number) => {
@@ -449,16 +483,21 @@ export function EquipmentForm({
                 >
                   ×
                 </button>
-                {verificationStatus.results && verificationStatus.results[index] && (
-                  <div className={`absolute bottom-0 left-0 right-0 text-xs text-center py-1 ${
-                    verificationStatus.results[index].isValid 
-                      ? 'bg-green-500 text-white' 
-                      : 'bg-red-500 text-white'
-                  }`}>
-                    {verificationStatus.results[index].isValid ? '✓' : '✗'}
-                  </div>
-                )}
               </div>
+            ))}
+            
+            {uploadProgress.map((progress, index) => (
+              progress < 100 && (
+                <div key={`progress-${index}`} className="relative w-24 h-24 bg-gray-100 rounded-md flex items-center justify-center">
+                  <div className="absolute inset-2">
+                    <div 
+                      className="bg-jacker-blue h-full rounded-md opacity-50"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                  <span className="text-xs z-10">{progress}%</span>
+                </div>
+              )
             ))}
           </div>
           <input

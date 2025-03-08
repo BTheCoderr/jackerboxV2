@@ -29,7 +29,13 @@
     "test-with-s3-url": "ts-node --esm scripts/test-with-s3-url.ts",
     "test-s3-direct": "ts-node --esm scripts/test-s3-direct.ts",
     "create-s3-bucket": "ts-node --esm scripts/create-s3-bucket.ts",
-    "deploy-static": "node --experimental-modules scripts/deploy-static.js"
+    "deploy-static": "node --experimental-modules scripts/deploy-static.js",
+    "cleanup": "node scripts/cleanup-storage.js",
+    "cleanup:deep": "npm run cleanup && npm prune --production && npm cache clean --force",
+    "optimize-mobile": "node scripts/optimize-for-mobile.js",
+    "mobile:dev": "cp next.config.mobile.mjs next.config.mjs && next dev",
+    "mobile": "bash scripts/start-mobile.sh",
+    "pwa": "npm run optimize-mobile && npm run mobile"
   },
   "dependencies": {
     "@arcjet/next": "^1.0.0-beta.2",

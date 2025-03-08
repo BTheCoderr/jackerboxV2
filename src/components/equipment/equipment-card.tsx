@@ -4,6 +4,7 @@ import { Equipment, User } from "@prisma/client";
 import Image from "next/image";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/utils/format";
+import { useState } from "react";
 
 interface EquipmentCardProps {
   equipment: Equipment & {
@@ -16,8 +17,33 @@ interface EquipmentCardProps {
 }
 
 export function EquipmentCard({ equipment }: EquipmentCardProps) {
+  const [imageError, setImageError] = useState(false);
   const images = equipment.imagesJson ? JSON.parse(equipment.imagesJson) : [];
-  const defaultImage = "/placeholder-equipment.jpg"; // You'll need to add this image to your public folder
+  const defaultImage = "/images/placeholder.svg";
+  
+  // Process Unsplash URLs to ensure they work correctly
+  const processImageUrl = (url: string): string => {
+    // If it's an Unsplash URL, add parameters to ensure it works
+    if (url && url.includes('source.unsplash.com')) {
+      // Add a random parameter to prevent caching issues
+      const randomParam = `&random=${Math.random().toString(36).substring(2, 15)}`;
+      // Add a specific size parameter
+      const sizeParam = '&w=400&h=300&fit=crop';
+      // Combine the URL with parameters
+      return `${url}${url.includes('?') ? '&' : '?'}${sizeParam}${randomParam}`;
+    }
+    return url;
+  };
+  
+  // Generate a fallback image URL based on the equipment category
+  const getFallbackImageUrl = () => {
+    const category = equipment.category ? equipment.category.toLowerCase() : 'equipment';
+    const title = equipment.title ? equipment.title.toLowerCase().replace(/\s+/g, '-') : 'item';
+    return `https://source.unsplash.com/featured/400x300?${category},${title}&random=${equipment.id}`;
+  };
+  
+  // Get the main image URL
+  const mainImageUrl = images.length > 0 ? processImageUrl(images[0]) : defaultImage;
   
   return (
     <Link
@@ -25,15 +51,25 @@ export function EquipmentCard({ equipment }: EquipmentCardProps) {
       className="block rounded-lg overflow-hidden border hover:shadow-md transition-shadow"
     >
       <div className="relative h-48 bg-gray-100">
-        {images.length > 0 ? (
+        {images.length > 0 || imageError ? (
           <img
-            src={images[0]}
+            src={imageError ? getFallbackImageUrl() : mainImageUrl}
             alt={equipment.title}
             className="w-full h-full object-cover"
+            onError={(e) => {
+              // If the main image fails to load, try the fallback
+              setImageError(true);
+              const target = e.target as HTMLImageElement;
+              target.src = getFallbackImageUrl();
+            }}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-gray-200">
-            <span className="text-gray-400">No image</span>
+            <img 
+              src={defaultImage}
+              alt="No image"
+              className="w-16 h-16 opacity-50"
+            />
           </div>
         )}
         {equipment.isVerified && (
@@ -105,6 +141,11 @@ export function EquipmentCard({ equipment }: EquipmentCardProps) {
                   src={equipment.owner.image}
                   alt={equipment.owner.name || "Owner"}
                   className="w-full h-full object-cover"
+                  onError={(e) => {
+                    // If owner image fails to load, use a placeholder
+                    const target = e.target as HTMLImageElement;
+                    target.src = "/images/placeholder-avatar.svg";
+                  }}
                 />
               </div>
             ) : (
