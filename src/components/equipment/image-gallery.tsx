@@ -16,11 +16,10 @@ export function ImageGallery({ images, title }: ImageGalleryProps) {
     return (
       <div className="mb-8">
         <div className="aspect-w-16 aspect-h-9 relative rounded-lg overflow-hidden">
-          <Image
+          <img
             src="/images/placeholder.svg"
             alt="No image available"
-            fill
-            className="object-cover"
+            className="w-full h-full object-cover"
           />
         </div>
       </div>
@@ -31,13 +30,12 @@ export function ImageGallery({ images, title }: ImageGalleryProps) {
     <div className="mb-8">
       <div className="relative">
         {/* Main Image */}
-        <div className="aspect-w-16 aspect-h-9 mb-4 relative rounded-lg overflow-hidden">
-          <Image
+        <div className="aspect-w-16 aspect-h-9 mb-4 relative rounded-lg overflow-hidden bg-gray-100">
+          <img
             src={images[selectedImageIndex]}
             alt={`${title} - main view`}
-            fill
-            className="object-cover"
-            priority
+            className="w-full h-full object-contain"
+            style={{ maxHeight: '400px' }}
           />
         </div>
         
@@ -46,7 +44,7 @@ export function ImageGallery({ images, title }: ImageGalleryProps) {
           <>
             <button 
               onClick={() => setSelectedImageIndex(prev => (prev === 0 ? images.length - 1 : prev - 1))}
-              className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-2 shadow-md"
+              className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-2 shadow-md z-10"
               aria-label="Previous image"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -55,7 +53,7 @@ export function ImageGallery({ images, title }: ImageGalleryProps) {
             </button>
             <button 
               onClick={() => setSelectedImageIndex(prev => (prev === images.length - 1 ? 0 : prev + 1))}
-              className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-2 shadow-md"
+              className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-2 shadow-md z-10"
               aria-label="Next image"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -67,7 +65,7 @@ export function ImageGallery({ images, title }: ImageGalleryProps) {
         
         {/* Image Counter */}
         {images.length > 1 && (
-          <div className="absolute bottom-4 right-4 bg-black/60 text-white px-2 py-1 rounded-md text-sm">
+          <div className="absolute bottom-4 right-4 bg-black/60 text-white px-2 py-1 rounded-md text-sm z-10">
             {selectedImageIndex + 1} / {images.length}
           </div>
         )}
@@ -83,16 +81,20 @@ export function ImageGallery({ images, title }: ImageGalleryProps) {
                 }`}
                 onClick={() => setSelectedImageIndex(index)}
               >
-                <Image
+                <img
                   src={image}
                   alt={`${title} - thumbnail ${index + 1}`}
-                  fill
-                  className="object-cover"
+                  className="w-full h-full object-cover"
                 />
               </div>
             ))}
           </div>
         )}
+      </div>
+      
+      {/* Debug information */}
+      <div className="mt-2 text-xs text-gray-400">
+        <p>Image URL: {images[selectedImageIndex]}</p>
       </div>
     </div>
   );

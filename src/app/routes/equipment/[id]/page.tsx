@@ -57,8 +57,41 @@ export default async function EquipmentDetailPage({
   }
   
   // Parse JSON strings
-  const images = equipment.imagesJson ? JSON.parse(equipment.imagesJson) : [];
-  const tags = equipment.tagsJson ? JSON.parse(equipment.tagsJson) : [];
+  let images: string[] = [];
+  try {
+    if (equipment.imagesJson) {
+      const parsedImages = JSON.parse(equipment.imagesJson);
+      // Ensure images is an array
+      if (Array.isArray(parsedImages)) {
+        images = parsedImages;
+      }
+      // Add default image if no images
+      if (images.length === 0) {
+        images = ['/images/placeholder.svg'];
+      }
+      // Log images for debugging
+      console.log('Parsed images:', images);
+    } else {
+      images = ['/images/placeholder.svg'];
+    }
+  } catch (error) {
+    console.error('Error parsing images JSON:', error);
+    images = ['/images/placeholder.svg'];
+  }
+  
+  // Parse tags
+  let tags: string[] = [];
+  try {
+    if (equipment.tagsJson) {
+      const parsedTags = JSON.parse(equipment.tagsJson);
+      if (Array.isArray(parsedTags)) {
+        tags = parsedTags;
+      }
+    }
+  } catch (error) {
+    console.error('Error parsing tags JSON:', error);
+    tags = [];
+  }
   
   const isOwner = user?.id === equipment.ownerId;
   
