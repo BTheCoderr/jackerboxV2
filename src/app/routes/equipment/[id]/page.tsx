@@ -7,6 +7,7 @@ import { BookingForm } from "@/components/rentals/booking-form";
 import { EquipmentActions } from "@/components/equipment/equipment-actions";
 import { AvailabilityCalendar } from "@/components/equipment/availability-calendar";
 import { ReviewsSection } from "@/components/reviews/reviews-section";
+import { ImageGallery } from "@/components/equipment/image-gallery";
 import Image from "next/image";
 
 interface EquipmentDetailPageProps {
@@ -92,28 +93,7 @@ export default async function EquipmentDetailPage({
         {/* Left Column - Images and Details */}
         <div className="lg:col-span-2">
           {/* Image Gallery */}
-          <div className="mb-8">
-            <div className="aspect-w-16 aspect-h-9 mb-4">
-              <Image
-                src={images[0] || '/images/placeholder.svg'}
-                alt={equipment.title}
-                fill
-                className="rounded-lg object-cover"
-              />
-            </div>
-            <div className="grid grid-cols-3 gap-4">
-              {images.slice(1).map((image: string, index: number) => (
-                <div key={index} className="aspect-w-3 aspect-h-2">
-                  <Image
-                    src={image}
-                    alt={`${equipment.title} - view ${index + 2}`}
-                    fill
-                    className="rounded-lg object-cover"
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
+          <ImageGallery images={images} title={equipment.title} />
 
           {/* Equipment Details */}
           <div className="mb-8">
