@@ -12,6 +12,8 @@ import { AvailabilityCalendar } from "@/components/equipment/availability-calend
 import { ReviewsSection } from "@/components/reviews/reviews-section";
 import { ImageGallery } from "@/components/equipment/image-gallery";
 import Image from "next/image";
+import { ContactOwnerButton } from "@/components/equipment/contact-owner-button";
+import { DualCalendarSystem } from "@/components/equipment/dual-calendar-system";
 
 interface EquipmentDetailPageProps {
   params: {
@@ -53,9 +55,6 @@ export default async function EquipmentDetailPage({
 
   // Parse tags from JSON string
   const tags = equipment.tagsJson ? JSON.parse(equipment.tagsJson) : [];
-
-  // Format date for display
-  const memberSince = new Date(equipment.owner.createdAt || new Date()).toLocaleDateString();
 
   // Check if the current user is the owner
   const isOwner = user?.id === equipment.ownerId;
@@ -107,7 +106,7 @@ export default async function EquipmentDetailPage({
 
           {/* Availability Calendar */}
           <div className="mb-8 bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-            <AvailabilityCalendar 
+            <DualCalendarSystem 
               equipmentId={equipment.id} 
               isOwner={isOwner}
               existingBookings={[]}
@@ -120,26 +119,31 @@ export default async function EquipmentDetailPage({
             <div className="flex items-center justify-between">
               <div className="flex items-center">
                 <div className="w-16 h-16 relative rounded-full overflow-hidden mr-4">
-                  <Image
-                    src={equipment.owner.image || '/images/placeholder-avatar.png'}
-                    alt={equipment.owner.name || 'Equipment Owner'}
-                    fill
-                    className="object-cover"
-                  />
+                  {equipment.owner.image ? (
+                    <Image
+                      src={equipment.owner.image}
+                      alt={equipment.owner.name || 'Equipment Owner'}
+                      fill
+                      className="object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gray-200 text-gray-600 text-xl font-semibold">
+                      {equipment.owner.name ? equipment.owner.name.charAt(0).toUpperCase() : '👤'}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <h3 className="font-medium text-lg">{equipment.owner.name}</h3>
-                  <p className="text-gray-600 text-sm">Member since {memberSince}</p>
+                  <p className="text-gray-600 text-sm">Member since {new Date().toLocaleDateString()}</p>
                 </div>
               </div>
               
               {user && !isOwner && (
-                <Link
-                  href={`/routes/messages/${equipment.owner.id}?equipmentId=${equipment.id}`}
-                  className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
-                >
-                  Contact Owner
-                </Link>
+                <ContactOwnerButton 
+                  ownerId={equipment.owner.id} 
+                  equipmentId={equipment.id}
+                  equipmentTitle={equipment.title}
+                />
               )}
             </div>
           </div>
