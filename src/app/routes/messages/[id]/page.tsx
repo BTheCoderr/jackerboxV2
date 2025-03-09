@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { getCurrentUser } from "@/lib/session";
+import { getCurrentUser } from "@/lib/auth/auth-utils";
 import { ChatInterface } from "@/components/messaging/chat-interface";
 
 interface MessagesUserPageProps {
