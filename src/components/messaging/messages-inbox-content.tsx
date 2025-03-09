@@ -1,12 +1,25 @@
 'use client';
 
-import { useEffect } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
-import { formatDistanceToNow } from 'date-fns';
+import { useState } from "react";
+import Link from "next/link";
+import { formatDistanceToNow } from "date-fns";
 
 interface MessagesInboxContentProps { 
-  conversationsWithDetails: any[];
+  conversationsWithDetails: Array<{
+    otherUser: {
+      id: string;
+      name: string | null;
+      image: string | null;
+    };
+    lastMessage: {
+      id: string;
+      content: string;
+      createdAt: Date;
+      isRead: boolean;
+      equipmentId?: string | null;
+    };
+    unreadCount: number;
+  }>;
   currentUserId: string;
 }
 
@@ -14,80 +27,92 @@ export function MessagesInboxContent({
   conversationsWithDetails, 
   currentUserId 
 }: MessagesInboxContentProps) {
-  // Force a re-render on the client side to ensure proper styling
-  useEffect(() => {
-    // This is just to force a re-render on the client
-    const forceUpdate = () => {};
-    forceUpdate();
-  }, []);
-
-  if (conversationsWithDetails.length === 0) {
-    return (
-      <div className="text-center py-12">
-        <h2 className="text-xl font-medium mb-2">No messages yet</h2>
-        <p className="text-gray-500 mb-6">When you message someone, they'll appear here.</p>
-        <Link 
-          href="/routes/equipment" 
-          className="inline-block px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-        >
-          Browse Equipment
-        </Link>
-      </div>
-    );
-  }
+  const [activeFilter, setActiveFilter] = useState<'all' | 'unread'>('all');
+  
+  const filteredConversations = activeFilter === 'all' 
+    ? conversationsWithDetails 
+    : conversationsWithDetails.filter(conv => conv.unreadCount > 0);
 
   return (
     <div className="bg-white rounded-lg shadow overflow-hidden">
-      <ul className="divide-y divide-gray-200">
-        {conversationsWithDetails.map((conversation) => (
-          <li key={conversation.partner.id}>
-            <Link 
-              href={`/routes/messages/${conversation.partner.id}`}
-              className="block hover:bg-gray-50 transition-colors"
+      <div className="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+        <h2 className="font-semibold">Conversations</h2>
+        <div className="flex space-x-2">
+          <button 
+            className={`px-3 py-1 text-sm rounded-full ${activeFilter === 'all' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'}`}
+            onClick={() => setActiveFilter('all')}
+          >
+            All
+          </button>
+          <button 
+            className={`px-3 py-1 text-sm rounded-full ${activeFilter === 'unread' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'}`}
+            onClick={() => setActiveFilter('unread')}
+          >
+            Unread
+          </button>
+        </div>
+      </div>
+      
+      <div className="divide-y divide-gray-200">
+        {filteredConversations.length === 0 ? (
+          <div className="p-6 text-center text-gray-500">
+            {activeFilter === 'unread' ? 'No unread messages' : 'No conversations yet'}
+          </div>
+        ) : (
+          filteredConversations.map((conversation) => (
+            <Link
+              key={conversation.otherUser.id}
+              href={`/routes/messages/${conversation.otherUser.id}${conversation.lastMessage.equipmentId ? `?equipmentId=${conversation.lastMessage.equipmentId}` : ''}`}
+              className="block p-4 hover:bg-gray-50"
             >
-              <div className="px-6 py-5 flex items-center">
-                <div className="flex-shrink-0 h-12 w-12 relative rounded-full overflow-hidden bg-gray-200">
-                  {conversation.partner.image ? (
-                    <Image
-                      src={conversation.partner.image}
-                      alt={conversation.partner.name || 'User'}
-                      fill
-                      className="object-cover"
+              <div className="flex items-start">
+                <div className="flex-shrink-0 mr-4">
+                  {conversation.otherUser.image ? (
+                    <img 
+                      src={conversation.otherUser.image} 
+                      alt={conversation.otherUser.name || "User"} 
+                      className="w-12 h-12 rounded-full object-cover"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.src = "/images/placeholder-avatar.svg";
+                      }}
                     />
                   ) : (
-                    <div className="absolute inset-0 flex items-center justify-center bg-blue-500 text-white text-xl font-medium">
-                      {conversation.partner.name ? conversation.partner.name.charAt(0).toUpperCase() : '?'}
+                    <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center">
+                      <span className="text-gray-500 font-medium">
+                        {conversation.otherUser.name ? conversation.otherUser.name.charAt(0).toUpperCase() : "?"}
+                      </span>
                     </div>
                   )}
                 </div>
-                <div className="ml-4 flex-1">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-gray-900">
-                      {conversation.partner.name || 'User'}
-                    </p>
-                    <p className="text-sm text-gray-500">
+                
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between items-baseline">
+                    <h3 className="text-sm font-medium truncate">
+                      {conversation.otherUser.name || "User"}
+                    </h3>
+                    <span className="text-xs text-gray-500">
                       {formatDistanceToNow(new Date(conversation.lastMessage.createdAt), { addSuffix: true })}
-                    </p>
+                    </span>
                   </div>
-                  <div className="flex items-center justify-between mt-1">
-                    <p className="text-sm text-gray-500 truncate max-w-xs">
-                      {conversation.lastMessage.senderId === currentUserId ? (
-                        <span className="text-gray-400">You: </span>
-                      ) : null}
-                      {conversation.lastMessage.content}
-                    </p>
-                    {conversation.unreadCount > 0 && (
-                      <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-blue-500 rounded-full">
-                        {conversation.unreadCount}
-                      </span>
-                    )}
-                  </div>
+                  
+                  <p className="text-sm text-gray-600 truncate mt-1">
+                    {conversation.lastMessage.content}
+                  </p>
                 </div>
+                
+                {conversation.unreadCount > 0 && (
+                  <div className="ml-3 flex-shrink-0">
+                    <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-blue-600 text-white text-xs font-medium">
+                      {conversation.unreadCount}
+                    </span>
+                  </div>
+                )}
               </div>
             </Link>
-          </li>
-        ))}
-      </ul>
+          ))
+        )}
+      </div>
     </div>
   );
 } 

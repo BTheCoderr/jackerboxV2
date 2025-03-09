@@ -72,6 +72,8 @@ export function AvailabilityCalendar({
         if (!response.ok) {
           throw new Error("Failed to fetch availability");
         }
+      } else {
+      } else {
 
         const data = await response.json();
         
@@ -134,7 +136,7 @@ export function AvailabilityCalendar({
   };
 
   // Generate recurring dates based on the pattern
-  const generateRecurringDates = () => {
+  const generateRecurringDates = () => { { {
     if (!newAvailability.start || !newAvailability.end || !recurrenceEndDate) return [];
     
     // Initialize dates array with proper type
@@ -179,6 +181,8 @@ export function AvailabilityCalendar({
     }
     
     return dates;
+  }
+  }
   };
 
   // Save new availability with recurrence

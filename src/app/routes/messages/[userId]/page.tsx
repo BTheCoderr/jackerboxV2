@@ -1,40 +1,33 @@
-export const dynamic = 'force-dynamic';
-
-import { Metadata } from "next";
-import { getCurrentUser } from "@/lib/auth/auth-utils";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
+import { getCurrentUser } from "@/lib/session";
 import { ChatInterface } from "@/components/messaging/chat-interface";
 
-export const metadata: Metadata = {
-  title: "Messages | Jackerbox",
-  description: "Chat with other users on Jackerbox",
-};
-
-interface MessageDetailPageProps {
+interface MessagesUserPageProps {
   params: {
-    id: string;
+    userId: string;
   };
   searchParams: {
     equipmentId?: string;
   };
 }
 
-export default async function MessageDetailPage({ params, searchParams }: MessageDetailPageProps) {
+export default async function MessagesUserPage({
+  params,
+  searchParams,
+}: MessagesUserPageProps) {
   const currentUser = await getCurrentUser();
 
   if (!currentUser) {
     redirect("/auth/login?callbackUrl=/routes/messages");
   }
 
-  const otherUserId = params.id;
+  const otherUserId = params.userId;
   const equipmentId = searchParams.equipmentId;
-  
-  // Get the other user's details
+
+  // Fetch the other user's details
   const otherUser = await db.user.findUnique({
-    where: {
-      id: otherUserId,
-    },
+    where: { id: otherUserId },
     select: {
       id: true,
       name: true,
@@ -46,21 +39,20 @@ export default async function MessageDetailPage({ params, searchParams }: Messag
     redirect("/routes/messages");
   }
 
-  // Get equipment details if equipmentId is provided
+  // Fetch equipment details if equipmentId is provided
   let equipment = null;
   if (equipmentId) {
     equipment = await db.equipment.findUnique({
-      where: {
-        id: equipmentId,
-      },
+      where: { id: equipmentId },
       select: {
         id: true,
         title: true,
+        images: true,
       },
     });
   }
 
-  // Get initial messages
+  // Fetch existing messages between the two users
   const messages = await db.message.findMany({
     where: {
       OR: [
@@ -86,22 +78,33 @@ export default async function MessageDetailPage({ params, searchParams }: Messag
         },
       },
     },
-    take: 50, // Limit to the most recent 50 messages
   });
+
+  // Mark unread messages as read
+  if (messages.some(m => m.senderId === otherUserId && !m.isRead)) {
+    await db.message.updateMany({
+      where: {
+        senderId: otherUserId,
+        receiverId: currentUser.id,
+        isRead: false,
+      },
+      data: {
+        isRead: true,
+      },
+    });
+  }
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        <ChatInterface
-          currentUserId={currentUser.id}
-          otherUserId={otherUser.id}
-          otherUserName={otherUser.name || "User"}
-          otherUserImage={otherUser.image || "/images/placeholder-avatar.svg"}
-          initialMessages={messages}
-          equipmentId={equipment?.id}
-          equipmentTitle={equipment?.title}
-        />
-      </div>
+      <ChatInterface
+        currentUserId={currentUser.id}
+        otherUserId={otherUser.id}
+        otherUserName={otherUser.name || "User"}
+        otherUserImage={otherUser.image}
+        initialMessages={messages}
+        equipmentId={equipment?.id}
+        equipmentTitle={equipment?.title}
+      />
     </div>
   );
-} 
+}
