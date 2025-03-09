@@ -72,8 +72,6 @@ export function AvailabilityCalendar({
         if (!response.ok) {
           throw new Error("Failed to fetch availability");
         }
-      } else {
-      } else {
 
         const data = await response.json();
         
@@ -136,7 +134,7 @@ export function AvailabilityCalendar({
   };
 
   // Generate recurring dates based on the pattern
-  const generateRecurringDates = () => { { {
+  const generateRecurringDates = () => {
     if (!newAvailability.start || !newAvailability.end || !recurrenceEndDate) return [];
     
     // Initialize dates array with proper type
@@ -181,8 +179,6 @@ export function AvailabilityCalendar({
     }
     
     return dates;
-  }
-  }
   };
 
   // Save new availability with recurrence
@@ -362,13 +358,13 @@ export function AvailabilityCalendar({
           
           {/* Recurring availability options */}
           {isRecurring && (
-            <div className="space-y-4 mb-4 p-4 bg-white rounded-md border">
+            <div className="space-y-4 mb-4 p-4 bg-gray-100 rounded-md">
               <div>
                 <label className="block text-sm font-medium mb-1">Recurrence Type</label>
                 <select
                   value={recurrenceType}
                   onChange={(e) => setRecurrenceType(e.target.value)}
-                  className="w-full p-2 border rounded-md"
+                  className="w-full p-2 border border-gray-300 rounded-md"
                 >
                   <option value="daily">Daily</option>
                   <option value="weekly">Weekly</option>
@@ -376,24 +372,9 @@ export function AvailabilityCalendar({
                 </select>
               </div>
               
-              <div>
-                <label className="block text-sm font-medium mb-1">Repeat Every</label>
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="number"
-                    min="1"
-                    max="12"
-                    value={recurrenceInterval}
-                    onChange={(e) => setRecurrenceInterval(parseInt(e.target.value) || 1)}
-                    className="w-20 p-2 border rounded-md"
-                  />
-                  <span>{recurrenceType === "daily" ? "day(s)" : recurrenceType === "weekly" ? "week(s)" : "month(s)"}</span>
-                </div>
-              </div>
-              
               {recurrenceType === "weekly" && (
                 <div>
-                  <label className="block text-sm font-medium mb-1">On These Days</label>
+                  <label className="block text-sm font-medium mb-1">Days of Week</label>
                   <div className="flex flex-wrap gap-2">
                     {["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"].map((day) => (
                       <button
@@ -410,8 +391,34 @@ export function AvailabilityCalendar({
                       </button>
                     ))}
                   </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {recurrenceDaysOfWeek.length === 0
+                      ? "If no days are selected, the event will repeat weekly on the same day of the week."
+                      : ""}
+                  </p>
                 </div>
               )}
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">Repeat Every</label>
+                <div className="flex items-center">
+                  <input
+                    type="number"
+                    min="1"
+                    max="12"
+                    value={recurrenceInterval}
+                    onChange={(e) => setRecurrenceInterval(parseInt(e.target.value) || 1)}
+                    className="w-16 p-2 border border-gray-300 rounded-md"
+                  />
+                  <span className="ml-2 text-sm">
+                    {recurrenceType === "daily"
+                      ? "day(s)"
+                      : recurrenceType === "weekly"
+                      ? "week(s)"
+                      : "month(s)"}
+                  </span>
+                </div>
+              </div>
               
               <div>
                 <label className="block text-sm font-medium mb-1">End Date</label>
@@ -419,15 +426,9 @@ export function AvailabilityCalendar({
                   type="date"
                   value={recurrenceEndDate ? format(recurrenceEndDate, "yyyy-MM-dd") : ""}
                   onChange={(e) => setRecurrenceEndDate(e.target.value ? new Date(e.target.value) : null)}
-                  className="w-full p-2 border rounded-md"
+                  className="w-full p-2 border border-gray-300 rounded-md"
                 />
               </div>
-              
-              {recurrenceType === "weekly" && recurrenceDaysOfWeek.length > 0 && (
-                <div className="text-sm text-gray-600">
-                  <p>This will create {generateRecurringDates().length} availability periods.</p>
-                </div>
-              )}
             </div>
           )}
           
