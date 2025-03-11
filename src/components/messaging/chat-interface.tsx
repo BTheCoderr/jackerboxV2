@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { formatDistanceToNow } from "date-fns";
 import { useSocket } from "@/hooks/use-socket";
-import { PaperClip, X, Image as ImageIcon, File, Send } from "lucide-react";
+import { PaperclipIcon, X, Image as ImageIcon, File, Send } from "lucide-react";
 
 interface Message {
   id: string;
@@ -615,7 +615,7 @@ export function ChatInterface({
             className="px-3 py-2 bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors"
             disabled={isLoading || isUploading}
           >
-            <PaperClip className="h-5 w-5" />
+            <PaperclipIcon className="h-5 w-5" />
           </button>
           <button
             type="submit"

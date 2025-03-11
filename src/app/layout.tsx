@@ -6,6 +6,7 @@ import { Navbar } from "@/components/layout/navbar";
 import { Analytics } from "@vercel/analytics/react";
 import { MobileLayout } from "@/components/mobile/mobile-layout";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { SessionProvider } from "next-auth/react";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -32,13 +33,15 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col`}
       >
-        <Navbar />
-        <div className="flex-grow">
-          <MobileLayout>{children}</MobileLayout>
-        </div>
-        <Footer />
-        <Analytics />
-        <SpeedInsights />
+        <SessionProvider>
+          <Navbar />
+          <div className="flex-grow">
+            <MobileLayout>{children}</MobileLayout>
+          </div>
+          <Footer />
+          <Analytics />
+          <SpeedInsights />
+        </SessionProvider>
       </body>
     </html>
   );

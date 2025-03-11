@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/auth-utils";
 import { ChatInterface } from "@/components/messaging/chat-interface";
 
+export const dynamic = 'force-dynamic';
+
 interface MessagesUserPageProps {
   params: {
     id: string;
@@ -10,6 +12,11 @@ interface MessagesUserPageProps {
   searchParams: {
     equipmentId?: string;
   };
+}
+
+interface EquipmentData {
+  id: string;
+  title: string;
 }
 
 export default async function MessagesUserPage({
@@ -22,8 +29,13 @@ export default async function MessagesUserPage({
     redirect("/auth/login?callbackUrl=/routes/messages");
   }
 
-  const otherUserId = params.id;
-  const equipmentId = searchParams.equipmentId;
+  // Properly access params and searchParams
+  const otherUserId = params?.id;
+  const equipmentId = searchParams?.equipmentId;
+
+  if (!otherUserId) {
+    redirect("/routes/messages");
+  }
 
   // Fetch the other user's details
   const otherUser = await db.user.findUnique({
@@ -40,16 +52,22 @@ export default async function MessagesUserPage({
   }
 
   // Fetch equipment details if equipmentId is provided
-  let equipment = null;
+  let equipment: EquipmentData | undefined = undefined;
   if (equipmentId) {
-    equipment = await db.equipment.findUnique({
+    const equipmentData = await db.equipment.findUnique({
       where: { id: equipmentId },
       select: {
         id: true,
         title: true,
-        images: true,
       },
     });
+    
+    if (equipmentData) {
+      equipment = {
+        id: equipmentData.id,
+        title: equipmentData.title
+      };
+    }
   }
 
   // Fetch existing messages between the two users
@@ -100,7 +118,7 @@ export default async function MessagesUserPage({
         currentUserId={currentUser.id}
         otherUserId={otherUser.id}
         otherUserName={otherUser.name || "User"}
-        otherUserImage={otherUser.image}
+        otherUserImage={otherUser.image || undefined}
         initialMessages={messages}
         equipmentId={equipment?.id}
         equipmentTitle={equipment?.title}
