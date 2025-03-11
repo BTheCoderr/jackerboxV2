@@ -16,6 +16,7 @@ export interface ExtendedUser {
   verificationToken: string | null;
   twoFactorEnabled: boolean;
   isAdmin: boolean;
+  userType: string | null;
   stripeConnectAccountId: string | null;
   createdAt: string;
   updatedAt: string;

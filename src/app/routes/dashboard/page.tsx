@@ -3,8 +3,9 @@ import { getCurrentUser } from "@/lib/auth/auth-utils";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { formatCurrency } from "@/lib/utils/format";
-import { Calendar, DollarSign, Package, Bell, User, ShoppingBag } from "lucide-react";
+import { Calendar, DollarSign, Package, Bell, User, ShoppingBag, AlertCircle } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
 export const metadata: Metadata = {
   title: "Dashboard | Jackerbox",
@@ -13,8 +14,17 @@ export const metadata: Metadata = {
 
 export const dynamic = 'force-dynamic';
 
-export default async function DashboardPage() {
-  const user = await getCurrentUser();
+// Define the extended user type that includes userType
+interface ExtendedUser {
+  id: string;
+  name: string | null;
+  email: string;
+  userType?: string;
+  [key: string]: any; // Allow other properties
+}
+
+export default async function DashboardPage({ searchParams }: { searchParams: { error?: string } }) {
+  const user = await getCurrentUser() as ExtendedUser;
 
   if (!user) {
     redirect("/auth/login?callbackUrl=/routes/dashboard");
@@ -123,22 +133,101 @@ export default async function DashboardPage() {
     // Check if user is both a renter and an owner
     const isRenter = rentals.length > 0 || rentPayments.length > 0;
     const isOwner = equipment.length > 0 || payments.length > 0;
+    
+    // Get user type from database
+    const userType = user.userType || "both";
+
+    // Determine which section to show by default based on user type
+    const showRenterByDefault = userType === "renter" || userType === "both";
+    const showOwnerByDefault = userType === "owner" || userType === "both";
 
     return (
       <div className="max-w-6xl mx-auto px-4 py-8">
         <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
+        
+        {/* User Role Banner */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 flex items-start">
+          <div className="mr-3 mt-1">
+            <User className="h-5 w-5 text-blue-500" />
+          </div>
+          <div>
+            <h3 className="font-medium text-blue-700">Your Account Type: {userType.charAt(0).toUpperCase() + userType.slice(1)}</h3>
+            {userType === "renter" && (
+              <p className="text-sm text-blue-600 mt-1">
+                You're currently set up as a renter. You can browse and rent equipment from others.
+                {" "}
+                <Link href="/routes/profile/settings" className="underline">
+                  Want to list your own equipment? Update your profile.
+                </Link>
+              </p>
+            )}
+            {userType === "owner" && (
+              <p className="text-sm text-blue-600 mt-1">
+                You're currently set up as an equipment owner. You can list your equipment for others to rent.
+                {" "}
+                <Link href="/routes/profile/settings" className="underline">
+                  Need to rent equipment? Update your profile.
+                </Link>
+              </p>
+            )}
+            {userType === "both" && (
+              <p className="text-sm text-blue-600 mt-1">
+                You can both rent equipment and list your own equipment for others to rent.
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Error Messages */}
+        {searchParams.error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 flex items-start">
+            <AlertCircle className="h-5 w-5 text-red-500 mr-3 mt-1" />
+            <div>
+              <h3 className="font-medium text-red-700">Access Restricted</h3>
+              {searchParams.error === "ownerOnly" && (
+                <p className="text-sm text-red-600 mt-1">
+                  That page is only available to equipment owners. 
+                  {userType !== "both" && (
+                    <span> To list equipment, you need to <Link href="/routes/profile/settings" className="underline">update your profile</Link> to be an owner or both.</span>
+                  )}
+                </p>
+              )}
+              {searchParams.error === "renterOnly" && (
+                <p className="text-sm text-red-600 mt-1">
+                  That page is only available to renters. 
+                  {userType !== "both" && (
+                    <span> To rent equipment, you need to <Link href="/routes/profile/settings" className="underline">update your profile</Link> to be a renter or both.</span>
+                  )}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Role Selection Tabs */}
         <div className="mb-8 border-b border-gray-200">
           <div className="flex space-x-8">
             <button 
-              className="py-4 px-1 border-b-2 border-blue-500 font-medium text-blue-600 focus:outline-none"
+              className={`py-4 px-1 border-b-2 font-medium focus:outline-none ${showRenterByDefault ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
               onClick={() => {
                 const renterSection = document.getElementById('renter-section');
                 const ownerSection = document.getElementById('owner-section');
                 if (renterSection) renterSection.classList.remove('hidden');
                 if (ownerSection) ownerSection.classList.add('hidden');
+                
+                // Update button styles
+                const renterButton = document.getElementById('renter-tab');
+                const ownerButton = document.getElementById('owner-tab');
+                if (renterButton) {
+                  renterButton.classList.add('border-blue-500', 'text-blue-600');
+                  renterButton.classList.remove('border-transparent', 'text-gray-500');
+                }
+                if (ownerButton) {
+                  ownerButton.classList.remove('border-blue-500', 'text-blue-600');
+                  ownerButton.classList.add('border-transparent', 'text-gray-500');
+                }
               }}
+              id="renter-tab"
             >
               <div className="flex items-center">
                 <User className="w-5 h-5 mr-2" />
@@ -146,13 +235,26 @@ export default async function DashboardPage() {
               </div>
             </button>
             <button 
-              className="py-4 px-1 border-b-2 border-transparent font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300 focus:outline-none"
+              className={`py-4 px-1 border-b-2 font-medium focus:outline-none ${!showRenterByDefault && showOwnerByDefault ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
               onClick={() => {
                 const renterSection = document.getElementById('renter-section');
                 const ownerSection = document.getElementById('owner-section');
                 if (renterSection) renterSection.classList.add('hidden');
                 if (ownerSection) ownerSection.classList.remove('hidden');
+                
+                // Update button styles
+                const renterButton = document.getElementById('renter-tab');
+                const ownerButton = document.getElementById('owner-tab');
+                if (renterButton) {
+                  renterButton.classList.remove('border-blue-500', 'text-blue-600');
+                  renterButton.classList.add('border-transparent', 'text-gray-500');
+                }
+                if (ownerButton) {
+                  ownerButton.classList.add('border-blue-500', 'text-blue-600');
+                  ownerButton.classList.remove('border-transparent', 'text-gray-500');
+                }
               }}
+              id="owner-tab"
             >
               <div className="flex items-center">
                 <ShoppingBag className="w-5 h-5 mr-2" />
@@ -163,7 +265,16 @@ export default async function DashboardPage() {
         </div>
 
         {/* Renter Section */}
-        <div id="renter-section" className="mb-10">
+        <div id="renter-section" className={`mb-10 ${showRenterByDefault ? '' : 'hidden'}`}>
+          {userType === "owner" && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+              <p className="text-sm text-yellow-700">
+                <span className="font-medium">Note:</span> Your account is set as an "owner" account. To rent equipment, 
+                <Link href="/routes/profile/settings" className="underline ml-1">update your profile</Link> to be a "renter" or "both".
+              </p>
+            </div>
+          )}
+          
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             {/* Renter Stats */}
             <div className="bg-white rounded-lg shadow hover:shadow-md transition-shadow p-6">
@@ -261,8 +372,17 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* Owner Section - Hidden by default */}
-        <div id="owner-section" className="hidden mb-10">
+        {/* Owner Section */}
+        <div id="owner-section" className={`mb-10 ${!showRenterByDefault && showOwnerByDefault ? '' : 'hidden'}`}>
+          {userType === "renter" && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+              <p className="text-sm text-yellow-700">
+                <span className="font-medium">Note:</span> Your account is set as a "renter" account. To list equipment, 
+                <Link href="/routes/profile/settings" className="underline ml-1">update your profile</Link> to be an "owner" or "both".
+              </p>
+            </div>
+          )}
+          
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             {/* Owner Stats */}
             <div className="bg-white rounded-lg shadow hover:shadow-md transition-shadow p-6">
@@ -337,12 +457,21 @@ export default async function DashboardPage() {
               )}
             </div>
             <div className="px-6 py-3 bg-gray-50 border-t border-gray-200">
-              <Link
-                href="/routes/equipment/new"
-                className="text-sm text-blue-600 hover:underline"
-              >
-                List new equipment
-              </Link>
+              {userType === "owner" || userType === "both" ? (
+                <Link
+                  href="/routes/equipment/new"
+                  className="text-sm text-blue-600 hover:underline"
+                >
+                  List new equipment
+                </Link>
+              ) : (
+                <Link
+                  href="/routes/profile/settings"
+                  className="text-sm text-blue-600 hover:underline"
+                >
+                  Update profile to list equipment
+                </Link>
+              )}
             </div>
           </div>
 
@@ -426,12 +555,21 @@ export default async function DashboardPage() {
                 <p className="text-gray-500 mb-4">
                   Earn money by renting out your equipment to others.
                 </p>
-                <Link
-                  href="/routes/equipment/new"
-                  className="inline-block px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600"
-                >
-                  List Equipment
-                </Link>
+                {userType === "renter" ? (
+                  <Link
+                    href="/routes/profile/settings"
+                    className="inline-block px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600"
+                  >
+                    Update Profile to List
+                  </Link>
+                ) : (
+                  <Link
+                    href="/routes/equipment/new"
+                    className="inline-block px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600"
+                  >
+                    List Equipment
+                  </Link>
+                )}
               </div>
             </div>
           </div>

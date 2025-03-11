@@ -14,6 +14,7 @@ const registerSchema = z.object({
   phone: z.string().min(10, "Please enter a valid phone number").optional(),
   password: z.string().min(8, "Password must be at least 8 characters"),
   confirmPassword: z.string(),
+  userType: z.enum(["owner", "renter", "both"]),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords do not match",
   path: ["confirmPassword"],
@@ -38,6 +39,7 @@ export function RegisterForm() {
       phone: "",
       password: "",
       confirmPassword: "",
+      userType: "both",
     },
   });
   
@@ -56,6 +58,7 @@ export function RegisterForm() {
           email: data.email,
           phone: data.phone,
           password: data.password,
+          userType: data.userType,
         }),
       });
       
@@ -179,6 +182,25 @@ export function RegisterForm() {
           />
           {errors.confirmPassword && (
             <p className="text-red-500 text-xs mt-1">{errors.confirmPassword.message}</p>
+          )}
+        </div>
+        
+        <div className="space-y-1">
+          <label htmlFor="userType" className="text-sm font-medium">
+            I want to use Jackerbox as a:
+          </label>
+          <select
+            id="userType"
+            {...register("userType")}
+            className="w-full p-2 border rounded-md"
+            disabled={isLoading}
+          >
+            <option value="both">Both Renter and Owner</option>
+            <option value="renter">Renter Only</option>
+            <option value="owner">Equipment Owner Only</option>
+          </select>
+          {errors.userType && (
+            <p className="text-red-500 text-xs mt-1">{errors.userType.message}</p>
           )}
         </div>
         

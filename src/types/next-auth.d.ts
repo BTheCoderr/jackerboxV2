@@ -6,11 +6,13 @@ declare module "next-auth" {
       id: string;
       isAdmin?: boolean;
       stripeConnectAccountId?: string;
+      userType?: string;
     } & DefaultSession["user"];
   }
   
   interface User {
     isAdmin?: boolean;
     stripeConnectAccountId?: string;
+    userType?: string;
   }
 } 
