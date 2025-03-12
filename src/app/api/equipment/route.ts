@@ -53,6 +53,20 @@ export async function POST(req: Request) {
       );
     }
     
+    // Check if user is a renter (has rental history)
+    const userRentals = await db.rental.count({
+      where: {
+        renterId: user.id
+      }
+    });
+    
+    if (userRentals > 0) {
+      return NextResponse.json(
+        { message: "Renters cannot create equipment listings. Please use a separate owner account." },
+        { status: 403 }
+      );
+    }
+    
     const body = await req.json();
     const validatedData = equipmentSchema.parse(body);
     
@@ -98,45 +112,39 @@ export async function POST(req: Request) {
 
 export async function GET(req: Request) {
   try {
-    const { searchParams } = new URL(req.url);
-    const category = searchParams.get("category");
-    const location = searchParams.get("location");
-    const query = searchParams.get("query");
+    const url = new URL(req.url);
+    const limit = parseInt(url.searchParams.get("limit") || "10");
+    const page = parseInt(url.searchParams.get("page") || "1");
+    const category = url.searchParams.get("category");
+    const search = url.searchParams.get("search");
     
-    let whereClause: any = {
+    // Calculate pagination
+    const skip = (page - 1) * limit;
+    
+    // Build the where clause
+    const where: any = {
       isAvailable: true,
     };
     
     if (category) {
-      whereClause.category = category;
+      where.category = category;
     }
     
-    if (location) {
-      whereClause.location = {
-        contains: location,
-      };
-    }
-    
-    if (query) {
-      whereClause.OR = [
-        {
-          title: {
-            contains: query,
-          },
-        },
-        {
-          description: {
-            contains: query,
-          },
-        },
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: "insensitive" } },
+        { description: { contains: search, mode: "insensitive" } },
       ];
     }
     
+    // Fetch equipment
     const equipment = await db.equipment.findMany({
-      where: whereClause,
+      where,
       orderBy: {
         createdAt: "desc",
       },
+      take: limit,
+      skip,
       include: {
         owner: {
           select: {
@@ -148,9 +156,49 @@ export async function GET(req: Request) {
       },
     });
     
-    return NextResponse.json({ equipment });
+    // Count total equipment for pagination
+    const total = await db.equipment.count({ where });
+    
+    // Process equipment to parse JSON fields
+    const processedEquipment = equipment.map(item => {
+      // Parse images JSON if it exists
+      let images: string[] = [];
+      if (item.imagesJson) {
+        try {
+          images = JSON.parse(item.imagesJson);
+        } catch (e) {
+          console.error("Error parsing images JSON:", e);
+        }
+      }
+      
+      // Parse tags JSON if it exists
+      let tags: string[] = [];
+      if (item.tagsJson) {
+        try {
+          tags = JSON.parse(item.tagsJson);
+        } catch (e) {
+          console.error("Error parsing tags JSON:", e);
+        }
+      }
+      
+      return {
+        ...item,
+        images,
+        tags,
+      };
+    });
+    
+    return NextResponse.json({
+      equipment: processedEquipment,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
   } catch (error) {
-    console.error("Equipment fetch error:", error);
+    console.error("Error fetching equipment:", error);
     return NextResponse.json(
       { message: "Something went wrong. Please try again." },
       { status: 500 }

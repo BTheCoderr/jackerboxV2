@@ -1,31 +1,52 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
-import { getCurrentUser } from "@/lib/auth/auth-utils";
-import { db } from "@/lib/db";
+import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import { EQUIPMENT_CATEGORIES } from "@/lib/constants";
 
-export default async function HomePage() {
-  const user = await getCurrentUser();
+interface Equipment {
+  id: string;
+  title: string;
+  description: string;
+  condition: string;
+  location: string;
+  hourlyRate: number | null;
+  dailyRate: number | null;
+  weeklyRate: number | null;
+  isVerified: boolean;
+  images?: string[];
+  imagesJson?: string;
+  owner: {
+    id: string;
+    name: string | null;
+    image: string | null;
+  };
+}
+
+export default function HomePage() {
+  const { data: session } = useSession();
+  const [featuredEquipment, setFeaturedEquipment] = useState<Equipment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   
-  // Fetch featured equipment (most recent 6 listings)
-  const featuredEquipment = await db.equipment.findMany({
-    where: {
-      isAvailable: true,
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-    take: 6,
-    include: {
-      owner: {
-        select: {
-          id: true,
-          name: true,
-          image: true,
-        },
-      },
-    },
-  });
+  useEffect(() => {
+    const fetchFeaturedEquipment = async () => {
+      try {
+        const response = await fetch('/api/equipment?limit=6');
+        if (response.ok) {
+          const data = await response.json();
+          setFeaturedEquipment(data.equipment);
+        }
+      } catch (error) {
+        console.error("Error fetching featured equipment:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchFeaturedEquipment();
+  }, []);
   
   // Get a subset of categories for the homepage
   // Make sure EQUIPMENT_CATEGORIES is treated as an array
@@ -56,7 +77,7 @@ export default async function HomePage() {
                 >
                   Find Equipment
                 </Link>
-                {user ? (
+                {session?.user ? (
                   <Link
                     href="/routes/equipment/new"
                     className="px-6 py-3 border border-jacker-blue text-jacker-blue rounded-md hover:bg-jacker-blue hover:text-white transition-colors text-center"
@@ -147,7 +168,11 @@ export default async function HomePage() {
             </Link>
           </div>
           
-          {featuredEquipment.length === 0 ? (
+          {isLoading ? (
+            <div className="flex justify-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+            </div>
+          ) : featuredEquipment.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-gray-500">No equipment listings yet.</p>
             </div>
@@ -163,6 +188,14 @@ export default async function HomePage() {
                     {equipment.images && equipment.images.length > 0 ? (
                       <Image
                         src={equipment.images[0]}
+                        alt={equipment.title}
+                        width={400}
+                        height={300}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : equipment.imagesJson ? (
+                      <Image
+                        src={JSON.parse(equipment.imagesJson)[0] || `https://res.cloudinary.com/dgtqpyphg/image/upload/v1741276323/jackerbox/equipment-sample-${(equipment.id.charCodeAt(0) % 5) + 1}.jpg`}
                         alt={equipment.title}
                         width={400}
                         height={300}
@@ -220,7 +253,17 @@ export default async function HomePage() {
                       </div>
                       
                       <div className="flex items-center">
-                        <div className="w-6 h-6 rounded-full bg-gray-200 mr-2"></div>
+                        {equipment.owner.image ? (
+                          <Image
+                            src={equipment.owner.image}
+                            alt={equipment.owner.name || "Owner"}
+                            width={24}
+                            height={24}
+                            className="w-6 h-6 rounded-full mr-2"
+                          />
+                        ) : (
+                          <div className="w-6 h-6 rounded-full bg-gray-200 mr-2"></div>
+                        )}
                         <span className="text-sm text-gray-600">
                           {equipment.owner.name || "Owner"}
                         </span>
@@ -248,54 +291,83 @@ export default async function HomePage() {
                 <h3 className="text-lg font-medium group-hover:text-jacker-blue">
                   {category}
                 </h3>
-                <p className="text-sm text-gray-500 mt-1">
-                  Find {category.toLowerCase()} for your next project
-                </p>
               </Link>
             ))}
           </div>
-          <div className="text-center mt-8">
-            <Link
-              href="/routes/equipment"
-              className="inline-block px-6 py-3 border border-jacker-blue text-jacker-blue rounded-md hover:bg-jacker-blue hover:text-white transition-colors"
-            >
-              View All Categories
-            </Link>
+        </div>
+      </section>
+      
+      {/* Testimonials Section */}
+      <section className="py-16 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-6">
+          <h2 className="text-3xl font-bold text-center mb-12">What Our Users Say</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="bg-white p-6 rounded-lg shadow-sm">
+              <div className="flex items-center mb-4">
+                <div className="w-12 h-12 bg-gray-200 rounded-full mr-4"></div>
+                <div>
+                  <h3 className="font-medium">John D.</h3>
+                  <p className="text-sm text-gray-500">Equipment Owner</p>
+                </div>
+              </div>
+              <p className="text-gray-600">
+                "I've made over $2,000 renting out my tools that were just sitting in my garage. Jackerbox made it easy to list and manage my equipment."
+              </p>
+            </div>
+            <div className="bg-white p-6 rounded-lg shadow-sm">
+              <div className="flex items-center mb-4">
+                <div className="w-12 h-12 bg-gray-200 rounded-full mr-4"></div>
+                <div>
+                  <h3 className="font-medium">Sarah M.</h3>
+                  <p className="text-sm text-gray-500">Renter</p>
+                </div>
+              </div>
+              <p className="text-gray-600">
+                "Saved me hundreds on a weekend project. Found exactly what I needed, and the owner was super helpful with tips on how to use the equipment."
+              </p>
+            </div>
+            <div className="bg-white p-6 rounded-lg shadow-sm">
+              <div className="flex items-center mb-4">
+                <div className="w-12 h-12 bg-gray-200 rounded-full mr-4"></div>
+                <div>
+                  <h3 className="font-medium">Michael T.</h3>
+                  <p className="text-sm text-gray-500">Equipment Owner & Renter</p>
+                </div>
+              </div>
+              <p className="text-gray-600">
+                "I both rent and list equipment on Jackerbox. The platform is intuitive, and the customer service is excellent. Highly recommend!"
+              </p>
+            </div>
           </div>
         </div>
       </section>
       
       {/* CTA Section */}
-      <section className="py-16 bg-jacker-blue text-white">
-        <div className="max-w-7xl mx-auto px-6 text-center">
-          <h2 className="text-3xl font-bold mb-4">Ready to start renting?</h2>
-          <p className="text-xl mb-8 max-w-2xl mx-auto">
-            Join thousands of people who are already saving money by renting
-            equipment instead of buying, or making extra income by renting out
-            their gear.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              href="/routes/equipment"
-              className="px-6 py-3 bg-white text-jacker-blue rounded-md hover:bg-gray-100"
-            >
-              Find Equipment
-            </Link>
-            {user ? (
-              <Link
-                href="/routes/equipment/new"
-                className="px-6 py-3 border border-white rounded-md hover:bg-jacker-blue hover:bg-opacity-80"
-              >
-                List Your Equipment
-              </Link>
-            ) : (
-              <Link
-                href="/auth/register"
-                className="px-6 py-3 bg-jacker-orange text-white rounded-md hover:bg-opacity-90"
-              >
-                Sign Up
-              </Link>
-            )}
+      <section className="py-16">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="bg-jacker-blue text-white rounded-lg p-8 md:p-12">
+            <div className="max-w-3xl mx-auto text-center">
+              <h2 className="text-3xl font-bold mb-4">Ready to get started?</h2>
+              <p className="text-xl mb-8">
+                Join thousands of users who are already saving money and making extra income with Jackerbox.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Link
+                  href="/routes/equipment"
+                  className="px-6 py-3 bg-white text-jacker-blue rounded-md hover:bg-gray-100 text-center"
+                >
+                  Browse Equipment
+                </Link>
+                {!session?.user && (
+                  <Link
+                    href="/auth/register"
+                    className="px-6 py-3 bg-jacker-orange text-white rounded-md hover:bg-opacity-90 text-center"
+                  >
+                    Create Account
+                  </Link>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </section>
