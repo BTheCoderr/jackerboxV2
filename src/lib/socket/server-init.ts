@@ -157,7 +157,7 @@ export async function initServer() {
   global.__socketServer.lastInitAttempt = Date.now();
 
   try {
-    console.log('Initializing socket.io server for API route');
+    console.log(`Initializing socket.io server for ${process.env.NODE_ENV} environment`);
     
     // Create a new HTTP server
     const httpServer = createServer();
@@ -167,8 +167,11 @@ export async function initServer() {
     const io = new SocketIOServer(httpServer, {
       path: '/api/socket',
       cors: {
-        origin: '*',
+        origin: process.env.NODE_ENV === 'production' 
+          ? [process.env.NEXTAUTH_URL || '', 'https://jackerbox.vercel.app'] 
+          : '*',
         methods: ['GET', 'POST'],
+        credentials: true
       },
       // Increase ping intervals to reduce polling frequency
       pingInterval: 60000, // 60 seconds

@@ -60,6 +60,7 @@ export function useSocket(): UseSocketReturn {
 
     try {
       setStatus('connecting');
+      console.log('Connecting to socket server...');
       
       // Create a new socket connection
       // Use the proxy route instead of connecting directly to the socket server
@@ -77,7 +78,7 @@ export function useSocket(): UseSocketReturn {
 
       // Set up event handlers
       socketInstance.on('connect', () => {
-        console.log('Socket connected');
+        console.log('Socket connected successfully');
         setStatus('connected');
         setError(null);
       });
