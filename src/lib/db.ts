@@ -3,18 +3,16 @@ import { withAccelerate } from '@prisma/extension-accelerate';
 
 // PrismaClient is attached to the `global` object in development to prevent
 // exhausting your database connection limit.
-const globalForPrisma = global as unknown as { prisma: PrismaClient };
+const globalForPrisma = global as unknown as { 
+  prisma: PrismaClient;
+};
 
 // Cache configuration
 const CACHE_TTL = 60; // 60 seconds default cache TTL
 const QUERY_CACHE_ENABLED = process.env.NODE_ENV === 'production';
 
-// Connection pooling settings
-const MIN_CONNECTIONS = parseInt(process.env.PRISMA_CONNECTION_POOL_MIN || '1', 10);
-const MAX_CONNECTIONS = parseInt(process.env.PRISMA_CONNECTION_POOL_MAX || '10', 10);
-
 const prismaClientSingleton = () => {
-  // Create Prisma client with connection pooling
+  // Create Prisma client
   const client = new PrismaClient({
     log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
     datasources: {
@@ -49,7 +47,7 @@ const prismaClientSingleton = () => {
 
 // Fallback mechanism for database connection issues
 process.on('unhandledRejection', (reason) => {
-  if (reason instanceof Error && reason.message.includes('Connection')) {
+  if (reason instanceof Error && reason.message.includes('connection')) {
     console.error('Database connection error detected, attempting to reconnect...');
     
     // If we have a direct database URL, try to use it
@@ -60,6 +58,7 @@ process.on('unhandledRejection', (reason) => {
       // Force recreation of the Prisma client
       if (globalForPrisma.prisma) {
         globalForPrisma.prisma.$disconnect().catch(console.error);
+        // @ts-ignore - We need to delete the property to force recreation
         delete globalForPrisma.prisma;
       }
     }
