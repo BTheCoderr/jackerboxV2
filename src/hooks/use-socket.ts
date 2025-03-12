@@ -51,6 +51,8 @@ export function useSocket(): UseSocketReturn {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [status, setStatus] = useState<SocketStatus>('disconnected');
   const [error, setError] = useState<Error | null>(null);
+  const reconnectAttempts = useRef(0);
+  const maxReconnectAttempts = 5;
 
   // Connect to the socket server
   const connect = useCallback(() => {
@@ -72,21 +74,27 @@ export function useSocket(): UseSocketReturn {
       const isProd = isProduction();
       console.log(`Environment detected: ${isProd ? 'production' : 'development'}`);
       
+      // Get the base URL
+      const baseUrl = isProd 
+        ? window.location.origin 
+        : 'http://localhost:3000';
+      
+      console.log(`Using base URL: ${baseUrl}`);
+      
       // Create a new socket connection
-      // Use the proxy route instead of connecting directly to the socket server
-      const socketInstance = io({
+      const socketInstance = io(baseUrl, {
         path: '/api/socket',
         autoConnect: true,
         reconnection: true,
-        reconnectionAttempts: 5,
+        reconnectionAttempts: maxReconnectAttempts,
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
         timeout: 20000,
         // In production, prioritize polling over websocket to avoid connection issues
         // In development, prefer websocket
         transports: isProd ? ['polling', 'websocket'] : ['websocket', 'polling'],
-        // Increase polling timeout for better reliability
-        pollingDuration: 30000,
+        // Additional options for better reliability
+        forceNew: true,
       });
 
       // Set up event handlers
@@ -95,12 +103,21 @@ export function useSocket(): UseSocketReturn {
         console.log(`Transport: ${socketInstance.io.engine.transport.name}`);
         setStatus('connected');
         setError(null);
+        reconnectAttempts.current = 0;
       });
 
       socketInstance.on('connect_error', (err) => {
         console.error('Socket connection error:', err);
         setStatus('error');
         setError(err);
+        
+        // Increment reconnect attempts
+        reconnectAttempts.current++;
+        
+        if (reconnectAttempts.current >= maxReconnectAttempts) {
+          console.log(`Max reconnect attempts (${maxReconnectAttempts}) reached, giving up`);
+          socketInstance.disconnect();
+        }
       });
 
       socketInstance.on('disconnect', (reason) => {
