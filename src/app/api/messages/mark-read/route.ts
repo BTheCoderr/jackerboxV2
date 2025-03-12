@@ -3,6 +3,8 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/auth-utils";
 
+export const dynamic = 'force-dynamic';
+
 // Schema for marking messages as read
 const markReadSchema = z.object({
   messageIds: z.array(z.string()).min(1, "At least one message ID is required"),

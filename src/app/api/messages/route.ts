@@ -3,6 +3,8 @@ import { getCurrentUser } from "@/lib/auth/auth-utils";
 import { db } from "@/lib/db";
 import { z } from "zod";
 
+export const dynamic = 'force-dynamic';
+
 // Schema for creating a message
 const messageSchema = z.object({
   content: z.string().min(1, "Message content is required"),
