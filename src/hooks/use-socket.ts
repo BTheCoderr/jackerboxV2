@@ -40,6 +40,12 @@ export interface UseSocketReturn {
   disconnect: () => void;
 }
 
+// Helper to determine if we're in production
+const isProduction = () => {
+  return process.env.NODE_ENV === 'production' || 
+         typeof window !== 'undefined' && window.location.hostname !== 'localhost';
+};
+
 export function useSocket(): UseSocketReturn {
   const { data: session, status: sessionStatus } = useSession();
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -62,6 +68,10 @@ export function useSocket(): UseSocketReturn {
       setStatus('connecting');
       console.log('Connecting to socket server...');
       
+      // Determine if we're in production
+      const isProd = isProduction();
+      console.log(`Environment detected: ${isProd ? 'production' : 'development'}`);
+      
       // Create a new socket connection
       // Use the proxy route instead of connecting directly to the socket server
       const socketInstance = io({
@@ -72,13 +82,17 @@ export function useSocket(): UseSocketReturn {
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
         timeout: 20000,
-        // Prefer WebSocket transport
-        transports: ['websocket', 'polling'],
+        // In production, prioritize polling over websocket to avoid connection issues
+        // In development, prefer websocket
+        transports: isProd ? ['polling', 'websocket'] : ['websocket', 'polling'],
+        // Increase polling timeout for better reliability
+        pollingDuration: 30000,
       });
 
       // Set up event handlers
       socketInstance.on('connect', () => {
         console.log('Socket connected successfully');
+        console.log(`Transport: ${socketInstance.io.engine.transport.name}`);
         setStatus('connected');
         setError(null);
       });
@@ -98,6 +112,11 @@ export function useSocket(): UseSocketReturn {
         console.error('Socket error:', err);
         setStatus('error');
         setError(new Error(err));
+      });
+
+      // Log transport changes
+      socketInstance.io.engine.on('upgrade', (transport) => {
+        console.log(`Transport upgraded to: ${transport}`);
       });
 
       // Store the socket instance

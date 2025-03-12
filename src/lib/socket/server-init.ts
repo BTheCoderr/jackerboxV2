@@ -3,6 +3,7 @@ import { Server as SocketIOServer } from 'socket.io';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth-options';
 import { AddressInfo } from 'net';
+import { configureForServerless } from './vercel-adapter';
 
 // This is a workaround to make the HTTP server available to socket.io
 // in the Next.js App Router environment
@@ -176,14 +177,25 @@ export async function initServer() {
       // Increase ping intervals to reduce polling frequency
       pingInterval: 60000, // 60 seconds
       pingTimeout: 30000,  // 30 seconds
-      // Prefer WebSocket transport
-      transports: ['websocket', 'polling'],
+      // In production, prioritize polling over websocket
+      transports: process.env.NODE_ENV === 'production' 
+        ? ['polling', 'websocket'] 
+        : ['websocket', 'polling'],
       // Allow upgrades from polling to websocket
       allowUpgrades: true,
       upgradeTimeout: 10000,
+      // Additional options for better performance in serverless environments
+      connectTimeout: 45000,
+      // Disable per-message deflate compression for better performance
+      perMessageDeflate: false,
     });
     
     global.__socketServer.io = io;
+    
+    // Configure for serverless if in production
+    if (process.env.NODE_ENV === 'production') {
+      configureForServerless(io);
+    }
     
     // Set up authentication middleware
     io.use(async (socket, next) => {
