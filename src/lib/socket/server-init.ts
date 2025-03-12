@@ -194,7 +194,12 @@ export async function initServer() {
     
     // Configure for serverless if in production
     if (process.env.NODE_ENV === 'production') {
-      configureForServerless(io);
+      try {
+        await configureForServerless(io);
+      } catch (error) {
+        console.error('Error configuring for serverless:', error);
+        console.log('Continuing with default configuration');
+      }
     }
     
     // Set up authentication middleware
