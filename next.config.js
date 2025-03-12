@@ -24,8 +24,11 @@ const nextConfig = {
       bodySizeLimit: '2mb',
       allowedOrigins: ['localhost:3000', 'jackerbox.vercel.app', 'jackerbox.netlify.app']
     },
-    serverComponentsExternalPackages: ['bcrypt'],
+    // Fast refresh is now controlled here in Next.js 15
+    fastRefresh: false,
   },
+  // Moved from experimental.serverComponentsExternalPackages
+  serverExternalPackages: ['bcrypt'],
   // Add this to handle dynamic server usage errors
   serverRuntimeConfig: {
     // Will only be available on the server side
@@ -52,10 +55,6 @@ const nextConfig = {
     }
     config.externals = [...config.externals, 'bcrypt'];
     return config;
-  },
-  // Disable fast refresh to prevent console errors
-  devOptions: {
-    fastRefresh: false,
   }
 };
 
