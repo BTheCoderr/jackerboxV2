@@ -2,7 +2,11 @@ import { Server as NetServer } from "http";
 import { Server as SocketIOServer } from "socket.io";
 import { NextApiRequest } from "next";
 import { NextApiResponse } from "next";
-import { getSession } from "next-auth/react";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth/auth-options";
+
+// Global instance to maintain socket connection across API calls
+let io: SocketIOServer | null = null;
 
 export type NextApiResponseWithSocket = NextApiResponse & {
   socket: {
@@ -12,22 +16,57 @@ export type NextApiResponseWithSocket = NextApiResponse & {
   };
 };
 
-export const initSocketServer = (req: NextApiRequest, res: NextApiResponseWithSocket) => {
-  if (!res.socket.server.io) {
-    console.log("Initializing Socket.io server...");
+export const initSocketServer = async (req: Request) => {
+  // If socket.io server is already initialized, return it
+  if (io) {
+    return io;
+  }
+
+  // In production, we'll use a different approach
+  const isProduction = process.env.NODE_ENV === 'production';
+  
+  if (isProduction) {
+    console.log("Production environment detected, using socket.io client-only mode");
+    // In production, we'll just return null and let the client handle reconnection
+    return null;
+  }
+
+  try {
+    // Get the server instance (only in development)
+    const server = (globalThis as any).__server;
+    if (!server) {
+      console.error("HTTP server not available for socket.io");
+      console.log("Using fallback mode for socket.io - client will use polling");
+      return null;
+    }
+
+    console.log("Initializing Socket.io server in development mode...");
     
-    const io = new SocketIOServer(res.socket.server, {
+    // Create a new socket.io server
+    io = new SocketIOServer(server, {
       path: "/api/socket",
       addTrailingSlash: false,
-    });
-    
-    // Store the Socket.io server instance
-    res.socket.server.io = io;
+      cors: {
+        origin: "*",
+        methods: ["GET", "POST"],
+      },
+      // Increase ping intervals to reduce polling frequency
+      pingInterval: 60000, // Increase from default 25000ms to 60000ms (60 seconds)
+      pingTimeout: 30000,  // Increase from default 20000ms to 30000ms (30 seconds)
+      // Prefer WebSocket transport
+      transports: ["websocket", "polling"],
+      // Allow upgrades from polling to websocket
+      allowUpgrades: true,
+      upgradeTimeout: 10000,
+      // Force clients to use websocket if possible
+      connectTimeout: 45000,
+    } as any);
     
     // Set up authentication middleware
     io.use(async (socket, next) => {
       try {
-        const session = await getSession({ req: socket.request as any });
+        // Get the session from the socket request
+        const session = await getServerSession(authOptions);
         
         if (!session || !session.user) {
           return next(new Error("Unauthorized"));
@@ -37,6 +76,7 @@ export const initSocketServer = (req: NextApiRequest, res: NextApiResponseWithSo
         socket.data.user = session.user;
         next();
       } catch (error) {
+        console.error("Socket authentication error:", error);
         next(new Error("Authentication error"));
       }
     });
@@ -45,70 +85,29 @@ export const initSocketServer = (req: NextApiRequest, res: NextApiResponseWithSo
     io.on("connection", (socket) => {
       console.log(`Socket connected: ${socket.id}`);
       
-      // Join user's room for private messages
-      if (socket.data.user?.id) {
-        socket.join(`user:${socket.data.user.id}`);
+      // Log transport type
+      const transport = socket.conn.transport.name; // websocket or polling
+      console.log(`Socket transport: ${transport}`);
+      
+      if (transport === "polling") {
+        console.log("Client is using polling fallback - this may impact performance");
       }
       
-      // Handle joining a chat room
-      socket.on("join_chat", (data) => {
-        const { chatId } = data;
-        socket.join(`chat:${chatId}`);
-        console.log(`Socket ${socket.id} joined chat:${chatId}`);
-      });
-      
-      // Handle leaving a chat room
-      socket.on("leave_chat", (data) => {
-        const { chatId } = data;
-        socket.leave(`chat:${chatId}`);
-        console.log(`Socket ${socket.id} left chat:${chatId}`);
-      });
-      
-      // Handle sending a message
-      socket.on("send_message", (data) => {
-        const { chatId, message } = data;
-        
-        // Broadcast to all users in the chat room
-        io.to(`chat:${chatId}`).emit("receive_message", {
-          ...message,
-          sender: {
-            id: socket.data.user.id,
-            name: socket.data.user.name,
-            image: socket.data.user.image,
-          },
-        });
-        
-        // Also send to the recipient's personal room
-        if (message.receiverId) {
-          io.to(`user:${message.receiverId}`).emit("new_message_notification", {
-            ...message,
-            sender: {
-              id: socket.data.user.id,
-              name: socket.data.user.name,
-              image: socket.data.user.image,
-            },
-          });
-        }
-      });
-      
-      // Handle typing indicator
-      socket.on("typing", (data) => {
-        const { chatId, isTyping } = data;
-        
-        // Broadcast typing status to all users in the chat room except sender
-        socket.to(`chat:${chatId}`).emit("user_typing", {
-          userId: socket.data.user.id,
-          userName: socket.data.user.name,
-          isTyping,
-        });
-      });
-      
       // Handle disconnection
-      socket.on("disconnect", () => {
-        console.log(`Socket disconnected: ${socket.id}`);
+      socket.on("disconnect", (reason) => {
+        console.log(`Socket disconnected: ${socket.id}, reason: ${reason}`);
+      });
+      
+      // Handle transport change
+      socket.conn.on("upgrade", (transport) => {
+        console.log(`Socket transport upgraded to: ${transport.name}`);
       });
     });
+    
+    console.log("Socket server initialized successfully");
+    return io;
+  } catch (error) {
+    console.error("Error initializing socket server:", error);
+    return null;
   }
-  
-  return res.socket.server.io;
 }; 
