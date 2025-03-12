@@ -287,13 +287,11 @@ export async function initServer() {
 }
 
 // Initialize the server when this module is imported
-// but only in development mode
-if (process.env.NODE_ENV !== 'production') {
-  initServer().catch(error => {
-    console.error('Failed to initialize socket server:', error);
-    console.log('Socket server initialization failed, will use fallback mode');
-  });
-}
+// in all environments
+initServer().catch(error => {
+  console.error('Failed to initialize socket server:', error);
+  console.log('Socket server initialization failed, will use fallback mode');
+});
 
 // Export the socket.io server instance getter
 export function getSocketServer() {

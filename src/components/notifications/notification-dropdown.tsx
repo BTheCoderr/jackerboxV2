@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Bell } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 interface Notification {
   id: string;
@@ -193,12 +194,12 @@ export function NotificationDropdown() {
             )}
           </div>
           <div className="py-2 px-4 bg-gray-50 border-t border-gray-200">
-            <button
-              onClick={() => router.push("/routes/dashboard/notifications")}
+            <Link
+              href="/routes/dashboard/notifications"
               className="text-xs text-blue-600 hover:underline"
             >
               View all notifications
-            </button>
+            </Link>
           </div>
         </div>
       )}
