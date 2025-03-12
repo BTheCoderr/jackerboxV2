@@ -22,8 +22,14 @@ export async function middleware(request: NextRequest) {
     path.startsWith('/routes/messages') ||
     path.startsWith('/routes/profile')
   )) {
+    // Create a new URL for the login page
+    const loginUrl = new URL('/auth/login', request.url);
+    
     // Add the callback URL to redirect back after login
-    return NextResponse.redirect(new URL(`/auth/login?callbackUrl=${encodeURIComponent(path)}`, request.url));
+    loginUrl.searchParams.set('callbackUrl', path);
+    
+    // Redirect to the login page
+    return NextResponse.redirect(loginUrl);
   }
   
   // If the user is logged in, check their user type for specific route restrictions

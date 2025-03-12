@@ -15,10 +15,16 @@ interface ExtendedUser extends User {
   userType?: string;
 }
 
+// Determine the base URL for callbacks
+const baseUrl = process.env.VERCEL_URL
+  ? `https://${process.env.VERCEL_URL}`
+  : process.env.NEXTAUTH_URL || "http://localhost:3000";
+
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(db),
   session: {
     strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   pages: {
     signIn: "/auth/login",
@@ -75,6 +81,7 @@ export const authOptions: NextAuthOptions = {
           image: user.image,
           isAdmin: !!(user as any).isAdmin,
           stripeConnectAccountId: (user as any).stripeConnectAccountId || undefined,
+          userType: (user as any).userType || undefined,
         } as ExtendedUser;
       },
     }),
@@ -101,4 +108,6 @@ export const authOptions: NextAuthOptions = {
       return token;
     },
   },
+  debug: process.env.NODE_ENV === "development",
+  secret: process.env.NEXTAUTH_SECRET,
 }; 

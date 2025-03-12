@@ -76,13 +76,15 @@ export function Navbar() {
                 </>
               )}
               
-              <a
-                href="/routes/messages"
+              <button
+                onClick={() => {
+                  window.location.href = "/routes/messages";
+                }}
                 className="p-2 text-gray-600 hover:text-jacker-blue rounded-full"
                 title="Messages"
               >
                 <MessageCircle size={20} />
-              </a>
+              </button>
               
               <NotificationDropdownWrapper />
               
