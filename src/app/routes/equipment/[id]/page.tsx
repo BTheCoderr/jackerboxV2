@@ -138,7 +138,7 @@ export default async function EquipmentDetailPage({
                 </div>
               </div>
               
-              {user && !isOwner && (
+              {!isOwner && (
                 <ContactOwnerButton 
                   ownerId={equipment.owner.id} 
                   equipmentId={equipment.id}

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { useSession } from "next-auth/react";
 
 interface ContactOwnerButtonProps {
   ownerId: string;
@@ -13,8 +14,16 @@ interface ContactOwnerButtonProps {
 export function ContactOwnerButton({ ownerId, equipmentId, equipmentTitle }: ContactOwnerButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const { data: session, status } = useSession();
 
   const handleContactOwner = async () => {
+    // Check if user is authenticated
+    if (status !== "authenticated") {
+      toast.error("Please sign in to contact the owner");
+      router.push(`/auth/login?callbackUrl=/routes/equipment/${equipmentId}`);
+      return;
+    }
+
     setIsLoading(true);
     try {
       // First, switch to simple calendar view if it exists
