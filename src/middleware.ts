@@ -60,6 +60,7 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     '/routes/dashboard/:path*',
+    '/routes/dashboard/notifications',
     '/routes/equipment/new',
     '/routes/equipment/edit/:path*',
     '/routes/equipment/:path*/rent',

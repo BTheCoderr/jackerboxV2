@@ -38,12 +38,42 @@ export function Navbar() {
               </Link>
               
               {user.isAdmin && (
-                <Link 
-                  href="/routes/admin"
-                  className="px-4 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-700"
-                >
-                  Admin
-                </Link>
+                <>
+                  <Link 
+                    href="/routes/admin"
+                    className="px-4 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-700"
+                  >
+                    Admin
+                  </Link>
+                  
+                  <div className="relative group">
+                    <button
+                      className="px-4 py-2 bg-purple-800 text-white rounded-md hover:bg-purple-700"
+                    >
+                      Debug
+                    </button>
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg overflow-hidden z-50 border border-gray-200 hidden group-hover:block">
+                      <Link
+                        href="/routes/debug/navigation"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      >
+                        Navigation Debug
+                      </Link>
+                      <Link
+                        href="/routes/debug/socket-test"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      >
+                        Socket Debug
+                      </Link>
+                      <Link
+                        href="/routes/debug/socket"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      >
+                        Socket Status
+                      </Link>
+                    </div>
+                  </div>
+                </>
               )}
               
               <button

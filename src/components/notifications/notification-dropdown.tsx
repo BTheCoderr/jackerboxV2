@@ -194,12 +194,12 @@ export function NotificationDropdown() {
             )}
           </div>
           <div className="py-2 px-4 bg-gray-50 border-t border-gray-200">
-            <Link
-              href="/routes/dashboard/notifications"
+            <button
+              onClick={() => window.location.href = "/routes/dashboard/notifications"}
               className="text-xs text-blue-600 hover:underline"
             >
               View all notifications
-            </Link>
+            </button>
           </div>
         </div>
       )}
