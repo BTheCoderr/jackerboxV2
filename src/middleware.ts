@@ -64,6 +64,7 @@ export const config = {
     '/routes/equipment/edit/:path*',
     '/routes/equipment/:path*/rent',
     '/routes/rentals/:path*',
+    '/routes/messages',
     '/routes/messages/:path*',
     '/routes/profile/:path*',
   ],
