@@ -1,3 +1,6 @@
+// Add dynamic export to ensure proper server-side rendering
+export const dynamic = 'force-dynamic';
+
 import { getCurrentUser } from "@/lib/auth/auth-utils";
 import Link from "next/link";
 
