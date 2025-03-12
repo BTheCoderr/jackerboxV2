@@ -29,7 +29,9 @@ model User {
   idVerificationDate     DateTime?
   isAdmin                Boolean        @default(false)
   stripeConnectAccountId String?
+  userType               String?        @default("both")
   accounts               Account[]
+  calendarSyncs          CalendarSync[]
   moderatedEquipment     Equipment[]    @relation("ModeratedEquipment")
   equipmentListings      Equipment[]    @relation("OwnerEquipment")
   receivedMessages       Message[]      @relation("MessageReceiver")
@@ -39,9 +41,8 @@ model User {
   rentals                Rental[]       @relation("RenterRentals")
   reviews                Review[]       @relation("ReviewAuthor")
   receivedReviews        Review[]       @relation("ReviewReceiver")
-  sessions               Session[]
-  calendarSyncs          CalendarSync[]
   reviewVotes            ReviewVote[]
+  sessions               Session[]
 }
 
 model Account {
@@ -104,30 +105,28 @@ model Equipment {
   moderationNotes  String?
   ownerId          String
   availability     Availability[]
+  calendarSync     CalendarSync?
   moderator        User?            @relation("ModeratedEquipment", fields: [moderatedBy], references: [id])
   owner            User             @relation("OwnerEquipment", fields: [ownerId], references: [id])
   rentals          Rental[]
   reviews          Review[]         @relation("EquipmentReviews")
-  calendarSync     CalendarSync?
-  
+
   @@index([ownerId])
   @@index([moderationStatus])
   @@index([moderatedBy])
 }
 
 model Availability {
-  id          String    @id @default(cuid())
-  startDate   DateTime
-  endDate     DateTime
-  equipmentId String
-  equipment   Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
-  
-  // New fields for recurring availability
-  isRecurring Boolean   @default(false)
-  recurrenceType String? // "daily", "weekly", "monthly"
-  recurrenceEndDate DateTime?
-  recurrenceInterval Int? // e.g., every 1 week, every 2 weeks
-  recurrenceDaysOfWeek String? // JSON string of days (for weekly recurrence)
+  id                   String    @id @default(cuid())
+  startDate            DateTime
+  endDate              DateTime
+  equipmentId          String
+  isRecurring          Boolean   @default(false)
+  recurrenceDaysOfWeek String?
+  recurrenceEndDate    DateTime?
+  recurrenceInterval   Int?
+  recurrenceType       String?
+  equipment            Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
 }
 
 model Rental {
@@ -148,30 +147,26 @@ model Rental {
 }
 
 model Review {
-  id          String     @id @default(cuid())
-  rating      Int
-  comment     String?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  authorId    String
-  receiverId  String?
-  equipmentId String?
-  rentalId    String?    @unique
-  
-  // New fields for enhanced reviews
-  ownerResponse String?
+  id                String       @id @default(cuid())
+  rating            Int
+  comment           String?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  authorId          String
+  receiverId        String?
+  equipmentId       String?
+  rentalId          String?      @unique
+  helpfulVotes      Int          @default(0)
+  isVerifiedRental  Boolean      @default(true)
+  ownerResponse     String?
   ownerResponseDate DateTime?
-  helpfulVotes Int @default(0)
-  unhelpfulVotes Int @default(0)
-  reportCount Int @default(0)
-  isVerifiedRental Boolean @default(true)
-  
-  // Relations
-  author      User       @relation("ReviewAuthor", fields: [authorId], references: [id])
-  equipment   Equipment? @relation("EquipmentReviews", fields: [equipmentId], references: [id])
-  receiver    User?      @relation("ReviewReceiver", fields: [receiverId], references: [id])
-  rental      Rental?    @relation(fields: [rentalId], references: [id])
-  votes       ReviewVote[]
+  reportCount       Int          @default(0)
+  unhelpfulVotes    Int          @default(0)
+  author            User         @relation("ReviewAuthor", fields: [authorId], references: [id])
+  equipment         Equipment?   @relation("EquipmentReviews", fields: [equipmentId], references: [id])
+  receiver          User?        @relation("ReviewReceiver", fields: [receiverId], references: [id])
+  rental            Rental?      @relation(fields: [rentalId], references: [id])
+  votes             ReviewVote[]
 }
 
 model ReviewVote {
@@ -180,10 +175,9 @@ model ReviewVote {
   userId    String
   isHelpful Boolean
   createdAt DateTime @default(now())
-  
   review    Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   @@unique([reviewId, userId])
 }
 
@@ -212,15 +206,15 @@ model Payment {
 }
 
 model Message {
-  id         String   @id @default(cuid())
-  content    String
-  isRead     Boolean  @default(false)
-  createdAt  DateTime @default(now())
-  senderId   String
-  receiverId String
-  attachmentsJson String? @default("[]") // JSON string of attachments
-  receiver   User     @relation("MessageReceiver", fields: [receiverId], references: [id])
-  sender     User     @relation("MessageSender", fields: [senderId], references: [id])
+  id              String   @id @default(cuid())
+  content         String
+  isRead          Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  senderId        String
+  receiverId      String
+  attachmentsJson String?  @default("[]")
+  receiver        User     @relation("MessageReceiver", fields: [receiverId], references: [id])
+  sender          User     @relation("MessageSender", fields: [senderId], references: [id])
 }
 
 model Notification {
@@ -235,23 +229,22 @@ model Notification {
 }
 
 model CalendarSync {
-  id              String   @id @default(cuid())
-  userId          String
-  equipmentId     String   @unique
-  calendarType    String   // "google", "ical"
-  calendarId      String?  // For Google Calendar
-  icalUrl         String?  // For iCal
-  syncDirection   String   // "import", "export", "both"
-  syncFrequency   String   // "hourly", "daily", "manual"
-  lastSynced      DateTime?
-  accessToken     String?  // For Google Calendar
-  refreshToken    String?  // For Google Calendar
-  tokenExpiry     DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
-  equipment       Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
-  user            User      @relation(fields: [userId], references: [id])
+  id            String    @id @default(cuid())
+  userId        String
+  equipmentId   String    @unique
+  calendarType  String
+  calendarId    String?
+  icalUrl       String?
+  syncDirection String
+  syncFrequency String
+  lastSynced    DateTime?
+  accessToken   String?
+  refreshToken  String?
+  tokenExpiry   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  equipment     Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  user          User      @relation(fields: [userId], references: [id])
 }
 
 enum ModerationStatus {

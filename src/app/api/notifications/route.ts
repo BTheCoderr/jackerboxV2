@@ -20,11 +20,11 @@ export async function GET() {
       },
     });
     
-    return NextResponse.json(notifications);
+    return NextResponse.json({ notifications });
   } catch (error) {
     console.error("Error fetching notifications:", error);
     return NextResponse.json(
-      { error: "Failed to fetch notifications" },
+      { error: "Failed to fetch notifications", notifications: [] },
       { status: 500 }
     );
   }

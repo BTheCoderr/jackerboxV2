@@ -37,6 +37,14 @@ export async function POST(req: Request) {
       );
     }
     
+    // Check if user is an owner-only
+    if (user.userType === "owner") {
+      return NextResponse.json(
+        { message: "Equipment owners cannot rent items. Please create a separate renter account." },
+        { status: 403 }
+      );
+    }
+    
     const body = await req.json();
     const validatedData = createRentalSchema.parse(body);
     
@@ -61,6 +69,21 @@ export async function POST(req: Request) {
         { message: "You cannot rent your own equipment" },
         { status: 400 }
       );
+    }
+    
+    // If this is the first rental, update the user type to renter or both
+    const userRentals = await db.rental.count({
+      where: {
+        renterId: user.id
+      }
+    });
+    
+    if (userRentals === 0 && user.userType !== "renter") {
+      // Update user type to "both" if it was previously undefined or "owner"
+      await db.user.update({
+        where: { id: user.id },
+        data: { userType: "both" }
+      });
     }
     
     // Check for date conflicts with existing rentals

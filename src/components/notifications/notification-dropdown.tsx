@@ -32,10 +32,19 @@ export function NotificationDropdown() {
         throw new Error("Failed to fetch notifications");
       }
       const data = await response.json();
-      setNotifications(data.notifications);
-      setUnreadCount(data.notifications.filter((n: Notification) => !n.read).length);
+      
+      // Ensure notifications is an array before setting state
+      const notificationsArray = Array.isArray(data) ? data : 
+                                (data.notifications && Array.isArray(data.notifications)) ? 
+                                data.notifications : [];
+      
+      setNotifications(notificationsArray);
+      setUnreadCount(notificationsArray.filter((n: Notification) => !n.read).length);
     } catch (error) {
       console.error("Error fetching notifications:", error);
+      // Set empty array on error
+      setNotifications([]);
+      setUnreadCount(0);
     } finally {
       setIsLoading(false);
     }
@@ -62,49 +71,82 @@ export function NotificationDropdown() {
     }
   };
 
+  const getNotificationMessage = (notification: Notification) => {
+    if (!notification || !notification.data) {
+      return "New notification";
+    }
+    
+    try {
+      // Handle both string JSON and object data formats
+      const data = typeof notification.data === 'string' 
+        ? JSON.parse(notification.data) 
+        : notification.data;
+      
+      switch (notification.type) {
+        case "PAYMENT_RECEIVED":
+          return `Payment of $${data.amount || 0} received`;
+        case "PAYMENT_FAILED":
+          return `Payment of $${data.amount || 0} failed`;
+        case "RENTAL_BOOKED":
+          return `New booking confirmed for ${data.propertyName || 'your equipment'}`;
+        case "RENTAL_CANCELLED":
+          return `Booking for ${data.propertyName || 'your equipment'} was cancelled`;
+        case "PAYOUT_PROCESSED":
+          return `Payout of $${data.amount || 0} processed`;
+        case "SECURITY_DEPOSIT_RETURNED":
+          return `Security deposit of $${data.amount || 0} returned`;
+        case "RENTAL_UPDATE":
+          return data.message || "Your rental has been updated";
+        default:
+          return data.message || "New notification";
+      }
+    } catch (error) {
+      console.error("Error parsing notification data:", error);
+      return "New notification";
+    }
+  };
+
   const handleNotificationClick = (notification: Notification) => {
+    if (!notification) return;
+    
     if (!notification.read) {
       markAsRead(notification.id);
     }
     
-    // Handle navigation based on notification type
-    // This is a simplified example - you would customize this based on your app's needs
-    switch (notification.type) {
-      case "PAYMENT_RECEIVED":
-      case "PAYMENT_FAILED":
-        router.push(`/rentals/${notification.data.rentalId}`);
-        break;
-      case "RENTAL_BOOKED":
-      case "RENTAL_CANCELLED":
-        router.push(`/rentals/${notification.data.rentalId}`);
-        break;
-      case "PAYOUT_PROCESSED":
-        router.push(`/routes/dashboard/earnings`);
-        break;
-      default:
-        router.push("/routes/dashboard");
+    try {
+      // Handle both string JSON and object data formats
+      const data = typeof notification.data === 'string' 
+        ? JSON.parse(notification.data) 
+        : notification.data;
+      
+      // Navigate based on the link in the data or fallback to type-based routing
+      if (data && data.linkUrl) {
+        router.push(data.linkUrl);
+      } else {
+        // Handle navigation based on notification type
+        switch (notification.type) {
+          case "PAYMENT_RECEIVED":
+          case "PAYMENT_FAILED":
+            router.push(`/routes/rentals/${data?.rentalId || ''}`);
+            break;
+          case "RENTAL_BOOKED":
+          case "RENTAL_CANCELLED":
+          case "RENTAL_UPDATE":
+            router.push(`/routes/rentals/${data?.rentalId || ''}`);
+            break;
+          case "PAYOUT_PROCESSED":
+            router.push(`/routes/dashboard/earnings`);
+            break;
+          default:
+            router.push("/routes/dashboard");
+        }
+      }
+    } catch (error) {
+      console.error("Error handling notification click:", error);
+      router.push("/routes/dashboard");
     }
     
     setIsOpen(false);
-  };
-
-  const getNotificationMessage = (notification: Notification) => {
-    switch (notification.type) {
-      case "PAYMENT_RECEIVED":
-        return `Payment of $${notification.data.amount} received`;
-      case "PAYMENT_FAILED":
-        return `Payment of $${notification.data.amount} failed`;
-      case "RENTAL_BOOKED":
-        return `New booking confirmed for ${notification.data.propertyName}`;
-      case "RENTAL_CANCELLED":
-        return `Booking for ${notification.data.propertyName} was cancelled`;
-      case "PAYOUT_PROCESSED":
-        return `Payout of $${notification.data.amount} processed`;
-      case "SECURITY_DEPOSIT_RETURNED":
-        return `Security deposit of $${notification.data.amount} returned`;
-      default:
-        return "New notification";
-    }
   };
 
   return (

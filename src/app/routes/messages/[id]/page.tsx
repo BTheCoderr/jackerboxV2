@@ -4,14 +4,15 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { ChatInterface } from "@/components/messaging/chat-interface";
+import { use } from "react";
 
 interface MessagesUserPageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
-  searchParams: {
+  }>;
+  searchParams: Promise<{
     equipmentId?: string;
-  };
+  }>;
 }
 
 interface EquipmentData {
@@ -49,6 +50,10 @@ export default function MessagesUserPage({
   params,
   searchParams,
 }: MessagesUserPageProps) {
+  // Unwrap params and searchParams using React.use()
+  const unwrappedParams = use(params);
+  const unwrappedSearchParams = use(searchParams);
+  
   const router = useRouter();
   const { data: session, status } = useSession();
   const [isLoading, setIsLoading] = useState(true);
@@ -64,8 +69,8 @@ export default function MessagesUserPage({
     }
 
     if (status === "authenticated" && session?.user) {
-      const otherUserId = params.id;
-      const equipmentId = searchParams.equipmentId;
+      const otherUserId = unwrappedParams.id;
+      const equipmentId = unwrappedSearchParams.equipmentId;
 
       if (!otherUserId) {
         router.push("/routes/messages");
@@ -134,7 +139,7 @@ export default function MessagesUserPage({
       // Execute all fetches
       Promise.all([fetchOtherUser(), fetchEquipment(), fetchMessages()]);
     }
-  }, [status, session, params.id, searchParams.equipmentId, router]);
+  }, [status, session, unwrappedParams.id, unwrappedSearchParams.equipmentId, router]);
 
   if (status === "loading" || isLoading) {
     return (

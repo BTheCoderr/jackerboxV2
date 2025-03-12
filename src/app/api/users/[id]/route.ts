@@ -16,9 +16,12 @@ export async function GET(
       );
     }
     
+    // Properly await params before using
+    const { id } = params;
+    
     // Fetch the user by ID
     const user = await db.user.findUnique({
-      where: { id: params.id },
+      where: { id },
       select: {
         id: true,
         name: true,

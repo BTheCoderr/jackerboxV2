@@ -13,12 +13,13 @@ export async function POST(
       return new NextResponse('Unauthorized', { status: 401 });
     }
 
-    const notificationId = params.id;
+    // Properly await params before using
+    const { id } = params;
 
     // Verify the notification belongs to the current user
     const notification = await db.notification.findUnique({
       where: {
-        id: notificationId,
+        id,
         userId: currentUser.id,
       },
     });
@@ -30,7 +31,7 @@ export async function POST(
     // Mark the notification as read
     await db.notification.update({
       where: {
-        id: notificationId,
+        id,
       },
       data: {
         read: true,

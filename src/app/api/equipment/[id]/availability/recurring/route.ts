@@ -2,6 +2,20 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/auth-utils";
+import { PaperclipIcon } from 'lucide-react';
+
+// Define a type for date ranges
+interface DateRange {
+  startDate: Date;
+  endDate: Date;
+}
+
+
+// Define a type for date ranges
+interface DateRange {
+  startDate: Date;
+  endDate: Date;
+}
 
 // Schema for creating recurring availability
 const recurringAvailabilitySchema = z.object({
@@ -33,6 +47,20 @@ export async function POST(
       );
     }
     
+    // Check if user is a renter (has rental history)
+    const userRentals = await db.rental.count({
+      where: {
+        renterId: user.id
+      }
+    });
+    
+    if (userRentals > 0) {
+      return NextResponse.json(
+        { message: "Renters cannot manage equipment. Please use a separate owner account." },
+        { status: 403 }
+      );
+    }
+    
     const equipmentId = params.id;
     
     // Check if equipment exists and user is the owner
@@ -49,26 +77,29 @@ export async function POST(
     
     if (equipment.ownerId !== user.id) {
       return NextResponse.json(
-        { message: "You are not authorized to modify this equipment's availability" },
+        { message: "You are not authorized to update this equipment" },
         { status: 403 }
       );
     }
     
-    // Validate request body
+    // Parse and validate the request body
     const body = await req.json();
-    const validatedData = recurringAvailabilitySchema.parse({
-      ...body,
-      dates: body.dates.map((date: any) => ({
-        startDate: new Date(date.startDate),
-        endDate: new Date(date.endDate),
-      })),
-    });
+    const validationResult = recurringAvailabilitySchema.safeParse(body);
     
-    // Check for conflicts with existing bookings for each date
-    const allDates = validatedData.dates;
-    const conflictingDates = [];
+    if (!validationResult.success) {
+      return NextResponse.json(
+        { message: "Invalid request data", errors: validationResult.error.errors },
+        { status: 400 }
+      );
+    }
     
-    for (const date of allDates) {
+    const { dates, recurrenceType, recurrenceInterval, recurrenceEndDate, recurrenceDaysOfWeek } = validationResult.data;
+    
+    // Check for conflicts with existing bookings and availability periods
+    const conflictingDates: DateRange[] = [];
+    
+    for (const date of dates) {
+      // Check for conflicts with existing bookings
       const conflictingBookings = await db.rental.findMany({
         where: {
           equipmentId,
@@ -88,12 +119,14 @@ export async function POST(
           ],
         },
       });
-      
       if (conflictingBookings.length > 0) {
-        conflictingDates.push(date);
+        conflictingDates.push({
+          startDate: date.startDate,
+          endDate: date.endDate
+        });
       }
       
-      // Check for conflicts with existing availability periods
+      // Check for conflicts with existing availability periods  
       const conflictingAvailability = await db.availability.findMany({
         where: {
           equipmentId,
@@ -110,9 +143,11 @@ export async function POST(
           ],
         },
       });
-      
       if (conflictingAvailability.length > 0) {
-        conflictingDates.push(date);
+        conflictingDates.push({
+          startDate: date.startDate,
+          endDate: date.endDate
+        });
       }
     }
     
@@ -120,45 +155,39 @@ export async function POST(
       return NextResponse.json(
         { 
           message: "Some dates conflict with existing bookings or availability periods",
-          conflictingDates 
+          conflictingDates,
         },
         { status: 409 }
       );
     }
     
-    // Create all availability periods
-    const availabilities = await Promise.all(
-      allDates.map(async (date) => {
-        return db.availability.create({
-          data: {
-            startDate: date.startDate,
-            endDate: date.endDate,
-            equipmentId,
-            isRecurring: true,
-            recurrenceType: validatedData.recurrenceType,
-            recurrenceInterval: validatedData.recurrenceInterval,
-            recurrenceEndDate: new Date(validatedData.recurrenceEndDate),
-            recurrenceDaysOfWeek: validatedData.recurrenceDaysOfWeek,
-          },
-        });
-      })
-    );
+    // Create availability periods for all dates
+    const availabilities: any[] = [];
     
-    return NextResponse.json({
-      message: "Recurring availability periods added successfully",
-      availabilities,
-    }, { status: 201 });
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { message: "Invalid input data", errors: error.errors },
-        { status: 400 }
-      );
+    for (const date of dates) {
+      const availability = await db.availability.create({
+        data: {
+          equipmentId,
+          startDate: date.startDate,
+          endDate: date.endDate,
+          recurrenceType,
+          recurrenceInterval,
+          recurrenceEndDate: new Date(recurrenceEndDate),
+          recurrenceDaysOfWeek,
+        },
+      });
+      
+      availabilities.push(availability);
     }
     
-    console.error("Error adding recurring availability:", error);
+    return NextResponse.json({
+      message: "Recurring availability periods created successfully",
+      availabilities,
+    });
+  } catch (error) {
+    console.error("Error creating recurring availability:", error);
     return NextResponse.json(
-      { message: "Something went wrong. Please try again." },
+      { message: "Failed to create recurring availability" },
       { status: 500 }
     );
   }

@@ -12,6 +12,7 @@ import { db } from "@/lib/db";
 interface ExtendedUser extends User {
   isAdmin?: boolean;
   stripeConnectAccountId?: string;
+  userType?: string;
 }
 
 export const authOptions: NextAuthOptions = {
@@ -84,6 +85,7 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.sub;
         session.user.isAdmin = token.isAdmin as boolean;
         session.user.stripeConnectAccountId = token.stripeConnectAccountId as string | undefined;
+        session.user.userType = token.userType as string | undefined;
       }
 
       return session;
@@ -93,6 +95,7 @@ export const authOptions: NextAuthOptions = {
         token.sub = user.id;
         token.isAdmin = (user as ExtendedUser).isAdmin;
         token.stripeConnectAccountId = (user as ExtendedUser).stripeConnectAccountId;
+        token.userType = (user as ExtendedUser).userType;
       }
 
       return token;

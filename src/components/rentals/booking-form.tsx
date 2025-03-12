@@ -74,6 +74,61 @@ export function BookingForm({ equipment }: BookingFormProps) {
   const endDate = watch("endDate");
   const rentalType = watch("rentalType");
 
+  // Sync with calendar if available
+  useEffect(() => {
+    // Check if calendar state is available from DualCalendarSystem
+    if (window.calendarState) {
+      // Set initial form values from calendar
+      setValue("startDate", window.calendarState.startDate);
+      setValue("endDate", window.calendarState.endDate);
+      
+      // Set up listeners for calendar changes
+      const handleCalendarChange = () => {
+        if (window.calendarState) {
+          setValue("startDate", window.calendarState.startDate);
+          setValue("endDate", window.calendarState.endDate);
+        }
+      };
+      
+      // Listen for changes to the calendar inputs
+      const startDateInput = document.getElementById('start-date');
+      const endDateInput = document.getElementById('end-date');
+      
+      if (startDateInput) {
+        startDateInput.addEventListener('change', handleCalendarChange);
+      }
+      
+      if (endDateInput) {
+        endDateInput.addEventListener('change', handleCalendarChange);
+      }
+      
+      return () => {
+        // Clean up listeners
+        if (startDateInput) {
+          startDateInput.removeEventListener('change', handleCalendarChange);
+        }
+        
+        if (endDateInput) {
+          endDateInput.removeEventListener('change', handleCalendarChange);
+        }
+      };
+    }
+  }, [setValue]);
+
+  // Update calendar when form values change
+  useEffect(() => {
+    if (window.calendarState && startDate && endDate) {
+      // Only update if values are different to avoid loops
+      if (window.calendarState.startDate !== startDate) {
+        window.calendarState.setStartDate(startDate);
+      }
+      
+      if (window.calendarState.endDate !== endDate) {
+        window.calendarState.setEndDate(endDate);
+      }
+    }
+  }, [startDate, endDate]);
+
   // Calculate total price when form values change
   useEffect(() => {
     if (startDate && endDate) {
@@ -174,11 +229,11 @@ export function BookingForm({ equipment }: BookingFormProps) {
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1">
-          <label htmlFor="startDate" className="text-sm font-medium text-gray-700">
+          <label htmlFor="booking-start-date" className="text-sm font-medium text-gray-700">
             Start Date
           </label>
           <input
-            id="startDate"
+            id="booking-start-date"
             type="date"
             {...register("startDate")}
             className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-jacker-blue focus:border-jacker-blue"
@@ -191,11 +246,11 @@ export function BookingForm({ equipment }: BookingFormProps) {
         </div>
 
         <div className="space-y-1">
-          <label htmlFor="endDate" className="text-sm font-medium text-gray-700">
+          <label htmlFor="booking-end-date" className="text-sm font-medium text-gray-700">
             End Date
           </label>
           <input
-            id="endDate"
+            id="booking-end-date"
             type="date"
             {...register("endDate")}
             className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-jacker-blue focus:border-jacker-blue"

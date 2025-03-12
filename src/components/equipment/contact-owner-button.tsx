@@ -17,7 +17,36 @@ export function ContactOwnerButton({ ownerId, equipmentId, equipmentTitle }: Con
   const handleContactOwner = async () => {
     setIsLoading(true);
     try {
-      // First, create a conversation and send initial message
+      // First, switch to simple calendar view if it exists
+      const calendarToggleButton = document.querySelector('button[class*="text-blue-600"]');
+      if (calendarToggleButton && calendarToggleButton.textContent?.includes('Simple')) {
+        (calendarToggleButton as HTMLButtonElement).click();
+      }
+      
+      // Set default dates in the simple calendar if inputs exist
+      setTimeout(() => {
+        const startDateInput = document.getElementById('start-date') as HTMLInputElement;
+        const endDateInput = document.getElementById('end-date') as HTMLInputElement;
+        
+        if (startDateInput && endDateInput) {
+          // Set start date to today
+          const today = new Date();
+          const formattedToday = today.toISOString().split('T')[0];
+          startDateInput.value = formattedToday;
+          
+          // Set end date to tomorrow
+          const tomorrow = new Date();
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          const formattedTomorrow = tomorrow.toISOString().split('T')[0];
+          endDateInput.value = formattedTomorrow;
+          
+          // Trigger change events to update any listeners
+          startDateInput.dispatchEvent(new Event('change', { bubbles: true }));
+          endDateInput.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      }, 100);
+
+      // Create a conversation and send initial message
       const response = await fetch("/api/messages", {
         method: "POST",
         headers: {

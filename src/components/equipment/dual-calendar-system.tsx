@@ -1,9 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { AvailabilityCalendar } from "./availability-calendar";
 import { CalendarIcon } from "lucide-react";
+
+// Extend Window interface to include our calendar state
+declare global {
+  interface Window {
+    calendarState?: {
+      useSimpleCalendar: boolean;
+      setUseSimpleCalendar: (value: boolean) => void;
+      startDate: string;
+      setStartDate: (value: string) => void;
+      endDate: string;
+      setEndDate: (value: string) => void;
+    };
+  }
+}
 
 interface DualCalendarSystemProps {
   equipmentId: string;
@@ -22,11 +36,49 @@ export function DualCalendarSystem({
   isOwner,
   existingBookings = [],
 }: DualCalendarSystemProps) {
-  const [useSimpleCalendar, setUseSimpleCalendar] = useState(false);
+  const [useSimpleCalendar, setUseSimpleCalendar] = useState(true); // Default to simple calendar
   const [startDate, setStartDate] = useState<string>(format(new Date(), "yyyy-MM-dd"));
   const [endDate, setEndDate] = useState<string>(
     format(new Date(Date.now() + 24 * 60 * 60 * 1000), "yyyy-MM-dd")
   );
+
+  // Make the calendar state globally accessible for other components
+  useEffect(() => {
+    // Expose calendar state to window for other components to access
+    window.calendarState = {
+      useSimpleCalendar,
+      setUseSimpleCalendar,
+      startDate,
+      setStartDate,
+      endDate,
+      setEndDate,
+    };
+    
+    return () => {
+      // Clean up when component unmounts
+      delete window.calendarState;
+    };
+  }, [useSimpleCalendar, startDate, endDate]);
+
+  // Handle date changes with validation
+  const handleStartDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newStartDate = e.target.value;
+    setStartDate(newStartDate);
+    
+    // If end date is before new start date, update end date
+    if (new Date(endDate) <= new Date(newStartDate)) {
+      const nextDay = new Date(newStartDate);
+      nextDay.setDate(nextDay.getDate() + 1);
+      setEndDate(format(nextDay, "yyyy-MM-dd"));
+    }
+  };
+
+  const handleEndDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newEndDate = e.target.value;
+    if (new Date(newEndDate) >= new Date(startDate)) {
+      setEndDate(newEndDate);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -35,6 +87,7 @@ export function DualCalendarSystem({
         <button
           onClick={() => setUseSimpleCalendar(!useSimpleCalendar)}
           className="text-sm text-blue-600 hover:underline flex items-center"
+          id="calendar-toggle-button"
         >
           <CalendarIcon className="h-4 w-4 mr-1" />
           Switch to {useSimpleCalendar ? "Interactive" : "Simple"} Calendar
@@ -52,7 +105,7 @@ export function DualCalendarSystem({
                 id="start-date"
                 type="date"
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                onChange={handleStartDateChange}
                 className="w-full p-2 border border-gray-300 rounded-md"
                 min={format(new Date(), "yyyy-MM-dd")}
               />
@@ -65,7 +118,7 @@ export function DualCalendarSystem({
                 id="end-date"
                 type="date"
                 value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
+                onChange={handleEndDateChange}
                 className="w-full p-2 border border-gray-300 rounded-md"
                 min={startDate}
               />

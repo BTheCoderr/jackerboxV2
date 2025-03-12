@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth/auth-utils";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { formatDistanceToNow } from "date-fns";
+import { GenerateSampleNotificationsButton } from "@/components/notifications/generate-sample-button";
 
 export const metadata: Metadata = {
   title: "Notifications | Jackerbox",
@@ -78,18 +79,26 @@ export default async function NotificationsPage() {
           return `Payout of $${data.amount || 0} processed`;
         case "SECURITY_DEPOSIT_RETURNED":
           return `Security deposit of $${data.amount || 0} returned`;
+        case "RENTAL_UPDATE":
+          return data.message || "Your rental has been updated";
         default:
-          return "New notification";
+          return data.message || "New notification";
       }
     };
 
     return (
       <div className="max-w-5xl mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold mb-6">Notifications</h1>
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold">Notifications</h1>
+          <GenerateSampleNotificationsButton />
+        </div>
 
         {notifications.length === 0 ? (
           <div className="bg-white rounded-lg shadow p-6 text-center">
-            <p className="text-gray-500">You have no notifications</p>
+            <p className="text-gray-500 mb-4">You have no notifications</p>
+            <p className="text-sm text-gray-400">
+              Click the "Generate Sample Notifications" button above to create sample notifications for demonstration purposes.
+            </p>
           </div>
         ) : (
           <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -124,9 +133,15 @@ export default async function NotificationsPage() {
     console.error("Error fetching notifications:", error);
     return (
       <div className="max-w-5xl mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold mb-6">Notifications</h1>
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold">Notifications</h1>
+          <GenerateSampleNotificationsButton />
+        </div>
         <div className="bg-white rounded-lg shadow p-6 text-center">
-          <p className="text-red-500">Error loading notifications. Please try again later.</p>
+          <p className="text-red-500 mb-4">Error loading notifications. Please try again later.</p>
+          <p className="text-sm text-gray-400">
+            Click the "Generate Sample Notifications" button above to create sample notifications for demonstration purposes.
+          </p>
         </div>
       </div>
     );

@@ -34,9 +34,12 @@ export async function GET(
       );
     }
     
+    // Properly destructure params
+    const { id } = params;
+    
     // Fetch the equipment by ID
     const equipment = await db.equipment.findUnique({
-      where: { id: params.id },
+      where: { id },
       select: {
         id: true,
         title: true,
@@ -94,6 +97,9 @@ export async function DELETE(
       );
     }
     
+    // Properly destructure params
+    const { id } = params;
+    
     // Check if user is a renter (has rental history)
     const userRentals = await db.rental.count({
       where: {
@@ -111,7 +117,7 @@ export async function DELETE(
     // Check if the equipment exists and belongs to the user
     const equipment = await db.equipment.findUnique({
       where: {
-        id: params.id,
+        id,
       },
       include: {
         rentals: {
@@ -149,7 +155,7 @@ export async function DELETE(
     // Delete the equipment
     await db.equipment.delete({
       where: {
-        id: params.id,
+        id,
       },
     });
     
@@ -180,6 +186,9 @@ export async function PATCH(
       );
     }
     
+    // Properly destructure params
+    const { id } = params;
+    
     // Check if user is a renter (has rental history)
     const userRentals = await db.rental.count({
       where: {
@@ -197,7 +206,7 @@ export async function PATCH(
     // Check if the equipment exists and belongs to the user
     const equipment = await db.equipment.findUnique({
       where: {
-        id: params.id,
+        id,
       },
     });
     
@@ -221,7 +230,7 @@ export async function PATCH(
     // Update the equipment
     const updatedEquipment = await db.equipment.update({
       where: {
-        id: params.id,
+        id,
       },
       data: validatedData,
     });

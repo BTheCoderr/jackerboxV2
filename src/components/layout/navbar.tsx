@@ -1,12 +1,15 @@
+"use client";
+
 import Link from "next/link";
-import { getCurrentUser } from "@/lib/auth/auth-utils";
 import { Logo } from "./logo";
 import { NotificationDropdownWrapper } from "../notifications/notification-dropdown-wrapper";
 import { LogoutButton } from "../auth/logout-button";
 import { MessageCircle } from "lucide-react";
+import { useSession } from "next-auth/react";
 
-export async function Navbar() {
-  const user = await getCurrentUser();
+export function Navbar() {
+  const { data: session } = useSession();
+  const user = session?.user;
   
   return (
     <header className="border-b">

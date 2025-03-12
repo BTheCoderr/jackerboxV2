@@ -1,48 +1,81 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useSocket } from "@/hooks/use-socket";
-import { useEffect, useState } from "react";
+import { RefreshCw, Wifi, WifiOff } from "lucide-react";
 
-export function SocketStatus() {
-  const { isConnected, isPollingFallback, reconnect } = useSocket({ debug: false });
+interface SocketStatusProps {
+  showReconnectButton?: boolean;
+}
+
+export function SocketStatus({ showReconnectButton = true }: SocketStatusProps) {
+  const { isConnected, isPollingFallback, reconnect } = useSocket();
   const [showStatus, setShowStatus] = useState(false);
+  const [statusTimeout, setStatusTimeout] = useState<NodeJS.Timeout | null>(null);
 
-  // Show status message when connection changes
+  // Show status message when connection state changes
   useEffect(() => {
-    if (!isConnected) {
-      setShowStatus(true);
-      const timer = setTimeout(() => {
+    // Clear any existing timeout
+    if (statusTimeout) {
+      clearTimeout(statusTimeout);
+    }
+
+    // Show the status message
+    setShowStatus(true);
+
+    // Hide the status message after 5 seconds unless disconnected
+    if (isConnected) {
+      const timeout = setTimeout(() => {
         setShowStatus(false);
       }, 5000);
-      return () => clearTimeout(timer);
+      
+      setStatusTimeout(timeout);
+      
+      return () => {
+        clearTimeout(timeout);
+      };
     }
-  }, [isConnected]);
+  }, [isConnected, isPollingFallback]);
 
-  if (!showStatus && isConnected) return null;
+  // Always show when disconnected, briefly show when connected or in fallback mode
+  if (!showStatus && isConnected && !isPollingFallback) {
+    return null;
+  }
 
   return (
-    <div className={`fixed bottom-4 right-4 p-3 rounded-md shadow-md transition-opacity duration-300 ${isConnected ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-      {!isConnected ? (
-        <div className="flex items-center space-x-2">
-          <span className="animate-pulse">●</span>
-          <span>You're currently offline. Messages will be sent when your connection is restored.</span>
-          <button 
-            onClick={() => reconnect()} 
-            className="ml-2 px-2 py-1 bg-yellow-200 rounded hover:bg-yellow-300 text-xs"
-          >
-            Reconnect
-          </button>
-        </div>
-      ) : isPollingFallback ? (
-        <div className="flex items-center space-x-2">
-          <span>●</span>
-          <span>Connected using fallback mode. Some features may be slower.</span>
-        </div>
-      ) : (
-        <div className="flex items-center space-x-2">
-          <span>●</span>
-          <span>Connected</span>
-        </div>
+    <div className={`flex items-center justify-between p-2 text-sm rounded-md mb-2 ${
+      !isConnected 
+        ? "bg-red-100 text-red-700" 
+        : isPollingFallback 
+          ? "bg-yellow-100 text-yellow-700"
+          : "bg-green-100 text-green-700"
+    }`}>
+      <div className="flex items-center">
+        {!isConnected ? (
+          <>
+            <WifiOff className="h-4 w-4 mr-2" />
+            <span>You're currently offline. Messages will be sent when your connection is restored.</span>
+          </>
+        ) : isPollingFallback ? (
+          <>
+            <Wifi className="h-4 w-4 mr-2" />
+            <span>Using fallback mode. Some features may be limited.</span>
+          </>
+        ) : (
+          <>
+            <Wifi className="h-4 w-4 mr-2" />
+            <span>Connected</span>
+          </>
+        )}
+      </div>
+      
+      {showReconnectButton && !isConnected && (
+        <button
+          onClick={reconnect}
+          className="ml-2 p-1 bg-white rounded-md hover:bg-gray-100 text-gray-700"
+        >
+          <RefreshCw className="h-4 w-4" />
+        </button>
       )}
     </div>
   );

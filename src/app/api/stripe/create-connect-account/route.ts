@@ -16,12 +16,12 @@ export async function POST(req: Request) {
     }
 
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-      apiVersion: '2023-10-16',
+      apiVersion: '2025-02-24.acacia',
     });
 
     // Create a Stripe Connect account link
     const accountLink = await stripe.accountLinks.create({
-      account: user.stripeConnectAccountId || await createConnectAccount(stripe, user.id),
+      account: user.stripeConnectAccountId || await createConnectAccount(stripe, user.id, user.email),
       refresh_url: `${process.env.NEXTAUTH_URL}/routes/dashboard/stripe-connect?error=true`,
       return_url: `${process.env.NEXTAUTH_URL}/routes/dashboard/stripe-connect?success=true`,
       type: 'account_onboarding',
@@ -37,13 +37,13 @@ export async function POST(req: Request) {
   }
 }
 
-async function createConnectAccount(stripe: Stripe, userId: string) {
+async function createConnectAccount(stripe: Stripe, userId: string, userEmail: string) {
   try {
     // Create a new Stripe Connect account
     const account = await stripe.accounts.create({
       type: 'express',
       country: process.env.STRIPE_ACCOUNT_COUNTRY || 'US',
-      email: user.email,
+      email: userEmail,
       capabilities: {
         card_payments: { requested: true },
         transfers: { requested: true },

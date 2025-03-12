@@ -33,7 +33,24 @@ const nextConfig = {
   publicRuntimeConfig: {
     // Will be available on both server and client
     staticFolder: '/static',
-  }
+  },
+  // Add webpack configuration to handle Node.js modules
+  webpack: (config, { isServer }) => {
+    // If it's a client-side bundle, add fallbacks for Node.js modules
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+        crypto: false,
+        os: false,
+        path: false,
+        child_process: false,
+      };
+    }
+    return config;
+  },
 };
 
 export default nextConfig; 

@@ -98,6 +98,20 @@ export async function POST(
       );
     }
     
+    // Check if user is a renter (has rental history)
+    const userRentals = await db.rental.count({
+      where: {
+        renterId: user.id
+      }
+    });
+    
+    if (userRentals > 0) {
+      return NextResponse.json(
+        { message: "Renters cannot manage equipment. Please use a separate owner account." },
+        { status: 403 }
+      );
+    }
+    
     const equipmentId = params.id;
     
     // Check if equipment exists and user is the owner

@@ -18,11 +18,12 @@ interface EquipmentCardProps {
 
 export function EquipmentCard({ equipment }: EquipmentCardProps) {
   const [imageError, setImageError] = useState(false);
-  const [imageUrl, setImageUrl] = useState<string>('');
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   
   // Process image URL to ensure it works correctly
   const processImageUrl = (url: string): string => {
-    if (!url) return '/images/placeholder.svg';
+    if (!url || url === '') return '/images/placeholder.svg';
     
     // If it's an Unsplash URL, ensure it has the right parameters
     if (url.includes('unsplash.com')) {
@@ -49,12 +50,13 @@ export function EquipmentCard({ equipment }: EquipmentCardProps) {
   };
   
   useEffect(() => {
+    setIsLoading(true);
     try {
       // Parse the images JSON
       const images = JSON.parse(equipment.imagesJson || '[]');
       
       // Use the first image if available, otherwise use a fallback
-      if (images && images.length > 0 && images[0]) {
+      if (images && images.length > 0 && images[0] && images[0] !== '') {
         setImageUrl(processImageUrl(images[0]));
       } else {
         setImageUrl(getFallbackImageUrl());
@@ -62,8 +64,15 @@ export function EquipmentCard({ equipment }: EquipmentCardProps) {
     } catch (error) {
       console.error('Error parsing equipment images:', error);
       setImageUrl(getFallbackImageUrl());
+    } finally {
+      setIsLoading(false);
     }
   }, [equipment.imagesJson]);
+  
+  // Ensure we have a valid image URL
+  const safeImageUrl = imageUrl && imageUrl !== '' 
+    ? (imageError ? getFallbackImageUrl() : imageUrl) 
+    : '/images/placeholder.svg';
   
   return (
     <Link
@@ -71,15 +80,21 @@ export function EquipmentCard({ equipment }: EquipmentCardProps) {
       className="block h-full bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200"
     >
       <div className="relative h-48 bg-gray-100">
-        <img
-          src={imageError ? getFallbackImageUrl() : imageUrl}
-          alt={equipment.title}
-          className="w-full h-full object-cover"
-          onError={() => {
-            setImageError(true);
-            setImageUrl(getFallbackImageUrl());
-          }}
-        />
+        {isLoading ? (
+          <div className="w-full h-full flex items-center justify-center text-gray-500">
+            <span>Loading...</span>
+          </div>
+        ) : (
+          <img
+            src={safeImageUrl}
+            alt={equipment.title}
+            className="w-full h-full object-cover"
+            onError={() => {
+              setImageError(true);
+              setImageUrl(getFallbackImageUrl());
+            }}
+          />
+        )}
         {equipment.isVerified && (
           <div className="absolute top-2 right-2 bg-blue-500 text-white text-xs px-2 py-1 rounded-full">
             Verified

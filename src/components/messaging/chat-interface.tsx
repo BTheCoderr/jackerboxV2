@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { formatDistanceToNow } from "date-fns";
 import { useSocket } from "@/hooks/use-socket";
-import { PaperclipIcon, X, Image as ImageIcon, File, Send } from "lucide-react";
+import { PaperclipIcon, X, Image as ImageIcon, File, Send, AlertTriangle, RefreshCw } from "lucide-react";
+import { SocketStatus } from "./socket-status";
 
 interface Message {
   id: string;
@@ -54,15 +55,20 @@ export function ChatInterface({
   const [otherUserTyping, setOtherUserTyping] = useState(false);
   const [attachments, setAttachments] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   
+  // Add connection status state
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'fallback'>('connected');
+  const [showReconnectButton, setShowReconnectButton] = useState(false);
+
   // Generate a unique chat ID for this conversation
   const chatId = [currentUserId, otherUserId].sort().join('-');
   
   // Initialize socket connection
-  const { isConnected, joinChat, leaveChat, sendMessage, sendTyping, subscribe } = useSocket();
+  const { socket, isConnected, isPollingFallback, joinChat, leaveChat, sendMessage: socketSendMessage, subscribe } = useSocket();
   
   // Scroll to bottom of messages
   const scrollToBottom = () => {
@@ -247,74 +253,97 @@ export function ChatInterface({
     }
   };
 
-  // Handle sending a new message
+  // Update connection status based on socket state
+  useEffect(() => {
+    if (isConnected) {
+      setConnectionStatus(isPollingFallback ? 'fallback' : 'connected');
+      setShowReconnectButton(false);
+    } else {
+      setConnectionStatus('disconnected');
+      setShowReconnectButton(true);
+    }
+  }, [isConnected, isPollingFallback]);
+
+  // Add a function to manually reconnect
+  const handleReconnect = () => {
+    if (socket) {
+      socket.connect();
+    }
+  };
+
+  // Modify the handleSendMessage function to work with or without socket connection
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!newMessage.trim() && attachments.length === 0) return;
     
     setIsLoading(true);
-    setError(null);
-
+    
     try {
-      // Upload attachments if any
       let uploadedAttachments: { type: string; url: string; name: string; size?: number }[] = [];
       
       if (attachments.length > 0) {
         uploadedAttachments = await uploadAttachments();
       }
       
-      // Create message object
       const messageData = {
-        content: newMessage.trim() || (attachments.length > 0 ? "Sent attachments" : ""),
-        receiverId: otherUserId,
+        content: newMessage.trim(),
         senderId: currentUserId,
-        equipmentId,
-        createdAt: new Date(),
-        isRead: false,
+        receiverId: otherUserId,
         attachments: uploadedAttachments,
       };
       
-      // Try to send via WebSocket first
-      const sentViaSocket = sendMessage(chatId, messageData);
+      // Try to send via socket first if connected
+      let socketSent = false;
+      if (isConnected) {
+        socketSent = socketSendMessage(otherUserId, messageData);
+      }
       
-      // If WebSocket fails, fall back to REST API
-      if (!sentViaSocket) {
+      // If socket failed or not connected, send via REST API
+      if (!socketSent) {
         const response = await fetch("/api/messages", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            content: newMessage.trim() || (attachments.length > 0 ? "Sent attachments" : ""),
+            content: newMessage.trim(),
             receiverId: otherUserId,
-            equipmentId,
             attachments: uploadedAttachments,
+            equipmentId,
           }),
         });
-
+        
         if (!response.ok) {
           throw new Error("Failed to send message");
         }
-
+        
         const data = await response.json();
         
-        // Add the new message to the list
-        setMessages([...messages, data.message]);
+        // Add the new message to the state
+        setMessages((prev) => [
+          ...prev,
+          {
+            ...data.message,
+            createdAt: new Date(data.message.createdAt),
+            sender: {
+              id: currentUserId,
+              name: "You",
+              image: null,
+            },
+          },
+        ]);
       }
       
       // Clear the input and attachments
       setNewMessage("");
       setAttachments([]);
       
-      // Clear typing indicator
-      if (isTyping) {
-        setIsTyping(false);
-        sendTyping(chatId, false);
-      }
+      // Scroll to the bottom
+      scrollToBottom();
     } catch (error) {
       console.error("Error sending message:", error);
-      setError("Failed to send message. Please try again.");
+      alert("Failed to send message. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -324,12 +353,10 @@ export function ChatInterface({
   const handleTyping = () => {
     if (!isTyping) {
       setIsTyping(true);
-      sendTyping(chatId, true);
       
       // Auto-clear typing indicator after 3 seconds
       setTimeout(() => {
         setIsTyping(false);
-        sendTyping(chatId, false);
       }, 3000);
     }
   };
@@ -342,53 +369,40 @@ export function ChatInterface({
   };
 
   return (
-    <div className="flex flex-col h-full bg-white rounded-lg shadow-sm overflow-hidden">
-      {/* Chat Header */}
-      <div className="p-4 border-b flex items-center justify-between bg-gray-50">
-        <div className="flex items-center">
-          <div className="w-10 h-10 relative rounded-full overflow-hidden mr-3">
+    <div className="flex flex-col h-full">
+      {/* Chat header */}
+      <div className="flex items-center p-4 border-b">
+        <div className="w-10 h-10 relative rounded-full overflow-hidden mr-3">
+          {otherUserImage ? (
             <Image
-              src={otherUserImage || "/images/placeholder-avatar.png"}
+              src={otherUserImage}
               alt={otherUserName || "User"}
               fill
               className="object-cover"
             />
-          </div>
-          <div>
-            <h3 className="font-medium">{otherUserName}</h3>
-            {equipmentTitle && (
-              <p className="text-xs text-gray-500">
-                Re: {equipmentTitle}
-              </p>
-            )}
-          </div>
-        </div>
-        <div className="flex items-center">
-          {isConnected && (
-            <span className="inline-block w-2 h-2 bg-green-500 rounded-full mr-2" title="Connected"></span>
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-gray-200 text-gray-600 text-xl font-semibold">
+              {otherUserName ? otherUserName.charAt(0).toUpperCase() : "U"}
+            </div>
           )}
-          <button
-            onClick={() => router.back()}
-            className="text-gray-500 hover:text-gray-700"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fillRule="evenodd"
-                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </button>
+        </div>
+        <div>
+          <h3 className="font-medium">{otherUserName}</h3>
+          {equipmentTitle && (
+            <p className="text-sm text-gray-500">
+              Re: {equipmentTitle}
+            </p>
+          )}
         </div>
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 p-4 overflow-y-auto">
+      {/* Socket status notification */}
+      <div className="px-4 pt-2">
+        <SocketStatus showReconnectButton={true} />
+      </div>
+
+      {/* Messages container */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {isLoading && messages.length === 0 ? (
           <div className="flex justify-center items-center h-full">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
@@ -541,14 +555,16 @@ export function ChatInterface({
         </div>
       )}
 
-      {/* Connection Status */}
-      {!isConnected && (
-        <div className="px-4 py-2 text-xs text-yellow-500 bg-yellow-50 border-t border-yellow-100">
+      {/* Fallback Connection Mode Banner */}
+      {connectionStatus !== 'connected' && (
+        <div className="px-4 py-2 text-xs bg-amber-50 border-t border-amber-100">
           <div className="flex items-center">
-            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span>Using fallback connection mode. Real-time updates may be delayed.</span>
+            <AlertTriangle size={14} className="text-amber-500 mr-2" />
+            <span>
+              {connectionStatus === 'fallback' 
+                ? "Using limited connection mode. Messages will still be sent, but you may need to refresh to see new messages."
+                : "You're currently offline. Messages will be sent when your connection is restored."}
+            </span>
           </div>
         </div>
       )}
@@ -557,9 +573,7 @@ export function ChatInterface({
       {error && (
         <div className="px-4 py-2 text-xs text-red-500 bg-red-50 border-t border-red-100">
           <div className="flex items-center">
-            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+            <AlertTriangle size={14} className="mr-2" />
             <span>{error}</span>
           </div>
         </div>

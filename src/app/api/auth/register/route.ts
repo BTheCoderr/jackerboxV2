@@ -57,6 +57,7 @@ export async function POST(req: Request) {
         email,
         phone,
         password: hashedPassword,
+        userType: "both",
       },
     });
     

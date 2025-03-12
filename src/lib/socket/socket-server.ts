@@ -4,9 +4,7 @@ import { NextApiRequest } from "next";
 import { NextApiResponse } from "next";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth-options";
-
-// Global instance to maintain socket connection across API calls
-let io: SocketIOServer | null = null;
+import io from "./server-init";
 
 export type NextApiResponseWithSocket = NextApiResponse & {
   socket: {
@@ -17,7 +15,7 @@ export type NextApiResponseWithSocket = NextApiResponse & {
 };
 
 export const initSocketServer = async (req: Request) => {
-  // If socket.io server is already initialized, return it
+  // If socket.io server is already initialized from server-init, return it
   if (io) {
     return io;
   }
@@ -43,7 +41,7 @@ export const initSocketServer = async (req: Request) => {
     console.log("Initializing Socket.io server in development mode...");
     
     // Create a new socket.io server
-    io = new SocketIOServer(server, {
+    const socketIo = new SocketIOServer(server, {
       path: "/api/socket",
       addTrailingSlash: false,
       cors: {
@@ -63,7 +61,7 @@ export const initSocketServer = async (req: Request) => {
     } as any);
     
     // Set up authentication middleware
-    io.use(async (socket, next) => {
+    socketIo.use(async (socket, next) => {
       try {
         // Get the session from the socket request
         const session = await getServerSession(authOptions);
@@ -82,7 +80,7 @@ export const initSocketServer = async (req: Request) => {
     });
     
     // Handle connections
-    io.on("connection", (socket) => {
+    socketIo.on("connection", (socket) => {
       console.log(`Socket connected: ${socket.id}`);
       
       // Log transport type
@@ -105,7 +103,7 @@ export const initSocketServer = async (req: Request) => {
     });
     
     console.log("Socket server initialized successfully");
-    return io;
+    return socketIo;
   } catch (error) {
     console.error("Error initializing socket server:", error);
     return null;

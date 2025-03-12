@@ -3,9 +3,10 @@ import { getCurrentUser } from "@/lib/auth/auth-utils";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { formatCurrency } from "@/lib/utils/format";
-import { Calendar, DollarSign, Package, Bell, User, ShoppingBag, AlertCircle } from "lucide-react";
+import { Calendar, DollarSign, Package, Bell, User, ShoppingBag } from "lucide-react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { DashboardTabs } from "@/components/dashboard/dashboard-tabs";
+import { ErrorMessage } from "@/components/dashboard/error-message";
 
 export const metadata: Metadata = {
   title: "Dashboard | Jackerbox",
@@ -29,6 +30,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
   if (!user) {
     redirect("/auth/login?callbackUrl=/routes/dashboard");
   }
+
+  // Safely access searchParams - fix the type to be compatible with ErrorMessage component
+  const errorParam = searchParams?.error || undefined;
 
   try {
     // Fetch user's rentals (as a renter)
@@ -178,91 +182,14 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
           </div>
         </div>
 
-        {/* Error Messages */}
-        {searchParams.error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 flex items-start">
-            <AlertCircle className="h-5 w-5 text-red-500 mr-3 mt-1" />
-            <div>
-              <h3 className="font-medium text-red-700">Access Restricted</h3>
-              {searchParams.error === "ownerOnly" && (
-                <p className="text-sm text-red-600 mt-1">
-                  That page is only available to equipment owners. 
-                  {userType !== "both" && (
-                    <span> To list equipment, you need to <Link href="/routes/profile/settings" className="underline">update your profile</Link> to be an owner or both.</span>
-                  )}
-                </p>
-              )}
-              {searchParams.error === "renterOnly" && (
-                <p className="text-sm text-red-600 mt-1">
-                  That page is only available to renters. 
-                  {userType !== "both" && (
-                    <span> To rent equipment, you need to <Link href="/routes/profile/settings" className="underline">update your profile</Link> to be a renter or both.</span>
-                  )}
-                </p>
-              )}
-            </div>
-          </div>
-        )}
+        {/* Error Messages - Using Client Component */}
+        <ErrorMessage error={errorParam} userType={userType} />
 
-        {/* Role Selection Tabs */}
-        <div className="mb-8 border-b border-gray-200">
-          <div className="flex space-x-8">
-            <button 
-              className={`py-4 px-1 border-b-2 font-medium focus:outline-none ${showRenterByDefault ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-              onClick={() => {
-                const renterSection = document.getElementById('renter-section');
-                const ownerSection = document.getElementById('owner-section');
-                if (renterSection) renterSection.classList.remove('hidden');
-                if (ownerSection) ownerSection.classList.add('hidden');
-                
-                // Update button styles
-                const renterButton = document.getElementById('renter-tab');
-                const ownerButton = document.getElementById('owner-tab');
-                if (renterButton) {
-                  renterButton.classList.add('border-blue-500', 'text-blue-600');
-                  renterButton.classList.remove('border-transparent', 'text-gray-500');
-                }
-                if (ownerButton) {
-                  ownerButton.classList.remove('border-blue-500', 'text-blue-600');
-                  ownerButton.classList.add('border-transparent', 'text-gray-500');
-                }
-              }}
-              id="renter-tab"
-            >
-              <div className="flex items-center">
-                <User className="w-5 h-5 mr-2" />
-                <span>Renter Dashboard</span>
-              </div>
-            </button>
-            <button 
-              className={`py-4 px-1 border-b-2 font-medium focus:outline-none ${!showRenterByDefault && showOwnerByDefault ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-              onClick={() => {
-                const renterSection = document.getElementById('renter-section');
-                const ownerSection = document.getElementById('owner-section');
-                if (renterSection) renterSection.classList.add('hidden');
-                if (ownerSection) ownerSection.classList.remove('hidden');
-                
-                // Update button styles
-                const renterButton = document.getElementById('renter-tab');
-                const ownerButton = document.getElementById('owner-tab');
-                if (renterButton) {
-                  renterButton.classList.remove('border-blue-500', 'text-blue-600');
-                  renterButton.classList.add('border-transparent', 'text-gray-500');
-                }
-                if (ownerButton) {
-                  ownerButton.classList.add('border-blue-500', 'text-blue-600');
-                  ownerButton.classList.remove('border-transparent', 'text-gray-500');
-                }
-              }}
-              id="owner-tab"
-            >
-              <div className="flex items-center">
-                <ShoppingBag className="w-5 h-5 mr-2" />
-                <span>Owner Dashboard</span>
-              </div>
-            </button>
-          </div>
-        </div>
+        {/* Role Selection Tabs - Using Client Component */}
+        <DashboardTabs 
+          initialRenterTab={showRenterByDefault} 
+          initialOwnerTab={showOwnerByDefault} 
+        />
 
         {/* Renter Section */}
         <div id="renter-section" className={`mb-10 ${showRenterByDefault ? '' : 'hidden'}`}>
@@ -577,15 +504,13 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
       </div>
     );
   } catch (error) {
-    console.error("Error loading dashboard data:", error);
+    console.error("Error loading dashboard:", error);
     return (
       <div className="max-w-6xl mx-auto px-4 py-8">
         <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
-        <div className="bg-white rounded-lg shadow p-6 text-center">
-          <p className="text-red-500">Error loading dashboard data. Please try again later.</p>
-          <Link href="/routes/equipment" className="mt-4 inline-block text-blue-600 hover:underline">
-            Browse Equipment
-          </Link>
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <h2 className="text-red-700 font-medium">Error loading dashboard</h2>
+          <p className="text-red-600 mt-1">There was a problem loading your dashboard. Please try again later.</p>
         </div>
       </div>
     );
