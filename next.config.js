@@ -16,14 +16,15 @@ const nextConfig = {
   },
   output: 'standalone',
   images: {
-    domains: ['res.cloudinary.com'],
+    domains: ['res.cloudinary.com', 'lh3.googleusercontent.com'],
     unoptimized: true
   },
   experimental: {
     serverActions: {
       bodySizeLimit: '2mb',
       allowedOrigins: ['localhost:3000', 'jackerbox.vercel.app', 'jackerbox.netlify.app']
-    }
+    },
+    serverComponentsExternalPackages: ['bcrypt'],
   },
   // Add this to handle dynamic server usage errors
   serverRuntimeConfig: {
@@ -49,8 +50,13 @@ const nextConfig = {
         child_process: false,
       };
     }
+    config.externals = [...config.externals, 'bcrypt'];
     return config;
   },
+  // Disable fast refresh to prevent console errors
+  devOptions: {
+    fastRefresh: false,
+  }
 };
 
 export default nextConfig; 

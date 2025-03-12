@@ -16,6 +16,7 @@ declare global {
     initialized: boolean;
     initializing: boolean;
     error: Error | null;
+    lastInitAttempt: number;
   };
 }
 
@@ -27,7 +28,8 @@ if (!global.__socketServer) {
     port: null,
     initialized: false,
     initializing: false,
-    error: null
+    error: null,
+    lastInitAttempt: 0
   };
 }
 
@@ -59,14 +61,16 @@ const isPortAvailable = (port: number): Promise<boolean> => {
 };
 
 // Find an available port starting from the given port
-const findAvailablePort = async (startPort: number, maxAttempts = 10): Promise<number | null> => {
-  for (let i = 0; i < maxAttempts; i++) {
-    const port = startPort + i;
+const findAvailablePort = async (startPort: number, maxAttempts = 5): Promise<number | null> => {
+  const ports = [startPort, 3002, 3003, 3004, 3005]; // Try these specific ports
+  
+  for (const port of ports) {
     const available = await isPortAvailable(port);
     if (available) {
       return port;
     }
   }
+  
   return null;
 };
 
@@ -92,29 +96,65 @@ export function shutdownSocketServer() {
   console.log('Socket server shutdown complete');
 }
 
+// Try to listen on a port
+const tryListen = (httpServer: any, port: number): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    try {
+      httpServer.listen(port, () => {
+        console.log(`Socket.io HTTP server listening on port ${port}`);
+        global.__socketServer.port = port;
+        resolve();
+      });
+      
+      httpServer.once('error', (error: any) => {
+        if (error.code === 'EADDRINUSE') {
+          console.error(`Port ${port} is already in use. Socket functionality will be limited to polling.`);
+        } else {
+          console.error('Socket server error:', error);
+        }
+        reject(error);
+      });
+    } catch (error) {
+      reject(error);
+    }
+  });
+};
+
 // Initialize the socket.io server
 export async function initServer() {
-  // If server is already initialized or initializing, return the current instance
-  if (global.__socketServer.initialized) {
+  // If server is already initialized, return the current instance
+  if (global.__socketServer.initialized && global.__socketServer.io) {
     console.log('Socket server already initialized');
     return global.__socketServer.io;
   }
   
+  // If server is initializing and it's been less than 10 seconds, wait for it
   if (global.__socketServer.initializing) {
-    console.log('Socket server initialization in progress...');
-    // Wait for initialization to complete
-    return new Promise((resolve) => {
-      const checkInterval = setInterval(() => {
-        if (global.__socketServer.initialized || global.__socketServer.error) {
-          clearInterval(checkInterval);
-          resolve(global.__socketServer.io);
-        }
-      }, 100);
-    });
+    const now = Date.now();
+    const timeSinceLastAttempt = now - global.__socketServer.lastInitAttempt;
+    
+    // If it's been less than 10 seconds since the last attempt, wait
+    if (timeSinceLastAttempt < 10000) {
+      console.log('Socket server initialization in progress...');
+      // Wait for initialization to complete
+      return new Promise((resolve) => {
+        const checkInterval = setInterval(() => {
+          if (global.__socketServer.initialized || global.__socketServer.error) {
+            clearInterval(checkInterval);
+            resolve(global.__socketServer.io);
+          }
+        }, 100);
+      });
+    } else {
+      // If it's been more than 10 seconds, assume the previous attempt failed
+      console.log('Previous socket server initialization timed out, restarting...');
+      shutdownSocketServer();
+    }
   }
   
-  // Set the initialization flag
+  // Set the initialization flag and timestamp
   global.__socketServer.initializing = true;
+  global.__socketServer.lastInitAttempt = Date.now();
 
   try {
     console.log('Initializing socket.io server for API route');
@@ -172,22 +212,29 @@ export async function initServer() {
     }
     
     // Start the server on the available port
-    await new Promise<void>((resolve, reject) => {
-      httpServer.listen(availablePort, () => {
-        console.log(`Socket.io HTTP server listening on port ${availablePort}`);
-        global.__socketServer.port = availablePort;
-        resolve();
-      });
-      
-      httpServer.once('error', (error: any) => {
-        if (error.code === 'EADDRINUSE') {
-          console.error(`Port ${availablePort} is already in use. Socket functionality will be limited to polling.`);
-        } else {
-          console.error('Socket server error:', error);
+    try {
+      await tryListen(httpServer, availablePort);
+    } catch (error: any) {
+      if (error.code === 'EADDRINUSE') {
+        // If the port is in use, try to find another available port
+        console.log(`Port ${availablePort} is in use, trying to find another port...`);
+        
+        // Force shutdown any existing server
+        shutdownSocketServer();
+        
+        // Try to find another available port
+        const newPort = await findAvailablePort(3002);
+        
+        if (!newPort) {
+          throw new Error('Could not find an available port for socket server after retry');
         }
-        reject(error);
-      });
-    });
+        
+        // Try to listen on the new port
+        await tryListen(httpServer, newPort);
+      } else {
+        throw error;
+      }
+    }
     
     // Set up error handling for the server
     httpServer.on('error', (error: any) => {

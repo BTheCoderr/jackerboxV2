@@ -1,309 +1,438 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useSocket } from "@/hooks/use-socket";
-import { SocketStatus } from "@/components/messaging/socket-status";
+import { useEffect, useState } from 'react';
+import { useSocket } from '@/hooks/use-socket';
+import { SocketStatus } from '@/components/messaging/socket-status';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Loader2, RefreshCw, Server, Terminal, Wifi, WifiOff } from 'lucide-react';
+
+// Simple tabs implementation
+interface TabsProps {
+  value: string;
+  onValueChange: (value: string) => void;
+  children: React.ReactNode;
+}
+
+const Tabs: React.FC<TabsProps> = ({ children }) => {
+  return <div>{children}</div>;
+};
+
+interface TabsListProps {
+  children: React.ReactNode;
+}
+
+const TabsList: React.FC<TabsListProps> = ({ children }) => {
+  return <div className="flex space-x-2 border-b mb-4">{children}</div>;
+};
+
+interface TabsTriggerProps {
+  value: string;
+  children: React.ReactNode;
+  className?: string;
+  onClick?: () => void;
+}
+
+const TabsTrigger: React.FC<TabsTriggerProps> = ({ value, children, className = '', onClick }) => {
+  return (
+    <button
+      className={`px-4 py-2 ${className}`}
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  );
+};
+
+interface TabsContentProps {
+  value: string;
+  children: React.ReactNode;
+  className?: string;
+  show: boolean;
+}
+
+const TabsContent: React.FC<TabsContentProps> = ({ children, show, className = '' }) => {
+  if (!show) return null;
+  return <div className={className}>{children}</div>;
+};
+
+interface SocketServerStatus {
+  initialized: boolean;
+  initializing: boolean;
+  port: number | null;
+  error: string | null;
+  socketServerUrl: string | null;
+  proxyUrl: string;
+  timestamp: string;
+}
 
 export default function SocketDebugPage() {
-  const { 
-    socket, 
-    isConnected, 
-    isPollingFallback, 
-    reconnect,
-    resetConnection,
-    subscribe
-  } = useSocket({ debug: true });
-  
-  const [events, setEvents] = useState<Array<{
-    type: string;
-    data?: any;
-    timestamp: Date;
-  }>>([]);
-  
-  const [socketInfo, setSocketInfo] = useState<{
-    id: string | null;
-    transport: string | null;
-  }>({
-    id: null,
-    transport: null
-  });
-  
-  const [hostname, setHostname] = useState<string>('localhost');
-  
-  // Get the hostname when component mounts
-  useEffect(() => {
-    setHostname(window.location.hostname);
-  }, []);
-  
-  // Log socket events
-  useEffect(() => {
-    if (!socket) return;
-    
-    // Log connection events
-    const onConnect = () => {
-      addEvent('connect');
-      updateSocketInfo();
-    };
-    
-    const onDisconnect = (reason: string) => {
-      addEvent('disconnect', { reason });
-      setSocketInfo({
-        id: null,
-        transport: null
-      });
-    };
-    
-    const onConnectError = (error: Error) => {
-      addEvent('connect_error', { message: error.message });
-    };
-    
-    const onReconnect = (attempt: number) => {
-      addEvent('reconnect', { attempt });
-      updateSocketInfo();
-    };
-    
-    const onReconnectAttempt = (attempt: number) => {
-      addEvent('reconnect_attempt', { attempt });
-    };
-    
-    const onReconnectError = (error: Error) => {
-      addEvent('reconnect_error', { message: error.message });
-    };
-    
-    const onReconnectFailed = () => {
-      addEvent('reconnect_failed');
-    };
-    
-    // Subscribe to events
-    socket.on('connect', onConnect);
-    socket.on('disconnect', onDisconnect);
-    socket.on('connect_error', onConnectError);
-    socket.io.on('reconnect', onReconnect);
-    socket.io.on('reconnect_attempt', onReconnectAttempt);
-    socket.io.on('reconnect_error', onReconnectError);
-    socket.io.on('reconnect_failed', onReconnectFailed);
-    
-    // Update socket info if already connected
-    if (socket.connected) {
-      updateSocketInfo();
-    }
-    
-    // Cleanup
-    return () => {
-      socket.off('connect', onConnect);
-      socket.off('disconnect', onDisconnect);
-      socket.off('connect_error', onConnectError);
-      socket.io.off('reconnect', onReconnect);
-      socket.io.off('reconnect_attempt', onReconnectAttempt);
-      socket.io.off('reconnect_error', onReconnectError);
-      socket.io.off('reconnect_failed', onReconnectFailed);
-    };
-  }, [socket]);
-  
-  // Add an event to the log
-  const addEvent = (type: string, data?: any) => {
-    setEvents(prev => [
-      {
-        type,
-        data,
-        timestamp: new Date()
-      },
-      ...prev.slice(0, 49) // Keep only the last 50 events
-    ]);
-  };
-  
-  // Update socket info
-  const updateSocketInfo = () => {
-    if (!socket) return;
-    
-    setSocketInfo({
-      id: socket.id || null,
-      transport: socket.io.engine?.transport?.name || null
-    });
-  };
-  
-  // Clear events
-  const clearEvents = () => {
-    setEvents([]);
-  };
-  
-  // Check socket server status
-  const checkStatus = async () => {
+  const { socket, status, error, connect, disconnect } = useSocket();
+  const [serverStatus, setServerStatus] = useState<SocketServerStatus | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [events, setEvents] = useState<Array<{ type: string; data: any; timestamp: string }>>([]);
+  const [activeTab, setActiveTab] = useState('status');
+
+  // Fetch the socket server status
+  const fetchStatus = async () => {
     try {
+      setLoading(true);
       const response = await fetch('/api/socket-status');
       const data = await response.json();
-      addEvent('status_check', data);
-    } catch (error: any) {
-      addEvent('status_check_error', { message: error.message });
+      setServerStatus(data);
+    } catch (err) {
+      console.error('Error fetching socket server status:', err);
+    } finally {
+      setLoading(false);
     }
   };
-  
-  // Format timestamp
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('en-US', { 
-      hour12: false,
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      fractionalSecondDigits: 3
-    });
+
+  // Listen for socket events
+  useEffect(() => {
+    if (socket && status === 'connected') {
+      // Add a connected event
+      setEvents(prev => [
+        {
+          type: 'connect',
+          data: { id: socket.id, transport: socket.io.engine.transport.name },
+          timestamp: new Date().toISOString()
+        },
+        ...prev
+      ]);
+
+      // Listen for all events
+      const onAnyEvent = (event: string, ...args: any[]) => {
+        setEvents(prev => [
+          {
+            type: event,
+            data: args.length === 1 ? args[0] : args,
+            timestamp: new Date().toISOString()
+          },
+          ...prev
+        ]);
+      };
+
+      // Listen for transport changes
+      const onTransportChange = (transport: any) => {
+        setEvents(prev => [
+          {
+            type: 'transport',
+            data: { name: transport.name },
+            timestamp: new Date().toISOString()
+          },
+          ...prev
+        ]);
+      };
+
+      // Listen for disconnect
+      const onDisconnect = (reason: string) => {
+        setEvents(prev => [
+          {
+            type: 'disconnect',
+            data: { reason },
+            timestamp: new Date().toISOString()
+          },
+          ...prev
+        ]);
+      };
+
+      // Add event listeners
+      socket.onAny(onAnyEvent);
+      socket.io.engine.on('upgrade', onTransportChange);
+      socket.on('disconnect', onDisconnect);
+
+      // Clean up
+      return () => {
+        socket.offAny(onAnyEvent);
+        socket.off('disconnect', onDisconnect);
+      };
+    }
+  }, [socket, status]);
+
+  // Fetch status on mount
+  useEffect(() => {
+    fetchStatus();
+    // Refresh status every 5 seconds
+    const interval = setInterval(fetchStatus, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Get the connection status badge
+  const getStatusBadge = () => {
+    switch (status) {
+      case 'connected':
+        return <Badge className="bg-green-500">Connected</Badge>;
+      case 'connecting':
+        return <Badge className="bg-yellow-500">Connecting</Badge>;
+      case 'disconnected':
+        return <Badge className="bg-gray-500">Disconnected</Badge>;
+      case 'error':
+        return <Badge className="bg-red-500">Error</Badge>;
+      default:
+        return <Badge className="bg-gray-500">Unknown</Badge>;
+    }
   };
-  
+
+  // Get the server status badge
+  const getServerStatusBadge = () => {
+    if (!serverStatus) return <Badge className="bg-gray-500">Unknown</Badge>;
+    
+    if (serverStatus.initialized) {
+      return <Badge className="bg-green-500">Running</Badge>;
+    } else if (serverStatus.initializing) {
+      return <Badge className="bg-yellow-500">Initializing</Badge>;
+    } else if (serverStatus.error) {
+      return <Badge className="bg-red-500">Error</Badge>;
+    } else {
+      return <Badge className="bg-gray-500">Not Running</Badge>;
+    }
+  };
+
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Socket Server Debug</h1>
+    <div className="container mx-auto py-8">
+      <h1 className="text-3xl font-bold mb-6">Socket Debug</h1>
       
-      <div className="mb-6">
-        <SocketStatus showDebugInfo={true} />
-      </div>
-      
-      <div className="bg-white p-4 rounded-lg shadow mb-6">
-        <h2 className="text-xl font-semibold mb-3">Connection Information</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-gray-50 p-3 rounded border">
-            <h3 className="font-medium text-gray-700 mb-2">Client Configuration</h3>
-            <div className="space-y-2 text-sm">
-              <div>
-                <span className="font-medium">Next.js Server:</span> 
-                <span className="ml-1">http://{hostname}:3000</span>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Wifi className="h-5 w-5 mr-2" />
+              Client Connection
+              <div className="ml-auto">{getStatusBadge()}</div>
+            </CardTitle>
+            <CardDescription>
+              Socket.IO client connection status and controls
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-center space-x-2">
+                <SocketStatus />
               </div>
-              <div>
-                <span className="font-medium">Socket.IO Path:</span> 
-                <span className="ml-1">/api/socket</span>
-              </div>
-              <div>
-                <span className="font-medium">Primary Transport:</span> 
-                <span className="ml-1">WebSocket</span>
-              </div>
-              <div>
-                <span className="font-medium">Fallback Transport:</span> 
-                <span className="ml-1">Polling</span>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-gray-50 p-3 rounded border">
-            <h3 className="font-medium text-gray-700 mb-2">Socket Server</h3>
-            <div className="space-y-2 text-sm">
-              <div>
-                <span className="font-medium">Connection Method:</span> 
-                <span className="ml-1">Proxy Route</span>
-              </div>
-              <div>
-                <span className="font-medium">Client URL:</span> 
-                <span className="ml-1">http://{hostname}:3000/api/socket</span>
-              </div>
-              <div>
-                <span className="font-medium">Socket Server:</span> 
-                <span className="ml-1">http://{hostname}:3001</span>
-              </div>
-              <div>
-                <span className="font-medium">Connection Status:</span> 
-                <span className={`ml-1 ${isConnected ? "text-green-600" : "text-red-600"}`}>
-                  {isConnected ? "Connected" : "Disconnected"}
-                </span>
-              </div>
-              <div>
-                <span className="font-medium">Transport Mode:</span> 
-                <span className={`ml-1 ${isPollingFallback ? "text-yellow-600" : "text-green-600"}`}>
-                  {isPollingFallback ? "Polling (fallback)" : "WebSocket"}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <div className="mt-4">
-          <h3 className="font-medium text-gray-700 mb-2">Socket Details</h3>
-          <div className="bg-gray-50 p-3 rounded border text-sm">
-            <div className="space-y-2">
-              <div>
-                <span className="font-medium">Socket ID:</span> 
-                <span className="ml-1">{socketInfo.id || "Not connected"}</span>
-              </div>
-              <div>
-                <span className="font-medium">Active Transport:</span> 
-                <span className="ml-1">{socketInfo.transport || "None"}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <div className="mt-4 space-x-2">
-          <button 
-            onClick={reconnect}
-            className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
-          >
-            Reconnect
-          </button>
-          
-          <button 
-            onClick={resetConnection}
-            className="px-3 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600"
-          >
-            Reset Connection
-          </button>
-          
-          <button 
-            onClick={checkStatus}
-            className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600"
-          >
-            Check Server Status
-          </button>
-        </div>
-      </div>
-      
-      <div className="bg-white p-4 rounded-lg shadow">
-        <div className="flex justify-between items-center mb-3">
-          <h2 className="text-xl font-semibold">Event Log</h2>
-          <button 
-            onClick={clearEvents}
-            className="px-2 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300"
-          >
-            Clear
-          </button>
-        </div>
-        
-        <div className="h-96 overflow-y-auto border rounded p-2 bg-gray-50">
-          {events.length === 0 ? (
-            <div className="text-gray-500 text-center py-4">No events yet</div>
-          ) : (
-            <div className="space-y-2">
-              {events.map((event, index) => (
-                <div key={index} className={`p-2 rounded ${
-                  event.type.includes('error') || event.type.includes('failed')
-                    ? 'bg-red-100'
-                    : event.type === 'connect' || event.type === 'reconnect'
-                      ? 'bg-green-100'
-                      : event.type.includes('attempt')
-                        ? 'bg-yellow-100'
-                        : 'bg-gray-100'
-                }`}>
-                  <div className="flex justify-between text-sm">
-                    <span className="font-medium">{event.type}</span>
-                    <span className="text-gray-500">{formatTime(event.timestamp)}</span>
-                  </div>
-                  {event.data && (
-                    <pre className="text-xs mt-1 overflow-x-auto">
-                      {JSON.stringify(event.data, null, 2)}
-                    </pre>
-                  )}
+              
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="font-medium">Socket ID:</span>{' '}
+                  <span className="font-mono">{socket?.id || 'Not connected'}</span>
                 </div>
-              ))}
+                <div>
+                  <span className="font-medium">Transport:</span>{' '}
+                  <span>{socket?.io.engine.transport.name || 'N/A'}</span>
+                </div>
+                <div>
+                  <span className="font-medium">Connected:</span>{' '}
+                  <span>{status === 'connected' ? 'Yes' : 'No'}</span>
+                </div>
+                <div>
+                  <span className="font-medium">Proxy URL:</span>{' '}
+                  <span className="font-mono">{serverStatus?.proxyUrl || '/api/socket'}</span>
+                </div>
+              </div>
             </div>
-          )}
-        </div>
+          </CardContent>
+          <CardFooter className="flex justify-between">
+            {status !== 'connected' && (
+              <Button onClick={connect}>
+                Connect
+              </Button>
+            )}
+            {status === 'connected' && (
+              <Button variant="outline" onClick={disconnect}>
+                Disconnect
+              </Button>
+            )}
+          </CardFooter>
+        </Card>
+        
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Server className="h-5 w-5 mr-2" />
+              Socket Server
+              <div className="ml-auto">{getServerStatusBadge()}</div>
+            </CardTitle>
+            <CardDescription>
+              Socket.IO server status and information
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                <span>Loading server status...</span>
+              </div>
+            ) : serverStatus ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="font-medium">Status:</span>{' '}
+                    <span>
+                      {serverStatus.initialized
+                        ? 'Running'
+                        : serverStatus.initializing
+                        ? 'Initializing'
+                        : 'Not Running'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="font-medium">Port:</span>{' '}
+                    <span className="font-mono">{serverStatus.port || 'N/A'}</span>
+                  </div>
+                  <div>
+                    <span className="font-medium">Server URL:</span>{' '}
+                    <span className="font-mono">{serverStatus.socketServerUrl || 'N/A'}</span>
+                  </div>
+                  <div>
+                    <span className="font-medium">Proxy URL:</span>{' '}
+                    <span className="font-mono">{serverStatus.proxyUrl}</span>
+                  </div>
+                </div>
+                
+                {serverStatus.error && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">
+                    <div className="font-medium">Error:</div>
+                    <div className="font-mono text-xs">{serverStatus.error}</div>
+                  </div>
+                )}
+                
+                <div className="text-xs text-gray-500">
+                  Last updated: {new Date(serverStatus.timestamp).toLocaleTimeString()}
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-4 text-gray-500">
+                Failed to load server status
+              </div>
+            )}
+          </CardContent>
+          <CardFooter>
+            <Button variant="outline" onClick={fetchStatus} disabled={loading}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              Refresh Status
+            </Button>
+          </CardFooter>
+        </Card>
       </div>
       
-      <div className="mt-6 bg-blue-50 p-3 rounded border">
-        <h3 className="font-semibold text-blue-700 mb-2">Troubleshooting Tips</h3>
-        <ul className="list-disc pl-5 space-y-1 text-blue-800">
-          <li>The socket server runs on port 3001, separate from the Next.js server on port 3000.</li>
-          <li>If you see WebSocket connection errors, make sure the socket server is running.</li>
-          <li>You can check the socket server status with the "Check Server Status" button.</li>
-          <li>The proxy route at /api/socket redirects requests to the socket server.</li>
-          <li>If you're still having issues, try the "Reset Connection" button.</li>
-        </ul>
+      <div>
+        <div className="flex space-x-2 border-b mb-4">
+          <button
+            className={`px-4 py-2 ${activeTab === 'status' ? 'border-b-2 border-blue-500 font-medium' : 'text-gray-500'}`}
+            onClick={() => setActiveTab('status')}
+          >
+            Connection Status
+          </button>
+          <button
+            className={`px-4 py-2 ${activeTab === 'events' ? 'border-b-2 border-blue-500 font-medium' : 'text-gray-500'}`}
+            onClick={() => setActiveTab('events')}
+          >
+            Events Log
+          </button>
+        </div>
+        
+        {activeTab === 'status' && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Connection Details</CardTitle>
+              <CardDescription>
+                Detailed information about the socket connection
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {status === 'connected' && socket ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="font-medium">Socket ID:</span>{' '}
+                      <span className="font-mono">{socket.id}</span>
+                    </div>
+                    <div>
+                      <span className="font-medium">Transport:</span>{' '}
+                      <span>{socket.io.engine.transport.name}</span>
+                    </div>
+                    <div>
+                      <span className="font-medium">Protocol:</span>{' '}
+                      <span>{(socket.io.engine as any).protocol || 'N/A'}</span>
+                    </div>
+                    <div>
+                      <span className="font-medium">Connected:</span>{' '}
+                      <span>{socket.connected ? 'Yes' : 'No'}</span>
+                    </div>
+                    <div>
+                      <span className="font-medium">Namespace:</span>{' '}
+                      <span>{'/'}</span>
+                    </div>
+                    <div>
+                      <span className="font-medium">Query:</span>{' '}
+                      <span className="font-mono">{JSON.stringify(socket.io.opts.query || {})}</span>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <h3 className="text-sm font-medium mb-2">Socket Options:</h3>
+                    <pre className="bg-gray-100 p-3 rounded-md text-xs overflow-auto max-h-40">
+                      {JSON.stringify(socket.io.opts, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-8 text-gray-500">
+                  <WifiOff className="h-12 w-12 mb-4" />
+                  <p>Socket is not connected</p>
+                  {status === 'error' && error && (
+                    <p className="text-red-500 mt-2">Error: {error.message}</p>
+                  )}
+                  <Button className="mt-4" onClick={connect}>
+                    Connect Now
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+        
+        {activeTab === 'events' && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Terminal className="h-5 w-5 mr-2" />
+                Events Log
+              </CardTitle>
+              <CardDescription>
+                Log of socket events received from the server
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {events.length > 0 ? (
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {events.map((event, index) => (
+                    <div key={index} className="p-2 border rounded-md text-sm">
+                      <div className="flex justify-between">
+                        <span className="font-medium">{event.type}</span>
+                        <span className="text-xs text-gray-500">
+                          {new Date(event.timestamp).toLocaleTimeString()}
+                        </span>
+                      </div>
+                      <pre className="bg-gray-100 p-2 rounded-md text-xs mt-1 overflow-auto max-h-20">
+                        {JSON.stringify(event.data, null, 2)}
+                      </pre>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  No events received yet
+                </div>
+              )}
+            </CardContent>
+            <CardFooter>
+              <Button variant="outline" onClick={() => setEvents([])}>
+                Clear Events
+              </Button>
+            </CardFooter>
+          </Card>
+        )}
       </div>
     </div>
   );
