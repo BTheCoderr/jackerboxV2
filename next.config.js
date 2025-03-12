@@ -37,7 +37,7 @@ const nextConfig = {
     staticFolder: '/static',
   },
   // Add webpack configuration to handle Node.js modules
-  webpack: (config, { isServer }) => {
+  webpack: (config, { isServer, dev }) => {
     // If it's a client-side bundle, add fallbacks for Node.js modules
     if (!isServer) {
       config.resolve.fallback = {
@@ -51,6 +51,32 @@ const nextConfig = {
         child_process: false,
       };
     }
+    
+    // Add plugin to suppress hot-reloader console messages in development
+    if (dev && !isServer) {
+      // Add a custom plugin to suppress hot-reloader console messages
+      config.plugins.push({
+        apply: (compiler) => {
+          compiler.hooks.afterEmit.tap('SuppressHotReloaderLogs', () => {
+            // This is a hack to suppress hot-reloader console messages
+            if (typeof window !== 'undefined') {
+              const originalConsoleError = console.error;
+              console.error = (...args) => {
+                if (
+                  typeof args[0] === 'string' && 
+                  (args[0].includes('hot-reloader') || 
+                   args[0].includes('[Fast Refresh]'))
+                ) {
+                  return;
+                }
+                originalConsoleError(...args);
+              };
+            }
+          });
+        }
+      });
+    }
+    
     config.externals = [...config.externals, 'bcrypt'];
     return config;
   }
