@@ -1,8 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { Metadata } from "next";
-import { getCurrentUser } from "@/lib/auth/auth-utils";
-import { redirect } from "next/navigation";
+import { requireAuth } from "@/lib/auth/auth-utils";
 import { db } from "@/lib/db";
 import { formatDistanceToNow } from "date-fns";
 import { GenerateSampleNotificationsButton } from "@/components/notifications/generate-sample-button";
@@ -32,11 +31,7 @@ interface NotificationType {
 }
 
 export default async function NotificationsPage() {
-  const user = await getCurrentUser();
-
-  if (!user) {
-    redirect("/auth/login?callbackUrl=/routes/dashboard/notifications");
-  }
+  const user = await requireAuth("/routes/dashboard/notifications");
 
   try {
     // Fetch notifications from the database

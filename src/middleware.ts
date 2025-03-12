@@ -6,7 +6,10 @@ export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
   
   // Get the token and check if the user is logged in
-  const token = await getToken({ req: request });
+  const token = await getToken({ 
+    req: request,
+    secret: process.env.NEXTAUTH_SECRET 
+  });
   const isLoggedIn = !!token;
   
   // If the user is not logged in and trying to access protected routes, redirect to login
@@ -19,7 +22,8 @@ export async function middleware(request: NextRequest) {
     path.startsWith('/routes/messages') ||
     path.startsWith('/routes/profile')
   )) {
-    return NextResponse.redirect(new URL('/auth/login', request.url));
+    // Add the callback URL to redirect back after login
+    return NextResponse.redirect(new URL(`/auth/login?callbackUrl=${encodeURIComponent(path)}`, request.url));
   }
   
   // If the user is logged in, check their user type for specific route restrictions
@@ -60,7 +64,6 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     '/routes/dashboard/:path*',
-    '/routes/dashboard/notifications',
     '/routes/equipment/new',
     '/routes/equipment/edit/:path*',
     '/routes/equipment/:path*/rent',

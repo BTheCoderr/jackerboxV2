@@ -1,8 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { Metadata } from "next";
-import { getCurrentUser } from "@/lib/auth/auth-utils";
-import { redirect } from "next/navigation";
+import { requireAuth } from "@/lib/auth/auth-utils";
 import { db } from "@/lib/db";
 import { MessagesInboxContent } from "@/components/messaging/messages-inbox-content";
 
@@ -12,11 +11,7 @@ export const metadata: Metadata = {
 };
 
 export default async function MessagesInboxPage() {
-  const currentUser = await getCurrentUser();
-
-  if (!currentUser) {
-    redirect("/auth/login?callbackUrl=/routes/messages");
-  }
+  const currentUser = await requireAuth("/routes/messages");
 
   try {
     // Get all conversations for the current user

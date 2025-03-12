@@ -38,11 +38,12 @@ export async function getCurrentUser() {
   }
 }
 
-export async function requireAuth() {
+export async function requireAuth(callbackUrl?: string) {
   const user = await getCurrentUser();
   
   if (!user) {
-    redirect("/auth/login");
+    const redirectUrl = callbackUrl ? `/auth/login?callbackUrl=${encodeURIComponent(callbackUrl)}` : "/auth/login";
+    redirect(redirectUrl);
   }
   
   return user;
