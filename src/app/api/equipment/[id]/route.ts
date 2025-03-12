@@ -20,6 +20,66 @@ const updateEquipmentSchema = z.object({
   isAvailable: z.boolean().optional(),
 });
 
+export async function GET(
+  req: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const user = await getCurrentUser();
+    
+    if (!user) {
+      return NextResponse.json(
+        { message: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+    
+    // Fetch the equipment by ID
+    const equipment = await db.equipment.findUnique({
+      where: { id: params.id },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        condition: true,
+        category: true,
+        subcategory: true,
+        location: true,
+        hourlyRate: true,
+        dailyRate: true,
+        weeklyRate: true,
+        securityDeposit: true,
+        tagsJson: true,
+        imagesJson: true,
+        isAvailable: true,
+        ownerId: true,
+        owner: {
+          select: {
+            id: true,
+            name: true,
+            image: true,
+          },
+        },
+      },
+    });
+    
+    if (!equipment) {
+      return NextResponse.json(
+        { message: "Equipment not found" },
+        { status: 404 }
+      );
+    }
+    
+    return NextResponse.json({ equipment });
+  } catch (error) {
+    console.error("Error fetching equipment:", error);
+    return NextResponse.json(
+      { message: "Something went wrong. Please try again." },
+      { status: 500 }
+    );
+  }
+}
+
 export async function DELETE(
   req: Request,
   { params }: { params: { id: string } }
@@ -31,6 +91,20 @@ export async function DELETE(
       return NextResponse.json(
         { message: "Unauthorized" },
         { status: 401 }
+      );
+    }
+    
+    // Check if user is a renter (has rental history)
+    const userRentals = await db.rental.count({
+      where: {
+        renterId: user.id
+      }
+    });
+    
+    if (userRentals > 0) {
+      return NextResponse.json(
+        { message: "Renters cannot manage equipment. Please use a separate owner account." },
+        { status: 403 }
       );
     }
     
@@ -106,8 +180,19 @@ export async function PATCH(
       );
     }
     
-    const body = await req.json();
-    const validatedData = updateEquipmentSchema.parse(body);
+    // Check if user is a renter (has rental history)
+    const userRentals = await db.rental.count({
+      where: {
+        renterId: user.id
+      }
+    });
+    
+    if (userRentals > 0) {
+      return NextResponse.json(
+        { message: "Renters cannot manage equipment. Please use a separate owner account." },
+        { status: 403 }
+      );
+    }
     
     // Check if the equipment exists and belongs to the user
     const equipment = await db.equipment.findUnique({
@@ -129,6 +214,9 @@ export async function PATCH(
         { status: 403 }
       );
     }
+    
+    const body = await req.json();
+    const validatedData = updateEquipmentSchema.parse(body);
     
     // Update the equipment
     const updatedEquipment = await db.equipment.update({
