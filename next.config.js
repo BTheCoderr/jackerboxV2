@@ -25,6 +25,10 @@ const nextConfig = {
       allowedOrigins: ['localhost:3000', 'jackerbox.vercel.app', 'jackerbox.netlify.app']
     }
   },
+  // Force all pages to be server-side rendered by default
+  // This prevents "Dynamic server usage" errors during build
+  staticPageGenerationTimeout: 1000,
+  serverComponentsExternalPackages: ['bcrypt'],
   // Moved from experimental.serverComponentsExternalPackages
   serverExternalPackages: ['bcrypt'],
   // Add this to handle dynamic server usage errors
