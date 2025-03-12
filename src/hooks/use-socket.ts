@@ -1,12 +1,31 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { io, Socket } from "socket.io-client";
+import { io, Socket, ManagerOptions, SocketOptions } from "socket.io-client";
 import { useSession } from "next-auth/react";
 
 interface UseSocketOptions {
   enabled?: boolean;
   debug?: boolean;
+}
+
+// Try to connect to these ports in order
+const SOCKET_PORTS = [3001, 3002, 3003, 3004, 3005];
+
+// Extended socket options interface to include all the options we're using
+interface ExtendedSocketOptions extends Partial<ManagerOptions & SocketOptions> {
+  path?: string;
+  autoConnect?: boolean;
+  reconnection?: boolean;
+  reconnectionAttempts?: number;
+  reconnectionDelay?: number;
+  transports?: string[];
+  withCredentials?: boolean;
+  timeout?: number;
+  pingInterval?: number;
+  pingTimeout?: number;
+  forceNew?: boolean;
+  extraHeaders?: Record<string, string>;
 }
 
 export function useSocket(options: UseSocketOptions = {}) {
@@ -16,6 +35,7 @@ export function useSocket(options: UseSocketOptions = {}) {
   const socketRef = useRef<Socket | null>(null);
   const [isPollingFallback, setIsPollingFallback] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
+  const [currentPortIndex, setCurrentPortIndex] = useState(0);
   const MAX_RETRIES = 3;
 
   const log = useCallback((message: string, ...args: any[]) => {
@@ -24,16 +44,42 @@ export function useSocket(options: UseSocketOptions = {}) {
     }
   }, [debug]);
 
+  // Try to connect to a different port
+  const tryNextPort = useCallback(() => {
+    if (currentPortIndex < SOCKET_PORTS.length - 1) {
+      setCurrentPortIndex(prev => prev + 1);
+      setRetryCount(0);
+      return true;
+    }
+    return false;
+  }, [currentPortIndex]);
+
+  // Get the socket server URL for the current port
+  const getSocketServerUrl = useCallback((port: number) => {
+    // Use the hostname from the current window location
+    const hostname = window.location.hostname;
+    return `http://${hostname}:${port}`;
+  }, []);
+
   // Initialize socket connection
   useEffect(() => {
     if (!enabled || status !== "authenticated" || !session?.user) {
       return;
     }
 
-    log('Initializing socket connection...');
+    // Clean up any existing socket
+    if (socketRef.current) {
+      log('Cleaning up existing socket before creating a new one');
+      socketRef.current.disconnect();
+      socketRef.current = null;
+    }
 
-    // Create socket connection
-    const socket = io({
+    // Use the proxy route instead of connecting directly to the socket server
+    const serverUrl = window.location.origin; // This will be http://localhost:3000
+    log(`Initializing socket connection to ${serverUrl} (via proxy)...`);
+
+    // Create socket connection with properly typed options
+    const socketOptions: ExtendedSocketOptions = {
       path: "/api/socket",
       autoConnect: true,
       reconnection: true,
@@ -43,15 +89,17 @@ export function useSocket(options: UseSocketOptions = {}) {
       transports: ["websocket"],
       withCredentials: true,
       timeout: 10000, // Increase timeout to 10 seconds
-      // Increase ping intervals to reduce frequency
+      // Increase ping intervals to reduce polling frequency
       pingInterval: 60000, // 60 seconds
       pingTimeout: 30000,  // 30 seconds
       forceNew: true,      // Force a new connection
-    } as any);
+    };
+
+    const socket = io(serverUrl, socketOptions);
 
     // Set up event listeners
     socket.on("connect", () => {
-      log('Socket connected successfully');
+      log(`Socket connected successfully to ${serverUrl} (via proxy)`);
       setIsConnected(true);
       setRetryCount(0);
       setIsPollingFallback(false);
@@ -63,23 +111,49 @@ export function useSocket(options: UseSocketOptions = {}) {
     });
 
     socket.on("connect_error", (error) => {
-      log('Socket connection error:', error);
+      log(`Socket connection error to ${serverUrl} (via proxy):`, error);
       setIsConnected(false);
       
       // If we've tried a few times and still can't connect with websocket,
-      // only then fall back to polling as a last resort
-      if (retryCount >= MAX_RETRIES && !isPollingFallback) {
-        log('Switching to polling fallback mode after multiple failed attempts');
-        setIsPollingFallback(true);
-        socket.disconnect();
-        
-        // Reconnect with polling only, but with much less frequent polling
-        socket.io.opts.transports = ["polling", "websocket"];
-        // Set a very long polling interval to reduce requests
-        (socket.io as any).opts.extraHeaders = {
-          "X-Socket-Transport": "polling-fallback"
-        };
-        socket.connect();
+      // fall back to polling
+      if (retryCount >= MAX_RETRIES) {
+        if (!isPollingFallback) {
+          // Fall back to polling
+          log('Switching to polling fallback mode');
+          setIsPollingFallback(true);
+          socket.disconnect();
+          
+          // Reconnect with polling only, but with much less frequent polling
+          const pollingOptions = { ...socketOptions };
+          pollingOptions.transports = ["polling", "websocket"];
+          // Set a very long polling interval to reduce requests
+          pollingOptions.extraHeaders = {
+            "X-Socket-Transport": "polling-fallback"
+          };
+          
+          // Create a new socket with polling options
+          const pollingSocket = io(serverUrl, pollingOptions);
+          socketRef.current = pollingSocket;
+          
+          // Set up the same event listeners for the new socket
+          pollingSocket.on("connect", () => {
+            log(`Socket connected successfully to ${serverUrl} (polling)`);
+            setIsConnected(true);
+            setRetryCount(0);
+          });
+          
+          pollingSocket.on("disconnect", (reason) => {
+            log('Socket disconnected (polling):', reason);
+            setIsConnected(false);
+          });
+          
+          pollingSocket.on("connect_error", (error) => {
+            log(`Socket connection error to ${serverUrl} (polling):`, error);
+            setIsConnected(false);
+          });
+          
+          return;
+        }
       } else {
         setRetryCount(prev => prev + 1);
         log(`Connection retry ${retryCount + 1}/${MAX_RETRIES}`);
@@ -203,28 +277,41 @@ export function useSocket(options: UseSocketOptions = {}) {
   }, [isConnected, log]);
 
   // Subscribe to events
-  const subscribe = useCallback((event: string, callback: (data: any) => void) => {
-    if (socketRef.current) {
-      log(`Subscribing to event: ${event}`);
-      socketRef.current.on(event, callback);
-    }
-
+  const subscribe = useCallback((event: string, callback: (...args: any[]) => void) => {
+    if (!socketRef.current) return () => {};
+    
+    socketRef.current.on(event, callback);
     return () => {
       if (socketRef.current) {
-        log(`Unsubscribing from event: ${event}`);
         socketRef.current.off(event, callback);
       }
     };
-  }, [log]);
+  }, []);
 
   // Add a reconnect function
   const reconnect = useCallback(() => {
     if (socketRef.current) {
-      log('Manually reconnecting socket...');
+      log('Manually reconnecting socket');
       socketRef.current.connect();
     }
   }, [log]);
 
+  // Reset and try all ports again
+  const resetConnection = useCallback(() => {
+    log('Resetting socket connection');
+    setRetryCount(0);
+    setIsPollingFallback(false);
+    
+    if (socketRef.current) {
+      socketRef.current.disconnect();
+      socketRef.current = null;
+    }
+    
+    // Force a re-initialization of the socket
+    setRetryCount(0);
+  }, [log]);
+
+  // Return socket and connection state
   return {
     socket: socketRef.current,
     isConnected,
@@ -233,7 +320,13 @@ export function useSocket(options: UseSocketOptions = {}) {
     leaveChat,
     sendMessage,
     sendTyping,
-    subscribe,
     reconnect,
+    resetConnection,
+    subscribe,
+    emit: useCallback((event: string, ...args: any[]) => {
+      if (!socketRef.current || !isConnected) return false;
+      socketRef.current.emit(event, ...args);
+      return true;
+    }, [isConnected])
   };
 } 

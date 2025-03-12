@@ -2,34 +2,129 @@ import { createServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth-options';
+import { AddressInfo } from 'net';
 
 // This is a workaround to make the HTTP server available to socket.io
 // in the Next.js App Router environment
 
-// Create a global variable to store the HTTP server
+// Create global variables to store the server state
 declare global {
-  var __server: any;
+  var __socketServer: {
+    io: SocketIOServer | null;
+    httpServer: any;
+    port: number | null;
+    initialized: boolean;
+    initializing: boolean;
+    error: Error | null;
+  };
 }
 
-// Global socket.io server instance
-let io: SocketIOServer | null = null;
-let httpServer: any = null;
+// Initialize the global state if it doesn't exist
+if (!global.__socketServer) {
+  global.__socketServer = {
+    io: null,
+    httpServer: null,
+    port: null,
+    initialized: false,
+    initializing: false,
+    error: null
+  };
+}
+
+// Check if a port is available
+const isPortAvailable = (port: number): Promise<boolean> => {
+  return new Promise((resolve) => {
+    const testServer = createServer();
+    
+    testServer.once('error', (err: any) => {
+      testServer.close();
+      if (err.code === 'EADDRINUSE') {
+        console.log(`Port ${port} is already in use`);
+        resolve(false);
+      } else {
+        console.error(`Error checking port ${port}:`, err);
+        resolve(false);
+      }
+    });
+    
+    testServer.once('listening', () => {
+      const address = testServer.address() as AddressInfo;
+      console.log(`Port ${address.port} is available`);
+      testServer.close();
+      resolve(true);
+    });
+    
+    testServer.listen(port);
+  });
+};
+
+// Find an available port starting from the given port
+const findAvailablePort = async (startPort: number, maxAttempts = 10): Promise<number | null> => {
+  for (let i = 0; i < maxAttempts; i++) {
+    const port = startPort + i;
+    const available = await isPortAvailable(port);
+    if (available) {
+      return port;
+    }
+  }
+  return null;
+};
+
+// Shutdown the socket server
+export function shutdownSocketServer() {
+  if (global.__socketServer.io) {
+    console.log('Shutting down socket server...');
+    global.__socketServer.io.close();
+    global.__socketServer.io = null;
+  }
+  
+  if (global.__socketServer.httpServer) {
+    console.log('Shutting down HTTP server...');
+    global.__socketServer.httpServer.close();
+    global.__socketServer.httpServer = null;
+  }
+  
+  global.__socketServer.initialized = false;
+  global.__socketServer.initializing = false;
+  global.__socketServer.port = null;
+  global.__socketServer.error = null;
+  
+  console.log('Socket server shutdown complete');
+}
 
 // Initialize the socket.io server
-export function initServer() {
-  // If server is already initialized, return it
-  if (io) {
-    return io;
+export async function initServer() {
+  // If server is already initialized or initializing, return the current instance
+  if (global.__socketServer.initialized) {
+    console.log('Socket server already initialized');
+    return global.__socketServer.io;
   }
+  
+  if (global.__socketServer.initializing) {
+    console.log('Socket server initialization in progress...');
+    // Wait for initialization to complete
+    return new Promise((resolve) => {
+      const checkInterval = setInterval(() => {
+        if (global.__socketServer.initialized || global.__socketServer.error) {
+          clearInterval(checkInterval);
+          resolve(global.__socketServer.io);
+        }
+      }, 100);
+    });
+  }
+  
+  // Set the initialization flag
+  global.__socketServer.initializing = true;
 
   try {
     console.log('Initializing socket.io server for API route');
     
     // Create a new HTTP server
-    httpServer = createServer();
+    const httpServer = createServer();
+    global.__socketServer.httpServer = httpServer;
     
     // Create a new socket.io server
-    io = new SocketIOServer(httpServer, {
+    const io = new SocketIOServer(httpServer, {
       path: '/api/socket',
       cors: {
         origin: '*',
@@ -44,6 +139,8 @@ export function initServer() {
       allowUpgrades: true,
       upgradeTimeout: 10000,
     });
+    
+    global.__socketServer.io = io;
     
     // Set up authentication middleware
     io.use(async (socket, next) => {
@@ -65,31 +162,76 @@ export function initServer() {
     });
     
     // Start the server on a different port to avoid conflicts with Next.js
-    const port = 3001;
+    const basePort = 3001;
     
-    // Try to listen on the primary port, with fallback ports if needed
-    const tryListen = (portToTry: number, maxRetries = 3, currentRetry = 0) => {
-      try {
-        httpServer.listen(portToTry, () => {
-          console.log(`Socket.io HTTP server listening on port ${portToTry}`);
-        });
-      } catch (error: any) {
-        if (error.code === 'EADDRINUSE' && currentRetry < maxRetries) {
-          console.log(`Port ${portToTry} is already in use, trying port ${portToTry + 1}`);
-          tryListen(portToTry + 1, maxRetries, currentRetry + 1);
+    // Find an available port
+    const availablePort = await findAvailablePort(basePort);
+    
+    if (!availablePort) {
+      throw new Error('Could not find an available port for socket server');
+    }
+    
+    // Start the server on the available port
+    await new Promise<void>((resolve, reject) => {
+      httpServer.listen(availablePort, () => {
+        console.log(`Socket.io HTTP server listening on port ${availablePort}`);
+        global.__socketServer.port = availablePort;
+        resolve();
+      });
+      
+      httpServer.once('error', (error: any) => {
+        if (error.code === 'EADDRINUSE') {
+          console.error(`Port ${availablePort} is already in use. Socket functionality will be limited to polling.`);
         } else {
           console.error('Socket server error:', error);
-          console.log('Port conflicts detected, socket functionality will be limited');
         }
-      }
-    };
+        reject(error);
+      });
+    });
     
-    // Start with the initial port
-    tryListen(port);
+    // Set up error handling for the server
+    httpServer.on('error', (error: any) => {
+      console.error('Socket server error:', error);
+      global.__socketServer.error = error;
+      
+      if (error.code === 'EADDRINUSE') {
+        console.log('Port conflicts detected, socket functionality will be limited to polling');
+      }
+    });
+    
+    // Set up connection handling
+    io.on('connection', (socket) => {
+      console.log(`Socket connected: ${socket.id}`);
+      
+      socket.on('disconnect', () => {
+        console.log(`Socket disconnected: ${socket.id}`);
+      });
+    });
+    
+    // Mark initialization as complete
+    global.__socketServer.initialized = true;
+    global.__socketServer.initializing = false;
     
     return io;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error initializing socket server:', error);
+    global.__socketServer.error = error;
+    global.__socketServer.initializing = false;
+    
+    // Clean up any resources that might have been created
+    if (global.__socketServer.io) {
+      global.__socketServer.io.close();
+      global.__socketServer.io = null;
+    }
+    
+    if (global.__socketServer.httpServer) {
+      global.__socketServer.httpServer.close();
+      global.__socketServer.httpServer = null;
+    }
+    
+    console.log('HTTP server not available for socket.io');
+    console.log('Using fallback mode for socket.io - client will use polling');
+    
     return null;
   }
 }
@@ -97,8 +239,28 @@ export function initServer() {
 // Initialize the server when this module is imported
 // but only in development mode
 if (process.env.NODE_ENV !== 'production') {
-  initServer();
+  initServer().catch(error => {
+    console.error('Failed to initialize socket server:', error);
+    console.log('Socket server initialization failed, will use fallback mode');
+  });
 }
 
-// Export the socket.io server instance
-export default io; 
+// Export the socket.io server instance getter
+export function getSocketServer() {
+  return global.__socketServer.io;
+}
+
+// Export the socket server port
+export function getSocketServerPort() {
+  return global.__socketServer.port;
+}
+
+// Export the socket server status
+export function getSocketServerStatus() {
+  return {
+    initialized: global.__socketServer.initialized,
+    initializing: global.__socketServer.initializing,
+    port: global.__socketServer.port,
+    error: global.__socketServer.error ? global.__socketServer.error.message : null
+  };
+} 

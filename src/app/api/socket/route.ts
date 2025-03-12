@@ -1,69 +1,34 @@
-import { NextResponse } from "next/server";
-import { initSocketServer } from "@/lib/socket/socket-server";
-import { Server } from "socket.io";
+import { NextRequest, NextResponse } from 'next/server';
+import { getSocketServerPort } from '@/lib/socket/server-init';
 
-// Store the socket.io server instance globally
-let io: Server | null = null;
+export const dynamic = 'force-dynamic';
 
-// Initialize the HTTP server reference for socket.io
-// This is needed because socket.io requires access to the HTTP server
-export async function GET(req: Request) {
+/**
+ * This route acts as a proxy for the socket.io server.
+ * It redirects requests to the actual socket server running on a different port.
+ */
+export async function GET(request: NextRequest) {
   try {
-    // Check if we're in production
-    const isProduction = process.env.NODE_ENV === 'production';
+    // Get the socket server port
+    const port = getSocketServerPort();
     
-    if (!isProduction) {
-      // Only initialize socket server in development
-      if (!io) {
-        console.log("Initializing socket.io server for API route");
-        io = await initSocketServer(req);
-        
-        if (!io) {
-          console.log("Socket server initialization failed, will use fallback mode");
-        } else {
-          console.log("Socket server initialized successfully");
-        }
-      }
+    if (!port) {
+      return new NextResponse('Socket server not initialized', { status: 503 });
     }
-
-    // Return a simple response for health checks
-    return new NextResponse(
-      JSON.stringify({
-        status: "ok",
-        mode: io ? "websocket" : "fallback",
-        environment: isProduction ? "production" : "development",
-        timestamp: new Date().toISOString(),
-      }),
-      {
-        status: 200,
-        headers: {
-          "Content-Type": "application/json",
-          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-          "Pragma": "no-cache",
-          "Expires": "0",
-        },
-      }
-    );
-  } catch (error) {
-    console.error("Socket.io error:", error);
-    return new NextResponse(
-      JSON.stringify({
-        status: "error",
-        message: "Error initializing Socket.io server",
-        timestamp: new Date().toISOString(),
-      }),
-      {
-        status: 500,
-        headers: {
-          "Content-Type": "application/json",
-        },
-      }
-    );
+    
+    // Get the hostname from the request
+    const hostname = request.headers.get('host')?.split(':')[0] || 'localhost';
+    
+    // Construct the socket server URL
+    const socketServerUrl = `http://${hostname}:${port}/api/socket`;
+    
+    // Create a response with a redirect
+    return NextResponse.redirect(socketServerUrl, { status: 307 });
+  } catch (error: any) {
+    console.error('Error in socket proxy route:', error);
+    return new NextResponse('Internal Server Error', { status: 500 });
   }
 }
-
-// Make sure this route is always dynamic
-export const dynamic = "force-dynamic";
 
 // Disable response caching
 export const fetchCache = "force-no-store";

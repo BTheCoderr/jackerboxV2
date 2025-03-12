@@ -35,7 +35,8 @@
     "optimize-mobile": "node scripts/optimize-for-mobile.js",
     "mobile:dev": "cp next.config.mobile.mjs next.config.mjs && next dev",
     "mobile": "bash scripts/start-mobile.sh",
-    "pwa": "npm run optimize-mobile && npm run mobile"
+    "pwa": "npm run optimize-mobile && npm run mobile",
+    "kill-socket": "node scripts/kill-socket-process.js"
   },
   "dependencies": {
     "@arcjet/next": "^1.0.0-beta.2",
