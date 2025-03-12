@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { ChatInterface } from "@/components/messaging/chat-interface";
 import { use } from "react";
+import { toast } from "sonner";
 
 interface MessagesUserPageProps {
   params: Promise<{
@@ -60,11 +61,12 @@ export default function MessagesUserPage({
   const [otherUser, setOtherUser] = useState<User | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [equipment, setEquipment] = useState<EquipmentData | undefined>(undefined);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     // Redirect if not authenticated
     if (status === "unauthenticated") {
-      router.push("/auth/login?callbackUrl=/routes/messages");
+      router.push(`/auth/login?callbackUrl=/routes/messages/${unwrappedParams.id}${unwrappedSearchParams.equipmentId ? `?equipmentId=${unwrappedSearchParams.equipmentId}` : ''}`);
       return;
     }
 
@@ -81,12 +83,16 @@ export default function MessagesUserPage({
       const fetchOtherUser = async () => {
         try {
           const response = await fetch(`/api/users/${otherUserId}`);
-          if (!response.ok) throw new Error("Failed to fetch user");
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || "Failed to fetch user");
+          }
           const data = await response.json();
           setOtherUser(data.user);
         } catch (error) {
           console.error("Error fetching user:", error);
-          router.push("/routes/messages");
+          setError("Failed to load user information. Please try again.");
+          // Don't redirect immediately, let the user see the error
         }
       };
 
@@ -96,7 +102,10 @@ export default function MessagesUserPage({
         
         try {
           const response = await fetch(`/api/equipment/${equipmentId}`);
-          if (!response.ok) throw new Error("Failed to fetch equipment");
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || "Failed to fetch equipment");
+          }
           const data = await response.json();
           setEquipment({
             id: data.equipment.id,
@@ -104,6 +113,7 @@ export default function MessagesUserPage({
           });
         } catch (error) {
           console.error("Error fetching equipment:", error);
+          // Don't set error for equipment, it's optional
         }
       };
 
@@ -111,33 +121,47 @@ export default function MessagesUserPage({
       const fetchMessages = async () => {
         try {
           const response = await fetch(`/api/messages?otherUserId=${otherUserId}`);
-          if (!response.ok) throw new Error("Failed to fetch messages");
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || "Failed to fetch messages");
+          }
           const data = await response.json();
           setMessages(data.messages);
           
           // Mark messages as read
-          if (data.messages.some((m: Message) => m.senderId === otherUserId && !m.isRead)) {
-            await fetch("/api/messages/mark-read", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                messageIds: data.messages
-                  .filter((m: Message) => m.senderId === otherUserId && !m.isRead)
-                  .map((m: Message) => m.id),
-              }),
-            });
+          if (data.messages && data.messages.length > 0 && 
+              data.messages.some((m: Message) => m.senderId === otherUserId && !m.isRead)) {
+            try {
+              await fetch("/api/messages/mark-read", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  messageIds: data.messages
+                    .filter((m: Message) => m.senderId === otherUserId && !m.isRead)
+                    .map((m: Message) => m.id),
+                }),
+              });
+            } catch (markReadError) {
+              console.error("Error marking messages as read:", markReadError);
+              // Don't show error to user for this
+            }
           }
         } catch (error) {
           console.error("Error fetching messages:", error);
+          setError("Failed to load messages. Please try again.");
         } finally {
           setIsLoading(false);
         }
       };
 
       // Execute all fetches
-      Promise.all([fetchOtherUser(), fetchEquipment(), fetchMessages()]);
+      Promise.all([fetchOtherUser(), fetchEquipment(), fetchMessages()]).catch(err => {
+        console.error("Error in Promise.all:", err);
+        setIsLoading(false);
+        setError("Something went wrong. Please try again.");
+      });
     }
   }, [status, session, unwrappedParams.id, unwrappedSearchParams.equipmentId, router]);
 
@@ -149,8 +173,36 @@ export default function MessagesUserPage({
     );
   }
 
+  if (error) {
+    return (
+      <div className="max-w-6xl mx-auto px-4 py-8">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+          <p className="text-red-600 mb-4">{error}</p>
+          <button 
+            onClick={() => router.push("/routes/messages")}
+            className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+          >
+            Back to Messages
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (!session?.user || !otherUser) {
-    return null;
+    return (
+      <div className="max-w-6xl mx-auto px-4 py-8">
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
+          <p className="text-yellow-600 mb-4">Please sign in to view messages</p>
+          <button 
+            onClick={() => router.push(`/auth/login?callbackUrl=/routes/messages/${unwrappedParams.id}${unwrappedSearchParams.equipmentId ? `?equipmentId=${unwrappedSearchParams.equipmentId}` : ''}`)}
+            className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+          >
+            Sign In
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (

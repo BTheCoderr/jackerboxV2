@@ -85,13 +85,14 @@ export function ContactOwnerButton({ ownerId, equipmentId, equipmentTitle }: Con
           type: "NEW_RENTAL_INQUIRY",
           title: "New Rental Inquiry",
           message: `Someone is interested in renting your "${equipmentTitle}"`,
-          linkUrl: `/routes/messages/${data.senderId}?equipmentId=${equipmentId}`,
+          linkUrl: `/routes/messages/${data.message.senderId}?equipmentId=${equipmentId}`,
         }),
       });
 
       toast.success("Message sent to the owner!");
       
-      // Redirect to the messages page
+      // Redirect to the messages page with the correct ID
+      // Use the current user's ID as the sender and the owner's ID as the receiver
       router.push(`/routes/messages/${ownerId}?equipmentId=${equipmentId}`);
     } catch (error) {
       console.error("Error contacting owner:", error);
