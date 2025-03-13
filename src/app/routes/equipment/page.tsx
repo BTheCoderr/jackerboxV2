@@ -44,11 +44,13 @@ export default async function EquipmentPage({ searchParams }: EquipmentPageProps
       {
         title: {
           contains: query,
+          mode: "insensitive",
         },
       },
       {
         description: {
           contains: query,
+          mode: "insensitive",
         },
       },
     ];

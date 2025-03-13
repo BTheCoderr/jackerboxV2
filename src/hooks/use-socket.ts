@@ -71,6 +71,8 @@ export function useSocket(): UseSocketReturn {
         transports: isProd ? ['polling'] : ['websocket', 'polling'],
         // Additional options for better reliability
         forceNew: true,
+        // Explicitly set EIO version to 4
+        EIO: 4,
       });
 
       // Set up event handlers

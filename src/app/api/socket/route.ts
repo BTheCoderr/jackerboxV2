@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 /**
  * This route acts as a proxy for the socket.io server.
  * In development, it redirects requests to the actual socket server running on a different port.
- * In production (Vercel), it returns responses that allow the socket.io client to function with polling.
+ * In production (Vercel), it emulates a Socket.IO v4 server for the client.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
       const searchParams = request.nextUrl.searchParams;
       const sid = searchParams.get('sid');
       const transport = searchParams.get('transport');
-      const eio = searchParams.get('EIO');
+      const eio = searchParams.get('EIO') || '4'; // Default to EIO version 4
       
       // Log the request details
       console.log(`Socket request: sid=${sid}, transport=${transport}, EIO=${eio}`);
@@ -45,43 +45,78 @@ export async function GET(request: NextRequest) {
         // For polling requests, return a valid socket.io response
         console.log('Socket proxy (production): Polling request detected');
         
-        // If this is an initial connection request (no sid)
+        // Special handling for Socket.IO v4 handshake
         if (!sid) {
-          // Return a socket.io handshake response
-          // This is a simplified version that tells the client to use polling
-          const handshakeResponse = {
-            sid: `server-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`,
-            upgrades: [], // No upgrades available, forcing polling
-            pingInterval: 25000,
-            pingTimeout: 20000,
-            maxPayload: 1000000
-          };
+          // Generate a unique session ID
+          const sessionId = `server-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
           
-          // Format the response according to socket.io protocol
-          // The "0" prefix indicates this is an "open" packet
-          const response = `0${JSON.stringify(handshakeResponse)}`;
-          
-          return new NextResponse(response, { 
-            status: 200,
-            headers: {
-              'Content-Type': 'text/plain',
-              'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-              'Pragma': 'no-cache',
-              'Expires': '0',
-            }
-          });
+          // Build the response based on the EIO version
+          if (eio === '4') {
+            // Socket.IO v4 format - must be exactly this format without whitespace
+            const response = `0{"sid":"${sessionId}","upgrades":[],"pingInterval":25000,"pingTimeout":20000,"maxPayload":1000000}`;
+            console.log('Responding with Socket.IO v4 handshake:', response);
+            
+            return new NextResponse(response, { 
+              status: 200,
+              headers: {
+                'Content-Type': 'text/plain',
+                'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0',
+              }
+            });
+          } else if (eio === '3') {
+            // Socket.IO v3 format
+            const response = `0{"sid":"${sessionId}","upgrades":[],"pingInterval":25000,"pingTimeout":20000}`;
+            console.log('Responding with Socket.IO v3 handshake:', response);
+            
+            return new NextResponse(response, { 
+              status: 200,
+              headers: {
+                'Content-Type': 'text/plain',
+                'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0',
+              }
+            });
+          } else {
+            // Default response for unknown EIO version
+            return new NextResponse(`0{"sid":"${sessionId}","upgrades":[],"pingInterval":25000,"pingTimeout":20000}`, { 
+              status: 200,
+              headers: {
+                'Content-Type': 'text/plain',
+                'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0',
+              }
+            });
+          }
         } else {
-          // For subsequent polling requests, return an empty response
-          // The "40" prefix indicates this is a "message" packet with no data
-          return new NextResponse('40', { 
-            status: 200,
-            headers: {
-              'Content-Type': 'text/plain',
-              'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-              'Pragma': 'no-cache',
-              'Expires': '0',
-            }
-          });
+          // For subsequent polling requests with an existing sid
+          if (request.method === 'GET') {
+            // The client is checking for new messages
+            // Send a NOOP packet (Ping) as per Socket.IO protocol
+            return new NextResponse('2', { 
+              status: 200,
+              headers: {
+                'Content-Type': 'text/plain',
+                'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0',
+              }
+            });
+          } else {
+            // For POST requests (client sending data), acknowledge with empty message packet
+            return new NextResponse('40', { 
+              status: 200,
+              headers: {
+                'Content-Type': 'text/plain',
+                'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0',
+              }
+            });
+          }
         }
       } else {
         // For other requests, return a generic response
@@ -147,9 +182,11 @@ export async function POST(request: NextRequest) {
       const searchParams = request.nextUrl.searchParams;
       const sid = searchParams.get('sid');
       const transport = searchParams.get('transport');
+      const eio = searchParams.get('EIO') || '4'; // Default to EIO version 4
       
       if (transport === 'polling' && sid) {
         // For polling POST requests, acknowledge the message
+        console.log('Acknowledging message from client');
         // The "40" prefix indicates this is a "message" packet with no data
         return new NextResponse('40', { 
           status: 200,
