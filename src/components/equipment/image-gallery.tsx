@@ -25,7 +25,7 @@ const ImageThumbnail = memo(({
   onError: () => void 
 }) => (
   <div 
-    className={`aspect-w-1 aspect-h-1 cursor-pointer relative rounded-md overflow-hidden border-2 transition-all ${
+    className={`aspect-w-1 aspect-h-1 cursor-pointer relative rounded-md overflow-hidden border-2 transition-all h-[100px] ${
       isSelected ? 'border-blue-500 ring-2 ring-blue-300' : 'border-gray-200 hover:border-blue-300'
     }`}
     onClick={onSelect}
@@ -133,7 +133,7 @@ export function ImageGallery({ images, title }: ImageGalleryProps) {
   if ((!images || images.length === 0) && !isLoading) {
     return (
       <div className="mb-8">
-        <div className="aspect-w-16 aspect-h-9 relative rounded-lg overflow-hidden bg-gray-100">
+        <div className="aspect-w-16 aspect-h-9 relative rounded-lg overflow-hidden bg-gray-100 h-[400px]">
           <Image
             src="/images/placeholder.svg"
             alt="No image available"
@@ -154,7 +154,7 @@ export function ImageGallery({ images, title }: ImageGalleryProps) {
   if (isLoading) {
     return (
       <div className="mb-8">
-        <div className="aspect-w-16 aspect-h-9 relative rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
+        <div className="aspect-w-16 aspect-h-9 relative rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center h-[400px]">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
         </div>
       </div>
@@ -175,7 +175,7 @@ export function ImageGallery({ images, title }: ImageGalleryProps) {
             fill
             sizes="(max-width: 768px) 100vw, 800px"
             className="object-contain"
-            priority={selectedImageIndex === 0}
+            priority={true}
             onError={() => handleImageError(selectedImageIndex)}
           />
         </div>

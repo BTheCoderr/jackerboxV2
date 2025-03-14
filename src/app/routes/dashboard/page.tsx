@@ -37,7 +37,7 @@ export default async function DashboardPage({
 
   // In Next.js 14+, searchParams is a dynamic API that should be properly handled
   // We'll extract the error parameter safely
-  const errorParam = searchParams ? searchParams.error : undefined;
+  const errorParam = await Promise.resolve(searchParams?.error);
 
   try {
     // Fetch user's rentals (as a renter)

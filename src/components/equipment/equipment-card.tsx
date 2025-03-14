@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/utils/format";
 import { useState, useEffect } from "react";
+import { StarIcon } from 'lucide-react';
 
 interface EquipmentCardProps {
   equipment: Equipment & {
@@ -14,9 +15,10 @@ interface EquipmentCardProps {
       image: string | null;
     };
   };
+  priority?: boolean;
 }
 
-export function EquipmentCard({ equipment }: EquipmentCardProps) {
+export function EquipmentCard({ equipment, priority = false }: EquipmentCardProps) {
   const [imageError, setImageError] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -74,25 +76,30 @@ export function EquipmentCard({ equipment }: EquipmentCardProps) {
     ? (imageError ? getFallbackImageUrl() : imageUrl) 
     : '/images/placeholder.svg';
   
+  const handleImageError = () => {
+    setImageError(true);
+    setImageUrl(getFallbackImageUrl());
+  };
+
   return (
     <Link
       href={`/routes/equipment/${equipment.id}`}
-      className="block h-full bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200"
+      className="group block rounded-lg overflow-hidden border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all duration-200 bg-white dark:bg-gray-800 dark:border-gray-700 dark:hover:border-blue-500"
     >
-      <div className="relative h-48 bg-gray-100">
+      <div className="relative w-full h-48 overflow-hidden bg-gray-100 dark:bg-gray-700">
         {isLoading ? (
-          <div className="w-full h-full flex items-center justify-center text-gray-500">
-            <span>Loading...</span>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
           </div>
         ) : (
-          <img
+          <Image
             src={safeImageUrl}
             alt={equipment.title}
-            className="w-full h-full object-cover"
-            onError={() => {
-              setImageError(true);
-              setImageUrl(getFallbackImageUrl());
-            }}
+            fill
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            className="object-cover group-hover:scale-105 transition-transform duration-300"
+            onError={handleImageError}
+            priority={priority}
           />
         )}
         {equipment.isVerified && (
@@ -104,7 +111,7 @@ export function EquipmentCard({ equipment }: EquipmentCardProps) {
       
       <div className="p-4">
         <div className="flex justify-between items-start">
-          <h3 className="font-medium text-lg truncate text-jacker-blue">{equipment.title}</h3>
+          <h3 className="font-medium text-lg truncate text-jacker-blue group-hover:text-blue-600 dark:group-hover:text-blue-400">{equipment.title}</h3>
           <span className={`text-sm font-medium px-2 py-1 rounded-full ${
             equipment.condition === 'Like New' ? 'bg-green-100 text-green-800' :
             equipment.condition === 'Good' ? 'bg-blue-100 text-blue-800' :
@@ -148,6 +155,21 @@ export function EquipmentCard({ equipment }: EquipmentCardProps) {
             {equipment.owner.name || "Beta Owner"}
           </div>
         </div>
+        
+        {(equipment.rating > 0 || equipment.reviewCount > 0) && (
+          <div className="mt-2 flex items-center">
+            <div className="flex items-center">
+              <StarIcon className="h-4 w-4 text-yellow-400 fill-current" />
+              <span className="ml-1 text-sm text-gray-600">
+                {equipment.rating.toFixed(1)}
+              </span>
+            </div>
+            <span className="mx-1 text-gray-400">·</span>
+            <span className="text-sm text-gray-500">
+              {equipment.reviewCount} {equipment.reviewCount === 1 ? 'review' : 'reviews'}
+            </span>
+          </div>
+        )}
       </div>
     </Link>
   );

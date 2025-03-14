@@ -36,7 +36,9 @@
     "mobile:dev": "cp next.config.mobile.mjs next.config.mjs && next dev",
     "mobile": "bash scripts/start-mobile.sh",
     "pwa": "npm run optimize-mobile && npm run mobile",
-    "kill-socket": "node scripts/kill-socket-process.js"
+    "kill-socket": "node scripts/kill-socket-process.js",
+    "socket": "node scripts/socket-server.js",
+    "dev:full": "concurrently \"npm run dev\" \"npm run socket\""
   },
   "dependencies": {
     "@arcjet/next": "^1.0.0-beta.2",
@@ -99,6 +101,7 @@
     "@types/node-fetch": "^2.6.12",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "concurrently": "^9.1.2",
     "eslint": "^9",
     "eslint-config-next": "15.2.0",
     "tailwindcss": "^4",

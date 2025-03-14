@@ -22,9 +22,8 @@ export function InstallPrompt() {
     // For non-iOS devices, listen for the beforeinstallprompt event
     if (!isIOSDevice) {
       const handleBeforeInstallPrompt = (e: Event) => {
-        // Prevent Chrome 67 and earlier from automatically showing the prompt
-        e.preventDefault();
         // Store the event so it can be triggered later
+        // Don't prevent default here - this was causing the banner issue
         setDeferredPrompt(e as BeforeInstallPromptEvent);
         // Show the install prompt banner
         setShowPrompt(true);
