@@ -26,9 +26,10 @@ interface ReviewListProps {
   reviews: Review[];
   isOwner?: boolean;
   currentUserId?: string;
+  onReviewUpdated?: () => void;
 }
 
-export function ReviewList({ reviews, isOwner = false, currentUserId }: ReviewListProps) {
+export function ReviewList({ reviews, isOwner = false, currentUserId, onReviewUpdated }: ReviewListProps) {
   const [expandedReviews, setExpandedReviews] = useState<Record<string, boolean>>({});
   const [respondingTo, setRespondingTo] = useState<string | null>(null);
   
@@ -41,6 +42,9 @@ export function ReviewList({ reviews, isOwner = false, currentUserId }: ReviewLi
   
   const handleResponseSuccess = () => {
     setRespondingTo(null);
+    if (onReviewUpdated) {
+      onReviewUpdated();
+    }
   };
   
   if (reviews.length === 0) {

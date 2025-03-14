@@ -4,20 +4,7 @@ import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { AvailabilityCalendar } from "./availability-calendar";
 import { CalendarIcon } from "lucide-react";
-
-// Extend Window interface to include our calendar state
-declare global {
-  interface Window {
-    calendarState?: {
-      useSimpleCalendar: boolean;
-      setUseSimpleCalendar: (value: boolean) => void;
-      startDate: string;
-      setStartDate: (value: string) => void;
-      endDate: string;
-      setEndDate: (value: string) => void;
-    };
-  }
-}
+import { useCallback } from "react";
 
 interface DualCalendarSystemProps {
   equipmentId: string;
@@ -42,26 +29,8 @@ export function DualCalendarSystem({
     format(new Date(Date.now() + 24 * 60 * 60 * 1000), "yyyy-MM-dd")
   );
 
-  // Make the calendar state globally accessible for other components
-  useEffect(() => {
-    // Expose calendar state to window for other components to access
-    window.calendarState = {
-      useSimpleCalendar,
-      setUseSimpleCalendar,
-      startDate,
-      setStartDate,
-      endDate,
-      setEndDate,
-    };
-    
-    return () => {
-      // Clean up when component unmounts
-      delete window.calendarState;
-    };
-  }, [useSimpleCalendar, startDate, endDate]);
-
   // Handle date changes with validation
-  const handleStartDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleStartDateChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const newStartDate = e.target.value;
     setStartDate(newStartDate);
     
@@ -71,21 +40,25 @@ export function DualCalendarSystem({
       nextDay.setDate(nextDay.getDate() + 1);
       setEndDate(format(nextDay, "yyyy-MM-dd"));
     }
-  };
+  }, [endDate]);
 
-  const handleEndDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleEndDateChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const newEndDate = e.target.value;
     if (new Date(newEndDate) >= new Date(startDate)) {
       setEndDate(newEndDate);
     }
-  };
+  }, [startDate]);
+
+  const toggleCalendarType = useCallback(() => {
+    setUseSimpleCalendar(!useSimpleCalendar);
+  }, [useSimpleCalendar]);
 
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-medium">Availability Calendar</h3>
         <button
-          onClick={() => setUseSimpleCalendar(!useSimpleCalendar)}
+          onClick={toggleCalendarType}
           className="text-sm text-blue-600 hover:underline flex items-center"
           id="calendar-toggle-button"
         >

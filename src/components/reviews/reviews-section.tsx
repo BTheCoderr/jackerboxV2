@@ -1,9 +1,22 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ReviewStatistics } from './review-statistics';
 import { ReviewList } from './review-list';
 import { useReviewStatistics } from '@/hooks/use-review-statistics';
+import dynamic from 'next/dynamic';
+
+// Lazy load the ReviewList component
+const LazyReviewList = dynamic(() => import('./review-list').then(mod => ({ default: mod.ReviewList })), {
+  loading: () => (
+    <div className="text-center py-4">
+      <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-solid border-current border-r-transparent align-[-0.125em]" role="status">
+        <span className="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">Loading reviews...</span>
+      </div>
+    </div>
+  ),
+  ssr: false
+});
 
 interface Review {
   id: string;
@@ -44,7 +57,7 @@ export function ReviewsSection({
     userId
   });
   
-  const fetchReviews = async () => {
+  const fetchReviews = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     
@@ -53,7 +66,9 @@ export function ReviewsSection({
       if (equipmentId) params.append('equipmentId', equipmentId);
       if (userId) params.append('userId', userId);
       
-      const response = await fetch(`/api/reviews?${params.toString()}`);
+      const response = await fetch(`/api/reviews?${params.toString()}`, {
+        cache: 'no-store'
+      });
       
       if (!response.ok) {
         throw new Error('Failed to fetch reviews');
@@ -66,7 +81,9 @@ export function ReviewsSection({
         const reviewsWithVotes = await Promise.all(
           reviewsData.map(async (review: Review) => {
             try {
-              const voteResponse = await fetch(`/api/reviews/${review.id}/user-vote`);
+              const voteResponse = await fetch(`/api/reviews/${review.id}/user-vote`, {
+                cache: 'no-store'
+              });
               
               if (voteResponse.ok) {
                 const voteData = await voteResponse.json();
@@ -93,16 +110,16 @@ export function ReviewsSection({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [equipmentId, userId, currentUserId]);
   
   useEffect(() => {
     fetchReviews();
-  }, [equipmentId, userId, currentUserId]);
+  }, [fetchReviews]);
   
-  const handleReviewUpdated = () => {
+  const handleReviewUpdated = useCallback(() => {
     fetchReviews();
     refetchStats();
-  };
+  }, [fetchReviews, refetchStats]);
   
   return (
     <div className="space-y-8">
@@ -130,7 +147,7 @@ export function ReviewsSection({
             />
           )}
           
-          <ReviewList
+          <LazyReviewList
             reviews={reviews}
             isOwner={isOwner}
             currentUserId={currentUserId}

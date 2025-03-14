@@ -71,6 +71,24 @@ export function Navbar() {
                       >
                         Socket Status
                       </Link>
+                      <Link
+                        href="/routes/reviews/sample"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      >
+                        Review System Demo
+                      </Link>
+                      <Link
+                        href="/routes/pricing/demo"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      >
+                        Dynamic Pricing Demo
+                      </Link>
+                      <Link
+                        href="/routes/verification/demo"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      >
+                        ID Verification Demo
+                      </Link>
                     </div>
                   </div>
                 </>

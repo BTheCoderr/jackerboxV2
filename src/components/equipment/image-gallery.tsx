@@ -25,107 +25,46 @@ export function ImageGallery({ images, title }: ImageGalleryProps) {
       return `${baseUrl}?fit=crop&w=800&h=600&q=80&auto=format`;
     }
     
-    // If it's a Cloudinary URL, ensure it has the right parameters
-    if (url.includes('cloudinary.com')) {
-      // Keep Cloudinary URLs as they are, they should be properly formatted
-      return url;
-    }
-    
     return url;
   };
 
   // Generate a fallback image URL based on the equipment title
   const getFallbackImageUrl = (index: number) => {
-    const categories = ['equipment', 'tools', 'rental'];
-    const category = categories[index % categories.length];
-    const uniqueParam = `&random=${Date.now()}-${index}`;
-    return `https://source.unsplash.com/featured/800x600?${category},${title.toLowerCase().replace(/\s+/g, '-')}${uniqueParam}`;
+    return '/images/placeholder.svg';
   };
 
   useEffect(() => {
     // Reset states when images prop changes
     setSelectedImageIndex(0);
-    setLoadedImages([]);
-    setImageErrors(new Array(images?.length || 0).fill(false));
     setIsLoading(true);
     
     // Use placeholder images if no images are provided
     if (!images || images.length === 0) {
       setLoadedImages(['/images/placeholder.svg']);
+      setImageErrors(new Array(1).fill(false));
       setIsLoading(false);
       return;
     }
     
     // Process all image URLs
     const processedImages = images.map(processImageUrl);
-    
-    // Preload images to check if they're valid
-    const preloadImages = async () => {
-      const errors = new Array(processedImages.length).fill(false);
-      const validImages: string[] = [];
-      
-      for (let i = 0; i < processedImages.length; i++) {
-        try {
-          if (!processedImages[i]) {
-            errors[i] = true;
-            validImages.push(getFallbackImageUrl(i));
-            continue;
-          }
-          
-          // Try to load the image
-          const img = document.createElement('img');
-          img.src = processedImages[i];
-          
-          await new Promise((resolve, reject) => {
-            img.onload = resolve;
-            img.onerror = () => {
-              errors[i] = true;
-              reject();
-            };
-            
-            // Set a timeout in case the image takes too long to load
-            setTimeout(() => {
-              if (!img.complete) {
-                errors[i] = true;
-                reject();
-              }
-            }, 2000); // Reduced timeout for faster feedback
-          });
-          
-          validImages.push(processedImages[i]);
-        } catch (error) {
-          console.error(`Error loading image ${i}:`, error);
-          errors[i] = true;
-          // Add fallback image when original fails
-          validImages.push(getFallbackImageUrl(i));
-        }
-      }
-      
-      setImageErrors(errors);
-      
-      // If all images failed to load, use fallback images
-      if (validImages.every((_, i) => errors[i])) {
-        const fallbackImages = Array.from({ length: Math.min(7, processedImages.length) }, (_, i) => getFallbackImageUrl(i));
-        setLoadedImages(fallbackImages);
-      } else {
-        setLoadedImages(validImages);
-      }
-      
-      setIsLoading(false);
-    };
-    
-    preloadImages();
-  }, [images, title]);
+    setLoadedImages(processedImages);
+    setImageErrors(new Array(processedImages.length).fill(false));
+    setIsLoading(false);
+  }, [images]);
 
   // If no images or all images failed to load, show placeholder
   if ((!images || images.length === 0) && !isLoading) {
     return (
       <div className="mb-8">
         <div className="aspect-w-16 aspect-h-9 relative rounded-lg overflow-hidden bg-gray-100">
-          <img
+          <Image
             src="/images/placeholder.svg"
             alt="No image available"
-            className="w-full h-full object-contain"
+            fill
+            sizes="(max-width: 768px) 100vw, 800px"
+            className="object-contain"
+            priority={false}
           />
         </div>
         <div className="mt-2 text-sm text-gray-500 text-center">
@@ -149,37 +88,31 @@ export function ImageGallery({ images, title }: ImageGalleryProps) {
     );
   }
 
-  // Get the current image, fallback to first valid image if selected image has an error
-  const currentImageIndex = imageErrors[selectedImageIndex] 
-    ? loadedImages.findIndex((_, i) => !imageErrors[i]) 
-    : selectedImageIndex;
-  
-  // If we have a valid current image, use it; otherwise use a fallback
-  const currentImage = currentImageIndex >= 0 && currentImageIndex < loadedImages.length
-    ? loadedImages[currentImageIndex]
-    : '/images/placeholder.svg';
+  // Get the current image
+  const currentImage = loadedImages[selectedImageIndex] || '/images/placeholder.svg';
 
   return (
     <div className="mb-8">
       <div className="relative">
         {/* Main Image */}
-        <div className="aspect-w-16 aspect-h-9 mb-4 relative rounded-lg overflow-hidden bg-gray-100">
-          <img
+        <div className="aspect-w-16 aspect-h-9 mb-4 relative rounded-lg overflow-hidden bg-gray-100 h-[400px]">
+          <Image
             src={currentImage}
             alt={`${title} - main view`}
-            className="w-full h-full object-contain"
-            style={{ maxHeight: '400px' }}
-            onError={(e) => {
-              // If image fails to load, try a fallback
-              const target = e.target as HTMLImageElement;
-              const index = currentImageIndex >= 0 ? currentImageIndex : 0;
-              target.src = getFallbackImageUrl(index);
+            fill
+            sizes="(max-width: 768px) 100vw, 800px"
+            className="object-contain"
+            priority={selectedImageIndex === 0}
+            onError={() => {
+              // Mark the image as having an error
+              const newErrors = [...imageErrors];
+              newErrors[selectedImageIndex] = true;
+              setImageErrors(newErrors);
               
-              // Mark the original image as having an error
-              if (currentImageIndex >= 0) {
-                const newErrors = [...imageErrors];
-                newErrors[currentImageIndex] = true;
-                setImageErrors(newErrors);
+              // Try to find a non-error image
+              const validIndex = loadedImages.findIndex((_, i) => !newErrors[i]);
+              if (validIndex >= 0 && validIndex !== selectedImageIndex) {
+                setSelectedImageIndex(validIndex);
               }
             }}
           />
@@ -228,7 +161,7 @@ export function ImageGallery({ images, title }: ImageGalleryProps) {
         {/* Image Counter */}
         {loadedImages.length > 1 && (
           <div className="absolute bottom-4 right-4 bg-black/60 text-white px-2 py-1 rounded-md text-sm z-10">
-            {currentImageIndex + 1} / {loadedImages.length}
+            {selectedImageIndex + 1} / {loadedImages.length}
           </div>
         )}
         
@@ -244,16 +177,15 @@ export function ImageGallery({ images, title }: ImageGalleryProps) {
                   }`}
                   onClick={() => setSelectedImageIndex(index)}
                 >
-                  <img
+                  <Image
                     src={image}
                     alt={`${title} - thumbnail ${index + 1}`}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      // If thumbnail fails to load, try a fallback
-                      const target = e.target as HTMLImageElement;
-                      target.src = getFallbackImageUrl(index);
-                      
-                      // Mark the original image as having an error
+                    fill
+                    sizes="100px"
+                    className="object-cover"
+                    loading="lazy"
+                    onError={() => {
+                      // Mark the image as having an error
                       const newErrors = [...imageErrors];
                       newErrors[index] = true;
                       setImageErrors(newErrors);
@@ -265,14 +197,6 @@ export function ImageGallery({ images, title }: ImageGalleryProps) {
           </div>
         )}
       </div>
-      
-      {/* Debug information - only show in development */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="mt-2 text-xs text-gray-400">
-          <p>Image URL: {currentImage}</p>
-          <p>Valid images: {loadedImages.length} / {images?.length || 0}</p>
-        </div>
-      )}
     </div>
   );
 } 

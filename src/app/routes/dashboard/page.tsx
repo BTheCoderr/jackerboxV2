@@ -24,15 +24,20 @@ interface ExtendedUser {
   [key: string]: any; // Allow other properties
 }
 
-export default async function DashboardPage({ searchParams }: { searchParams: { error?: string } }) {
+export default async function DashboardPage({ 
+  searchParams 
+}: { 
+  searchParams: { error?: string } 
+}) {
   const user = await getCurrentUser() as ExtendedUser;
 
   if (!user) {
     redirect("/auth/login?callbackUrl=/routes/dashboard");
   }
 
-  // Safely access searchParams - fix the type to be compatible with ErrorMessage component
-  const errorParam = searchParams?.error || undefined;
+  // In Next.js 14+, searchParams is a dynamic API that should be properly handled
+  // We'll extract the error parameter safely
+  const errorParam = searchParams ? searchParams.error : undefined;
 
   try {
     // Fetch user's rentals (as a renter)

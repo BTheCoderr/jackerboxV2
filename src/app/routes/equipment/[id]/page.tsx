@@ -14,10 +14,50 @@ import { ImageGallery } from "@/components/equipment/image-gallery";
 import Image from "next/image";
 import { ContactOwnerButton } from "@/components/equipment/contact-owner-button";
 import { DualCalendarSystem } from "@/components/equipment/dual-calendar-system";
+import { Suspense } from "react";
+import type { Metadata, ResolvingMetadata } from "next";
 
 interface EquipmentDetailPageProps {
   params: {
     id: string;
+  };
+}
+
+// Generate metadata for the page
+export async function generateMetadata(
+  { params }: EquipmentDetailPageProps,
+  parent: ResolvingMetadata
+): Promise<Metadata> {
+  // Get the equipment ID from params
+  const id = params.id;
+  
+  // Fetch equipment data
+  const equipment = await db.equipment.findUnique({
+    where: { id },
+    select: {
+      title: true,
+      description: true,
+      category: true,
+    },
+  });
+  
+  // If equipment not found, return default metadata
+  if (!equipment) {
+    return {
+      title: "Equipment Not Found",
+      description: "The requested equipment could not be found.",
+    };
+  }
+  
+  // Return metadata based on equipment data
+  return {
+    title: `${equipment.title} | Jackerbox`,
+    description: equipment.description?.substring(0, 160) || `Rent ${equipment.title} on Jackerbox - Peer-to-Peer Equipment Rental`,
+    openGraph: {
+      title: equipment.title,
+      description: equipment.description?.substring(0, 160) || `Rent ${equipment.title} on Jackerbox`,
+      type: 'website',
+    },
   };
 }
 
@@ -51,7 +91,6 @@ export default async function EquipmentDetailPage({
 
   // Parse images from JSON string
   const images = equipment.imagesJson ? JSON.parse(equipment.imagesJson) : [];
-  console.log("Parsed images:", images);
 
   // Parse tags from JSON string
   const tags = equipment.tagsJson ? JSON.parse(equipment.tagsJson) : [];
@@ -106,11 +145,13 @@ export default async function EquipmentDetailPage({
 
           {/* Availability Calendar */}
           <div className="mb-8 bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-            <DualCalendarSystem 
-              equipmentId={equipment.id} 
-              isOwner={isOwner}
-              existingBookings={[]}
-            />
+            <Suspense fallback={<div className="h-96 flex items-center justify-center">Loading calendar...</div>}>
+              <DualCalendarSystem 
+                equipmentId={equipment.id} 
+                isOwner={isOwner}
+                existingBookings={[]}
+              />
+            </Suspense>
           </div>
 
           {/* Owner Information */}
@@ -124,6 +165,7 @@ export default async function EquipmentDetailPage({
                       src={equipment.owner.image}
                       alt={equipment.owner.name || 'Equipment Owner'}
                       fill
+                      sizes="64px"
                       className="object-cover"
                     />
                   ) : (
@@ -150,11 +192,13 @@ export default async function EquipmentDetailPage({
 
           {/* Reviews */}
           <div className="mb-8 bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-            <ReviewsSection 
-              equipmentId={equipment.id}
-              isOwner={isOwner}
-              currentUserId={user?.id}
-            />
+            <Suspense fallback={<div className="h-40 flex items-center justify-center">Loading reviews...</div>}>
+              <ReviewsSection 
+                equipmentId={equipment.id}
+                isOwner={isOwner}
+                currentUserId={user?.id}
+              />
+            </Suspense>
           </div>
         </div>
         
@@ -190,16 +234,18 @@ export default async function EquipmentDetailPage({
             </div>
             
             {!isOwner && user && (
-              <BookingForm
-                equipment={{
-                  ...equipment,
-                  owner: {
-                    id: equipment.owner.id,
-                    name: equipment.owner.name,
-                    image: equipment.owner.image
-                  }
-                }}
-              />
+              <Suspense fallback={<div className="h-40 flex items-center justify-center">Loading booking form...</div>}>
+                <BookingForm
+                  equipment={{
+                    ...equipment,
+                    owner: {
+                      id: equipment.owner.id,
+                      name: equipment.owner.name,
+                      image: equipment.owner.image
+                    }
+                  }}
+                />
+              </Suspense>
             )}
             
             {!isOwner && !user && (
