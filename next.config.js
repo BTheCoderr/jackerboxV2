@@ -16,14 +16,27 @@ const nextConfig = {
   },
   output: 'standalone',
   images: {
-    domains: ['res.cloudinary.com', 'lh3.googleusercontent.com'],
-    unoptimized: true
+    formats: ['image/avif', 'image/webp'],
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+    minimumCacheTTL: 60,
+    dangerouslyAllowSVG: true,
+    contentDispositionType: 'attachment',
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**',
+      },
+    ],
   },
   experimental: {
     serverActions: {
       bodySizeLimit: '2mb',
       allowedOrigins: ['localhost:3000', 'jackerbox.vercel.app', 'jackerbox.netlify.app']
-    }
+    },
+    optimizeCss: true,
+    optimizePackageImports: ['lucide-react', '@radix-ui', 'date-fns'],
   },
   // Force all pages to be server-side rendered by default
   // This prevents "Dynamic server usage" errors during build

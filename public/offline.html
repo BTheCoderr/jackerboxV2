@@ -3,43 +3,42 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Jackerbox - Offline</title>
-  <link rel="icon" href="/icons/icon-192x192.png">
+  <title>Offline - Jackerbox</title>
+  <link rel="icon" href="/favicon.ico" />
   <style>
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      background-color: #f9fafb;
-      color: #1f2937;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
       margin: 0;
       padding: 0;
       display: flex;
       flex-direction: column;
       min-height: 100vh;
-      text-align: center;
+      background-color: #f9fafb;
+      color: #1f2937;
     }
     
     .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 2rem 1rem;
+      text-align: center;
       flex: 1;
       display: flex;
       flex-direction: column;
       justify-content: center;
-      align-items: center;
-      padding: 2rem;
-      max-width: 600px;
-      margin: 0 auto;
     }
     
     .logo {
       width: 120px;
-      height: 120px;
-      margin-bottom: 2rem;
+      height: auto;
+      margin: 0 auto 2rem;
     }
     
     h1 {
       font-size: 1.875rem;
       font-weight: 700;
       margin-bottom: 1rem;
-      color: #0f172a;
+      color: #111827;
     }
     
     p {
@@ -49,9 +48,24 @@
       color: #4b5563;
     }
     
+    .card {
+      background-color: white;
+      border-radius: 0.5rem;
+      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+      padding: 2rem;
+      margin-bottom: 2rem;
+    }
+    
+    .icon {
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 1.5rem;
+      color: #6b7280;
+    }
+    
     .button {
       display: inline-block;
-      background-color: #0f172a;
+      background-color: #2563eb;
       color: white;
       font-weight: 500;
       padding: 0.75rem 1.5rem;
@@ -62,181 +76,40 @@
     }
     
     .button:hover {
-      background-color: #1e293b;
+      background-color: #1d4ed8;
     }
     
-    .footer {
+    footer {
+      text-align: center;
       padding: 1.5rem;
-      background-color: #0f172a;
-      color: white;
       font-size: 0.875rem;
-    }
-    
-    .cached-content {
-      margin-top: 2rem;
-      width: 100%;
+      color: #6b7280;
       border-top: 1px solid #e5e7eb;
-      padding-top: 1.5rem;
-    }
-    
-    .cached-list {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-      text-align: left;
-    }
-    
-    .cached-list li {
-      padding: 0.5rem 0;
-      border-bottom: 1px solid #e5e7eb;
-    }
-    
-    .cached-list a {
-      color: #0f172a;
-      text-decoration: none;
-      display: block;
-    }
-    
-    .cached-list a:hover {
-      color: #2563eb;
-    }
-    
-    @media (prefers-color-scheme: dark) {
-      body {
-        background-color: #0f172a;
-        color: #f9fafb;
-      }
-      
-      h1 {
-        color: #f9fafb;
-      }
-      
-      p {
-        color: #d1d5db;
-      }
-      
-      .button {
-        background-color: #2563eb;
-      }
-      
-      .button:hover {
-        background-color: #1d4ed8;
-      }
-      
-      .footer {
-        background-color: #1e293b;
-      }
-      
-      .cached-content {
-        border-top: 1px solid #334155;
-      }
-      
-      .cached-list li {
-        border-bottom: 1px solid #334155;
-      }
-      
-      .cached-list a {
-        color: #d1d5db;
-      }
-      
-      .cached-list a:hover {
-        color: #60a5fa;
-      }
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <img src="/icons/icon-192x192.png" alt="Jackerbox Logo" class="logo">
-    <h1>You're Offline</h1>
-    <p>It looks like you're not connected to the internet right now. Some features may be unavailable until you're back online.</p>
-    <p>Don't worry though! You can still access previously visited pages that have been cached.</p>
+    <img src="/logo.png" alt="Jackerbox Logo" class="logo" />
     
-    <a href="/" class="button" id="retry-button">Try Again</a>
-    
-    <div class="cached-content">
-      <h2>Available Offline</h2>
-      <p>Here are some pages you can access while offline:</p>
-      <ul class="cached-list" id="cached-pages">
-        <li><a href="/">Home</a></li>
-        <!-- Dynamically populated list will appear here -->
-      </ul>
+    <div class="card">
+      <svg class="icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      
+      <h1>You're offline</h1>
+      <p>It looks like you've lost your internet connection. Some features may be limited until you're back online.</p>
+      
+      <p>Don't worry! You can still access previously viewed content and use basic features of Jackerbox while offline.</p>
+      
+      <a href="/" class="button">Try Again</a>
     </div>
+    
+    <p>Jackerbox works offline! We've saved some content so you can keep browsing even without an internet connection.</p>
   </div>
   
-  <div class="footer">
-    &copy; 2024 Jackerbox. All rights reserved.
-  </div>
-  
-  <script>
-    // Check if we're back online
-    window.addEventListener('online', () => {
-      document.getElementById('retry-button').textContent = 'You\'re back online! Click to continue';
-    });
-    
-    // Try to fetch cached pages from the service worker
-    if ('caches' in window) {
-      caches.open('jackerbox-static-v1').then(cache => {
-        cache.keys().then(requests => {
-          const cachedList = document.getElementById('cached-pages');
-          const uniqueUrls = new Set();
-          
-          // Clear default item
-          cachedList.innerHTML = '';
-          
-          requests.forEach(request => {
-            const url = new URL(request.url);
-            
-            // Only show HTML pages (not assets)
-            if (url.pathname !== '/' && 
-                !url.pathname.includes('.') && 
-                url.origin === location.origin) {
-              
-              const path = url.pathname;
-              
-              // Avoid duplicates
-              if (!uniqueUrls.has(path)) {
-                uniqueUrls.add(path);
-                
-                // Create a friendly name from the path
-                let name = path.split('/').filter(Boolean).pop() || 'Home';
-                name = name.charAt(0).toUpperCase() + name.slice(1).replace(/-/g, ' ');
-                
-                const li = document.createElement('li');
-                const a = document.createElement('a');
-                a.href = path;
-                a.textContent = name;
-                li.appendChild(a);
-                cachedList.appendChild(li);
-              }
-            }
-          });
-          
-          // Always add home
-          if (!uniqueUrls.has('/')) {
-            const li = document.createElement('li');
-            const a = document.createElement('a');
-            a.href = '/';
-            a.textContent = 'Home';
-            li.appendChild(a);
-            cachedList.prepend(li);
-          }
-          
-          // If no cached pages found
-          if (cachedList.children.length === 0) {
-            const li = document.createElement('li');
-            li.textContent = 'No cached pages available';
-            cachedList.appendChild(li);
-          }
-        });
-      });
-    }
-    
-    // Retry button
-    document.getElementById('retry-button').addEventListener('click', (e) => {
-      e.preventDefault();
-      window.location.reload();
-    });
-  </script>
+  <footer>
+    &copy; 2023 Jackerbox. All rights reserved.
+  </footer>
 </body>
 </html> 

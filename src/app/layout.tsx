@@ -16,17 +16,22 @@ import { cn } from '@/lib/utils';
 import Script from 'next/script';
 import { InstallPrompt } from '@/components/pwa/InstallPrompt';
 import { NotificationPermission } from '@/components/pwa/NotificationPermission';
+import { NetworkStatus } from '@/components/pwa/NetworkStatus';
 
 const geistSans = Geist({
   subsets: ["latin"],
   variable: "--font-geist-sans",
   display: "swap",
+  preload: true,
+  fallback: ['system-ui', 'sans-serif'],
 });
 
 const geistMono = Geist_Mono({
   subsets: ["latin"],
   variable: "--font-geist-mono",
   display: "swap",
+  preload: true,
+  fallback: ['monospace'],
 });
 
 export const metadata: Metadata = {
@@ -119,6 +124,11 @@ export default function RootLayout({
         {/* Performance optimization meta tags */}
         <meta httpEquiv="x-dns-prefetch-control" content="on" />
         <meta name="format-detection" content="telephone=no" />
+        <Script 
+          src="/preload-critical.js"
+          strategy="beforeInteractive"
+          id="preload-critical"
+        />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} font-sans`}>
         <Providers>
@@ -134,6 +144,7 @@ export default function RootLayout({
           <SSEStatusIndicator />
           <InstallPrompt />
           <NotificationPermission />
+          <NetworkStatus />
           <Script src="/register-sw.js" strategy="afterInteractive" />
           <Script src="/preload.js" strategy="beforeInteractive" />
           <Analytics />

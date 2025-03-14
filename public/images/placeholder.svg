@@ -1,5 +1,6 @@
-<svg width="800" height="600" xmlns="http://www.w3.org/2000/svg">
-  <rect width="800" height="600" fill="#f0f0f0"/>
-  <text x="400" y="300" font-family="Arial" font-size="32" text-anchor="middle" fill="#888888">No Image Available</text>
-  <rect x="250" y="330" width="300" height="5" fill="#cccccc"/>
+<svg width="400" height="300" xmlns="http://www.w3.org/2000/svg">
+  <rect width="400" height="300" fill="#f0f0f0" />
+  <text x="50%" y="50%" font-family="Arial, sans-serif" font-size="24" text-anchor="middle" fill="#888888">Loading Image...</text>
+  <path d="M200,100 L230,150 L170,150 Z" fill="#888888" />
+  <circle cx="200" cy="180" r="30" fill="#888888" />
 </svg>
