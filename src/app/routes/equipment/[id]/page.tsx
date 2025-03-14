@@ -8,14 +8,20 @@ import { db } from "@/lib/db";
 import { formatCurrency } from "@/lib/utils/format";
 import { BookingForm } from "@/components/rentals/booking-form";
 import { EquipmentActions } from "@/components/equipment/equipment-actions";
-import { AvailabilityCalendar } from "@/components/equipment/availability-calendar";
-import { ReviewsSection } from "@/components/reviews/reviews-section";
 import { ImageGallery } from "@/components/equipment/image-gallery";
 import Image from "next/image";
 import { ContactOwnerButton } from "@/components/equipment/contact-owner-button";
-import { DualCalendarSystem } from "@/components/equipment/dual-calendar-system";
-import { Suspense } from "react";
+import { Suspense, lazy } from "react";
 import type { Metadata, ResolvingMetadata } from "next";
+
+// Lazy load heavy components
+const DualCalendarSystem = lazy(() => 
+  import("@/components/equipment/dual-calendar-system").then(mod => ({ default: mod.DualCalendarSystem }))
+);
+
+const ReviewsSection = lazy(() => 
+  import("@/components/reviews/reviews-section").then(mod => ({ default: mod.ReviewsSection }))
+);
 
 interface EquipmentDetailPageProps {
   params: {
@@ -38,6 +44,7 @@ export async function generateMetadata(
       title: true,
       description: true,
       category: true,
+      imagesJson: true,
     },
   });
   
@@ -49,6 +56,17 @@ export async function generateMetadata(
     };
   }
   
+  // Parse images from JSON string to get the first image for OG
+  let firstImage = null;
+  try {
+    const images = equipment.imagesJson ? JSON.parse(equipment.imagesJson) : [];
+    if (images.length > 0) {
+      firstImage = images[0];
+    }
+  } catch (e) {
+    console.error("Error parsing images JSON:", e);
+  }
+  
   // Return metadata based on equipment data
   return {
     title: `${equipment.title} | Jackerbox`,
@@ -57,6 +75,7 @@ export async function generateMetadata(
       title: equipment.title,
       description: equipment.description?.substring(0, 160) || `Rent ${equipment.title} on Jackerbox`,
       type: 'website',
+      images: firstImage ? [{ url: firstImage }] : undefined,
     },
   };
 }
@@ -110,10 +129,10 @@ export default async function EquipmentDetailPage({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left Column - Images and Details */}
         <div className="lg:col-span-2">
-          {/* Image Gallery */}
+          {/* Image Gallery - Critical for LCP */}
           <ImageGallery images={images} title={equipment.title} />
 
-          {/* Equipment Details */}
+          {/* Equipment Details - Critical content */}
           <div className="mb-8">
             <h1 className="text-3xl font-bold mb-2 text-jacker-blue">{equipment.title}</h1>
             <div className="flex items-center mb-4">
@@ -143,9 +162,14 @@ export default async function EquipmentDetailPage({
             </ul>
           </div>
 
-          {/* Availability Calendar */}
+          {/* Availability Calendar - Lazy loaded */}
           <div className="mb-8 bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-            <Suspense fallback={<div className="h-96 flex items-center justify-center">Loading calendar...</div>}>
+            <Suspense fallback={
+              <div className="h-96 flex items-center justify-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+                <span className="sr-only">Loading calendar...</span>
+              </div>
+            }>
               <DualCalendarSystem 
                 equipmentId={equipment.id} 
                 isOwner={isOwner}
@@ -167,6 +191,7 @@ export default async function EquipmentDetailPage({
                       fill
                       sizes="64px"
                       className="object-cover"
+                      loading="lazy"
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center bg-gray-200 text-gray-600 text-xl font-semibold">
@@ -190,9 +215,14 @@ export default async function EquipmentDetailPage({
             </div>
           </div>
 
-          {/* Reviews */}
+          {/* Reviews - Lazy loaded */}
           <div className="mb-8 bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-            <Suspense fallback={<div className="h-40 flex items-center justify-center">Loading reviews...</div>}>
+            <Suspense fallback={
+              <div className="h-40 flex items-center justify-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+                <span className="sr-only">Loading reviews...</span>
+              </div>
+            }>
               <ReviewsSection 
                 equipmentId={equipment.id}
                 isOwner={isOwner}
@@ -234,7 +264,12 @@ export default async function EquipmentDetailPage({
             </div>
             
             {!isOwner && user && (
-              <Suspense fallback={<div className="h-40 flex items-center justify-center">Loading booking form...</div>}>
+              <Suspense fallback={
+                <div className="h-40 flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+                  <span className="sr-only">Loading booking form...</span>
+                </div>
+              }>
                 <BookingForm
                   equipment={{
                     ...equipment,

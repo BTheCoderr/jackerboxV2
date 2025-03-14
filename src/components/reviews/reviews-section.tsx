@@ -1,22 +1,29 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { ReviewStatistics } from './review-statistics';
-import { ReviewList } from './review-list';
-import { useReviewStatistics } from '@/hooks/use-review-statistics';
 import dynamic from 'next/dynamic';
+import { useReviewStatistics } from '@/hooks/use-review-statistics';
+
+// Memoize the loading component to prevent unnecessary re-renders
+const LoadingSpinner = memo(() => (
+  <div className="text-center py-4">
+    <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-solid border-current border-r-transparent align-[-0.125em]" role="status">
+      <span className="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">Loading reviews...</span>
+    </div>
+  </div>
+));
+
+LoadingSpinner.displayName = 'LoadingSpinner';
 
 // Lazy load the ReviewList component
-const LazyReviewList = dynamic(() => import('./review-list').then(mod => ({ default: mod.ReviewList })), {
-  loading: () => (
-    <div className="text-center py-4">
-      <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-solid border-current border-r-transparent align-[-0.125em]" role="status">
-        <span className="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">Loading reviews...</span>
-      </div>
-    </div>
-  ),
-  ssr: false
-});
+const LazyReviewList = dynamic(
+  () => import('./review-list').then(mod => ({ default: mod.ReviewList })),
+  {
+    loading: () => <LoadingSpinner />,
+    ssr: false
+  }
+);
 
 interface Review {
   id: string;
@@ -51,22 +58,33 @@ export function ReviewsSection({
   const [reviews, setReviews] = useState<Review[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastFetchTime, setLastFetchTime] = useState<number>(0);
   
   const { statistics, isLoading: statsLoading, refetch: refetchStats } = useReviewStatistics({
     equipmentId,
     userId
   });
   
-  const fetchReviews = useCallback(async () => {
+  // Memoize the API URL to prevent unnecessary re-renders
+  const apiUrl = useMemo(() => {
+    const params = new URLSearchParams();
+    if (equipmentId) params.append('equipmentId', equipmentId);
+    if (userId) params.append('userId', userId);
+    return `/api/reviews?${params.toString()}`;
+  }, [equipmentId, userId]);
+  
+  const fetchReviews = useCallback(async (force = false) => {
+    // Only fetch if forced or if it's been more than 60 seconds since the last fetch
+    const now = Date.now();
+    if (!force && lastFetchTime > 0 && now - lastFetchTime < 60000) {
+      return;
+    }
+    
     setIsLoading(true);
     setError(null);
     
     try {
-      const params = new URLSearchParams();
-      if (equipmentId) params.append('equipmentId', equipmentId);
-      if (userId) params.append('userId', userId);
-      
-      const response = await fetch(`/api/reviews?${params.toString()}`, {
+      const response = await fetch(apiUrl, {
         cache: 'no-store'
       });
       
@@ -104,22 +122,39 @@ export function ReviewsSection({
       } else {
         setReviews(reviewsData);
       }
+      
+      setLastFetchTime(now);
     } catch (err) {
       console.error('Error fetching reviews:', err);
       setError(err instanceof Error ? err.message : 'An unknown error occurred');
     } finally {
       setIsLoading(false);
     }
-  }, [equipmentId, userId, currentUserId]);
+  }, [apiUrl, currentUserId, lastFetchTime]);
   
   useEffect(() => {
     fetchReviews();
   }, [fetchReviews]);
   
   const handleReviewUpdated = useCallback(() => {
-    fetchReviews();
+    fetchReviews(true);
     refetchStats();
   }, [fetchReviews, refetchStats]);
+  
+  // Memoize the statistics component to prevent unnecessary re-renders
+  const StatisticsSection = useMemo(() => {
+    if (!statistics.totalReviews) return null;
+    
+    return (
+      <ReviewStatistics
+        averageRating={statistics.averageRating}
+        totalReviews={statistics.totalReviews}
+        ratingCounts={statistics.ratingCounts}
+        helpfulVotes={statistics.helpfulVotes}
+        unhelpfulVotes={statistics.unhelpfulVotes}
+      />
+    );
+  }, [statistics]);
   
   return (
     <div className="space-y-8">
@@ -137,15 +172,7 @@ export function ReviewsSection({
         </div>
       ) : (
         <>
-          {statistics.totalReviews > 0 && (
-            <ReviewStatistics
-              averageRating={statistics.averageRating}
-              totalReviews={statistics.totalReviews}
-              ratingCounts={statistics.ratingCounts}
-              helpfulVotes={statistics.helpfulVotes}
-              unhelpfulVotes={statistics.unhelpfulVotes}
-            />
-          )}
+          {StatisticsSection}
           
           <LazyReviewList
             reviews={reviews}

@@ -1,10 +1,44 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, memo } from "react";
 import { format } from "date-fns";
-import { AvailabilityCalendar } from "./availability-calendar";
+import dynamic from "next/dynamic";
 import { CalendarIcon } from "lucide-react";
-import { useCallback } from "react";
+
+// Lazy load the AvailabilityCalendar component
+const AvailabilityCalendar = dynamic(
+  () => import("./availability-calendar").then(mod => ({ default: mod.AvailabilityCalendar })),
+  {
+    loading: () => (
+      <div className="h-96 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    ),
+    ssr: false
+  }
+);
+
+// Memoize the calendar legend to prevent unnecessary re-renders
+const CalendarLegend = memo(() => (
+  <div className="mt-4">
+    <div className="flex space-x-4 text-sm">
+      <div className="flex items-center">
+        <span className="w-4 h-4 bg-green-500 rounded-full mr-2"></span>
+        <span>Available</span>
+      </div>
+      <div className="flex items-center">
+        <span className="w-4 h-4 bg-yellow-500 rounded-full mr-2"></span>
+        <span>Pending Booking</span>
+      </div>
+      <div className="flex items-center">
+        <span className="w-4 h-4 bg-red-500 rounded-full mr-2"></span>
+        <span>Booked</span>
+      </div>
+    </div>
+  </div>
+));
+
+CalendarLegend.displayName = 'CalendarLegend';
 
 interface DualCalendarSystemProps {
   equipmentId: string;
@@ -53,6 +87,15 @@ export function DualCalendarSystem({
     setUseSimpleCalendar(!useSimpleCalendar);
   }, [useSimpleCalendar]);
 
+  // Memoize the formatted dates to prevent recalculation on every render
+  const formattedStartDate = useCallback(() => {
+    return format(new Date(startDate), "MMMM d, yyyy");
+  }, [startDate]);
+
+  const formattedEndDate = useCallback(() => {
+    return format(new Date(endDate), "MMMM d, yyyy");
+  }, [endDate]);
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -98,25 +141,10 @@ export function DualCalendarSystem({
             </div>
           </div>
 
-          <div className="mt-4">
-            <div className="flex space-x-4 text-sm">
-              <div className="flex items-center">
-                <span className="w-4 h-4 bg-green-500 rounded-full mr-2"></span>
-                <span>Available</span>
-              </div>
-              <div className="flex items-center">
-                <span className="w-4 h-4 bg-yellow-500 rounded-full mr-2"></span>
-                <span>Pending Booking</span>
-              </div>
-              <div className="flex items-center">
-                <span className="w-4 h-4 bg-red-500 rounded-full mr-2"></span>
-                <span>Booked</span>
-              </div>
-            </div>
-          </div>
+          <CalendarLegend />
 
           <div className="mt-4 text-sm text-gray-500">
-            <p>Selected rental period: {format(new Date(startDate), "MMMM d, yyyy")} to {format(new Date(endDate), "MMMM d, yyyy")}</p>
+            <p>Selected rental period: {formattedStartDate()} to {formattedEndDate()}</p>
           </div>
         </div>
       ) : (
