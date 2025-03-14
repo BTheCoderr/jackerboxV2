@@ -5,6 +5,13 @@
  * but are no longer included in modern JavaScript environments.
  */
 
+// Define the interface for the deferred object
+interface Deferred {
+  promise: Promise<any>;
+  resolve: (value?: any) => void;
+  reject: (reason?: any) => void;
+}
+
 // Polyfill for the Q promise library
 // Some older libraries might expect Q to be available globally
 if (typeof window !== 'undefined') {
@@ -16,8 +23,8 @@ if (typeof window !== 'undefined') {
   };
   
   // Add common Q methods
-  window.Q.defer = function() {
-    const deferred = {};
+  window.Q.defer = function(): Deferred {
+    const deferred = {} as Deferred;
     deferred.promise = new Promise((resolve, reject) => {
       deferred.resolve = resolve;
       deferred.reject = reject;

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSSEConnection, subscribe, unsubscribe, getStats, toggleDebugMode } from '@/lib/sse/sse-manager';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { authOptions } from '@/lib/auth/auth-options';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';

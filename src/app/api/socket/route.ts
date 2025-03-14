@@ -1,234 +1,257 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSocketServerPort } from '@/lib/socket/server-init';
+import { getSocketServerPort, initServer, getSocketServerStatus } from '@/lib/socket/server-init';
 
 export const dynamic = 'force-dynamic';
+
+// Store active fallback sessions
+const fallbackSessions: Record<string, { 
+  lastPing: number, 
+  messages: Array<{ event: string, data: any }> 
+}> = {};
+
+// Clean up old sessions periodically
+setInterval(() => {
+  const now = Date.now();
+  Object.keys(fallbackSessions).forEach(sid => {
+    if (now - fallbackSessions[sid].lastPing > 60000) { // 1 minute timeout
+      delete fallbackSessions[sid];
+    }
+  });
+}, 30000); // Run every 30 seconds
 
 /**
  * This route acts as a proxy for the socket.io server.
  * In development, it redirects requests to the actual socket server running on a different port.
- * In production (Vercel), it emulates a Socket.IO v4 server for the client.
+ * When the socket server is not available, it provides a fallback implementation.
  */
 export async function GET(request: NextRequest) {
   try {
-    // Check if we're in production (Vercel)
-    const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1';
+    // Try to initialize the socket server if it's not already running
+    try {
+      await initServer();
+    } catch (initError) {
+      console.error('Failed to initialize socket server:', initError);
+    }
     
-    if (isProduction) {
-      // In production, we need to handle socket.io requests differently
-      console.log('Socket route: Production environment detected');
+    // Get the socket server port
+    const port = getSocketServerPort();
+    const status = getSocketServerStatus();
+    
+    // Get request details
+    const searchParams = request.nextUrl.searchParams;
+    const sid = searchParams.get('sid');
+    const transport = searchParams.get('transport');
+    const eio = searchParams.get('EIO') || '4';
+    
+    // If socket server is not available, use fallback mode
+    if (!port || !status.initialized) {
+      console.log('Socket server not available, using fallback mode');
       
-      // Get the URL parameters
-      const searchParams = request.nextUrl.searchParams;
-      const sid = searchParams.get('sid');
-      const transport = searchParams.get('transport');
-      const eio = searchParams.get('EIO') || '4'; // Default to EIO version 4
-      
-      // Log the request details
-      console.log(`Socket request: sid=${sid}, transport=${transport}, EIO=${eio}`);
-      
-      // Check if this is a WebSocket upgrade request
-      const upgrade = request.headers.get('upgrade');
-      const connection = request.headers.get('connection');
-      const isWebSocketRequest = upgrade?.toLowerCase() === 'websocket' && connection?.toLowerCase().includes('upgrade');
-      
-      if (isWebSocketRequest) {
-        // For WebSocket requests in production, return a response that forces fallback to polling
-        console.log('Socket proxy (production): WebSocket request detected, forcing fallback to polling');
-        return new NextResponse('WebSockets not supported in this environment', { 
-          status: 426, // Upgrade Required
-          headers: {
-            'Content-Type': 'text/plain',
-            'Connection': 'close'
-          }
-        });
-      } else if (transport === 'polling') {
-        // For polling requests, return a valid socket.io response
-        console.log('Socket proxy (production): Polling request detected');
-        
-        // Special handling for Socket.IO v4 handshake
+      // Handle polling requests
+      if (transport === 'polling') {
+        // Initial handshake request (no sid)
         if (!sid) {
-          // Generate a unique session ID
-          const sessionId = `server-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+          // Generate a unique session ID for the client
+          const sessionId = `fallback-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
           
-          // Build the response based on the EIO version
-          if (eio === '4') {
-            // Socket.IO v4 format - must be exactly this format without whitespace
-            const response = `0{"sid":"${sessionId}","upgrades":[],"pingInterval":25000,"pingTimeout":20000,"maxPayload":1000000}`;
-            console.log('Responding with Socket.IO v4 handshake:', response);
-            
-            return new NextResponse(response, { 
-              status: 200,
-              headers: {
-                'Content-Type': 'text/plain',
-                'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-                'Pragma': 'no-cache',
-                'Expires': '0',
-              }
-            });
-          } else if (eio === '3') {
-            // Socket.IO v3 format
-            const response = `0{"sid":"${sessionId}","upgrades":[],"pingInterval":25000,"pingTimeout":20000}`;
-            console.log('Responding with Socket.IO v3 handshake:', response);
-            
-            return new NextResponse(response, { 
-              status: 200,
-              headers: {
-                'Content-Type': 'text/plain',
-                'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-                'Pragma': 'no-cache',
-                'Expires': '0',
-              }
-            });
-          } else {
-            // Default response for unknown EIO version
-            return new NextResponse(`0{"sid":"${sessionId}","upgrades":[],"pingInterval":25000,"pingTimeout":20000}`, { 
-              status: 200,
-              headers: {
-                'Content-Type': 'text/plain',
-                'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-                'Pragma': 'no-cache',
-                'Expires': '0',
-              }
-            });
-          }
-        } else {
-          // For subsequent polling requests with an existing sid
+          // Create a new session
+          fallbackSessions[sessionId] = {
+            lastPing: Date.now(),
+            messages: [{ 
+              event: 'welcome', 
+              data: { message: 'Connected to fallback socket server' } 
+            }]
+          };
+          
+          // Return a Socket.IO handshake response
+          const response = `0{"sid":"${sessionId}","upgrades":[],"pingInterval":25000,"pingTimeout":20000,"maxPayload":1000000}`;
+          
+          return new NextResponse(response, { 
+            status: 200,
+            headers: {
+              'Content-Type': 'text/plain',
+              'Access-Control-Allow-Origin': '*',
+              'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+              'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+              'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            }
+          });
+        } 
+        // Subsequent polling requests with an existing sid
+        else if (fallbackSessions[sid]) {
+          // Update last ping time
+          fallbackSessions[sid].lastPing = Date.now();
+          
+          // For GET requests, check if there are any messages to send
           if (request.method === 'GET') {
-            // The client is checking for new messages
-            // Send a NOOP packet (Ping) as per Socket.IO protocol
+            const session = fallbackSessions[sid];
+            
+            if (session.messages.length > 0) {
+              // Format messages according to Socket.IO protocol
+              const messages = session.messages.map(msg => {
+                return `42["${msg.event}",${JSON.stringify(msg.data)}]`;
+              }).join('');
+              
+              // Clear the messages queue
+              session.messages = [];
+              
+              return new NextResponse(messages, { 
+                status: 200,
+                headers: {
+                  'Content-Type': 'text/plain',
+                  'Access-Control-Allow-Origin': '*',
+                  'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+                }
+              });
+            }
+            
+            // If no messages, send a NOOP packet (ping)
             return new NextResponse('2', { 
               status: 200,
               headers: {
                 'Content-Type': 'text/plain',
+                'Access-Control-Allow-Origin': '*',
                 'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-                'Pragma': 'no-cache',
-                'Expires': '0',
               }
             });
-          } else {
-            // For POST requests (client sending data), acknowledge with empty message packet
-            return new NextResponse('40', { 
-              status: 200,
-              headers: {
-                'Content-Type': 'text/plain',
-                'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-                'Pragma': 'no-cache',
-                'Expires': '0',
+          }
+        } 
+        // Unknown session
+        else {
+          return new NextResponse('Invalid session', { 
+            status: 400,
+            headers: {
+              'Access-Control-Allow-Origin': '*',
+              'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+              'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+            }
+          });
+        }
+      }
+      
+      // For non-polling requests in fallback mode
+      return new NextResponse('Socket server not available, use polling transport', { 
+        status: 503,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        }
+      });
+    }
+    
+    // If socket server is available, proxy to it
+    // Get the hostname from the request
+    const hostname = request.headers.get('host')?.split(':')[0] || 'localhost';
+    
+    // Create the target URL for the socket server
+    const targetUrl = `http://${hostname}:${port}${request.nextUrl.pathname}${request.nextUrl.search}`;
+    
+    console.log(`Socket proxy: Redirecting to ${targetUrl}`);
+    
+    // Return a redirect response
+    return NextResponse.redirect(targetUrl, 307);
+  } catch (error) {
+    console.error('Error in socket proxy route:', error);
+    return new NextResponse('Internal Server Error', { 
+      status: 500,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      }
+    });
+  }
+}
+
+// Handle POST requests (client sending data)
+export async function POST(request: NextRequest) {
+  try {
+    // Get the socket server status
+    const port = getSocketServerPort();
+    const status = getSocketServerStatus();
+    
+    // Get request details
+    const searchParams = request.nextUrl.searchParams;
+    const sid = searchParams.get('sid');
+    const transport = searchParams.get('transport');
+    
+    // If socket server is not available and this is a polling request with a valid session
+    if ((!port || !status.initialized) && transport === 'polling' && sid && fallbackSessions[sid]) {
+      // Update last ping time
+      fallbackSessions[sid].lastPing = Date.now();
+      
+      try {
+        // Try to parse the message from the client
+        const body = await request.text();
+        
+        // Socket.IO message format: 42["event_name",{"data":"value"}]
+        const messageMatch = body.match(/^42\["([^"]+)",(.+)\]$/);
+        if (messageMatch) {
+          const event = messageMatch[1];
+          const data = JSON.parse(messageMatch[2]);
+          
+          console.log(`Fallback received message: ${event}`, data);
+          
+          // Handle test_message event
+          if (event === 'test_message') {
+            // Add a response message to the session
+            fallbackSessions[sid].messages.push({
+              event: 'test_response',
+              data: {
+                message: `Fallback server received: ${data.text}`,
+                timestamp: new Date().toISOString()
               }
             });
           }
         }
-      } else {
-        // For other requests, return a generic response
-        return new NextResponse('Invalid socket.io request', { 
-          status: 400,
-          headers: {
-            'Content-Type': 'text/plain',
-            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-            'Pragma': 'no-cache',
-            'Expires': '0',
-          }
-        });
-      }
-    } else {
-      // In development, we can redirect to the local socket server
-      const port = getSocketServerPort();
-      
-      if (!port) {
-        console.error('Socket server port not available');
-        return new NextResponse('Socket server not initialized', { status: 503 });
+      } catch (parseError) {
+        console.error('Error parsing client message:', parseError);
       }
       
-      // Get the hostname from the request
-      const hostname = request.headers.get('host')?.split(':')[0] || 'localhost';
-      
-      // Create the target URL for development
-      const targetUrl = `http://${hostname}:${port}${request.nextUrl.pathname}${request.nextUrl.search}`;
-      
-      console.log(`Socket proxy (development): Redirecting to ${targetUrl}`);
-      
-      // Check if this is a WebSocket upgrade request
-      const upgrade = request.headers.get('upgrade');
-      const connection = request.headers.get('connection');
-      const isWebSocketRequest = upgrade?.toLowerCase() === 'websocket' && connection?.toLowerCase().includes('upgrade');
-      
-      if (isWebSocketRequest) {
-        console.log('Socket proxy: WebSocket upgrade request detected');
-        // For WebSocket requests, we need to return a 307 redirect
-        return NextResponse.redirect(targetUrl, 307);
-      }
-      
-      // For regular HTTP requests, we can proxy them
-      console.log('Socket proxy: Regular HTTP request detected');
-      return NextResponse.redirect(targetUrl, 307);
+      // Acknowledge the message
+      return new NextResponse('40', { 
+        status: 200,
+        headers: {
+          'Content-Type': 'text/plain',
+          'Access-Control-Allow-Origin': '*',
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        }
+      });
     }
-  } catch (error) {
-    console.error('Error in socket proxy route:', error);
-    return new NextResponse('Internal Server Error', { status: 500 });
-  }
-}
-
-// Handle all other HTTP methods
-export async function POST(request: NextRequest) {
-  try {
-    // Check if we're in production (Vercel)
-    const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1';
     
-    if (isProduction) {
-      // In production, handle POST requests for socket.io polling
-      console.log('Socket route POST: Production environment detected');
-      
-      // Get the URL parameters
-      const searchParams = request.nextUrl.searchParams;
-      const sid = searchParams.get('sid');
-      const transport = searchParams.get('transport');
-      const eio = searchParams.get('EIO') || '4'; // Default to EIO version 4
-      
-      if (transport === 'polling' && sid) {
-        // For polling POST requests, acknowledge the message
-        console.log('Acknowledging message from client');
-        // The "40" prefix indicates this is a "message" packet with no data
-        return new NextResponse('40', { 
-          status: 200,
-          headers: {
-            'Content-Type': 'text/plain',
-            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-            'Pragma': 'no-cache',
-            'Expires': '0',
-          }
-        });
-      } else {
-        return new NextResponse('Invalid socket.io request', { status: 400 });
-      }
-    } else {
-      // In development, proxy to the local socket server
-      return GET(request);
-    }
+    // If socket server is available, proxy to it
+    return GET(request);
   } catch (error) {
     console.error('Error in socket proxy route (POST):', error);
-    return new NextResponse('Internal Server Error', { status: 500 });
+    return new NextResponse('Internal Server Error', { 
+      status: 500,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      }
+    });
   }
-}
-
-export async function PUT(request: NextRequest) {
-  return GET(request);
-}
-
-export async function DELETE(request: NextRequest) {
-  return GET(request);
-}
-
-export async function PATCH(request: NextRequest) {
-  return GET(request);
 }
 
 export async function OPTIONS(request: NextRequest) {
-  return GET(request);
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Max-Age': '86400',
+    },
+  });
 }
 
-export async function HEAD(request: NextRequest) {
-  return GET(request);
-}
+// Handle other methods
+export async function PUT(request: NextRequest) { return GET(request); }
+export async function DELETE(request: NextRequest) { return GET(request); }
+export async function PATCH(request: NextRequest) { return GET(request); }
+export async function HEAD(request: NextRequest) { return GET(request); }
 
 // Disable response caching
 export const fetchCache = "force-no-store";

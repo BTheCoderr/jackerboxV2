@@ -14,12 +14,12 @@ export async function POST(
     }
 
     // Properly await params before using
-    const { id } = params;
+    const notificationId = await Promise.resolve(params.id);
 
     // Verify the notification belongs to the current user
     const notification = await db.notification.findUnique({
       where: {
-        id,
+        id: notificationId,
         userId: currentUser.id,
       },
     });
@@ -31,7 +31,7 @@ export async function POST(
     // Mark the notification as read
     await db.notification.update({
       where: {
-        id,
+        id: notificationId,
       },
       data: {
         read: true,

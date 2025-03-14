@@ -117,6 +117,7 @@ export async function GET(req: Request) {
     const page = parseInt(url.searchParams.get("page") || "1");
     const category = url.searchParams.get("category");
     const search = url.searchParams.get("search");
+    const location = url.searchParams.get("location");
     
     // Calculate pagination
     const skip = (page - 1) * limit;
@@ -130,11 +131,22 @@ export async function GET(req: Request) {
       where.category = category;
     }
     
+    if (location) {
+      where.location = {
+        contains: location,
+        mode: "insensitive"
+      };
+    }
+    
+    // Import the search utilities if search parameter is provided
     if (search) {
-      where.OR = [
-        { title: { contains: search, mode: "insensitive" } },
-        { description: { contains: search, mode: "insensitive" } },
-      ];
+      const { generateFuzzySearchQuery } = await import('@/lib/search/search-utils');
+      
+      // Generate fuzzy search query for title and description
+      const fuzzySearchQuery = generateFuzzySearchQuery(search, ['title', 'description']);
+      
+      // Merge the fuzzy search query with the existing where clause
+      where.OR = fuzzySearchQuery.OR;
     }
     
     // Fetch equipment
@@ -200,7 +212,7 @@ export async function GET(req: Request) {
   } catch (error) {
     console.error("Error fetching equipment:", error);
     return NextResponse.json(
-      { message: "Something went wrong. Please try again." },
+      { message: "Failed to fetch equipment" },
       { status: 500 }
     );
   }

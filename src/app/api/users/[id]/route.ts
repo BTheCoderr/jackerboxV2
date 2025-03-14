@@ -16,12 +16,10 @@ export async function GET(
       );
     }
     
-    // Properly await params before using
-    const { id } = params;
+    const userId = await Promise.resolve(params.id);
     
-    // Fetch the user by ID
     const user = await db.user.findUnique({
-      where: { id },
+      where: { id: userId },
       select: {
         id: true,
         name: true,
@@ -44,4 +42,4 @@ export async function GET(
       { status: 500 }
     );
   }
-} 
+}

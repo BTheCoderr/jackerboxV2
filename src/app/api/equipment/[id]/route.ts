@@ -34,12 +34,12 @@ export async function GET(
       );
     }
     
-    // Properly destructure params
-    const { id } = params;
+    // Properly await params before using
+    const equipmentId = await Promise.resolve(params.id);
     
     // Fetch the equipment by ID
     const equipment = await db.equipment.findUnique({
-      where: { id },
+      where: { id: equipmentId },
       select: {
         id: true,
         title: true,
@@ -97,8 +97,8 @@ export async function DELETE(
       );
     }
     
-    // Properly destructure params
-    const { id } = params;
+    // Properly await params before using
+    const equipmentId = await Promise.resolve(params.id);
     
     // Check if user is a renter (has rental history)
     const userRentals = await db.rental.count({
@@ -117,7 +117,7 @@ export async function DELETE(
     // Check if the equipment exists and belongs to the user
     const equipment = await db.equipment.findUnique({
       where: {
-        id,
+        id: equipmentId,
       },
       include: {
         rentals: {
@@ -155,7 +155,7 @@ export async function DELETE(
     // Delete the equipment
     await db.equipment.delete({
       where: {
-        id,
+        id: equipmentId,
       },
     });
     
@@ -186,8 +186,8 @@ export async function PATCH(
       );
     }
     
-    // Properly destructure params
-    const { id } = params;
+    // Properly await params before using
+    const equipmentId = await Promise.resolve(params.id);
     
     // Check if user is a renter (has rental history)
     const userRentals = await db.rental.count({
@@ -206,7 +206,7 @@ export async function PATCH(
     // Check if the equipment exists and belongs to the user
     const equipment = await db.equipment.findUnique({
       where: {
-        id,
+        id: equipmentId,
       },
     });
     
@@ -230,7 +230,7 @@ export async function PATCH(
     // Update the equipment
     const updatedEquipment = await db.equipment.update({
       where: {
-        id,
+        id: equipmentId,
       },
       data: validatedData,
     });

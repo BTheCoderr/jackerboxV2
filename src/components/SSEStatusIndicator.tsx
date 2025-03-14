@@ -11,6 +11,12 @@ export function SSEStatusIndicator() {
   const [showDetails, setShowDetails] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
   const [stats, setStats] = useState<any>(null);
+  const [mounted, setMounted] = useState(false);
+  
+  // Set mounted state after initial render to prevent hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   
   // Use refs to prevent infinite updates
   const messageHandledRef = useRef(new Set<string>());
@@ -95,6 +101,8 @@ export function SSEStatusIndicator() {
   
   // Status badge color
   const getStatusColor = useCallback(() => {
+    if (!mounted) return 'bg-gray-500 hover:bg-gray-600'; // Default color for server rendering
+    
     switch (status) {
       case 'connected':
         return 'bg-green-500 hover:bg-green-600';
@@ -107,10 +115,12 @@ export function SSEStatusIndicator() {
       default:
         return 'bg-gray-500 hover:bg-gray-600';
     }
-  }, [status]);
+  }, [status, mounted]);
   
   // Status icon
   const getStatusIcon = useCallback(() => {
+    if (!mounted) return <AlertCircle className="h-4 w-4 mr-1" />; // Default icon for server rendering
+    
     switch (status) {
       case 'connected':
         return <Wifi className="h-4 w-4 mr-1" />;
@@ -122,9 +132,9 @@ export function SSEStatusIndicator() {
       case 'error':
         return <AlertCircle className="h-4 w-4 mr-1" />;
       default:
-        return null;
+        return <AlertCircle className="h-4 w-4 mr-1" />;
     }
-  }, [status]);
+  }, [status, mounted]);
   
   // Send a test message
   const sendTestMessage = useCallback(async () => {
@@ -170,10 +180,10 @@ export function SSEStatusIndicator() {
         onClick={() => setShowDetails(!showDetails)}
       >
         {getStatusIcon()}
-        SSE: {status}
+        SSE: {!mounted ? 'connecting...' : status}
       </Badge>
       
-      {showDetails && (
+      {mounted && showDetails && (
         <div className="mt-2 p-3 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 w-80">
           <div className="flex flex-col space-y-2">
             <div className="text-sm">

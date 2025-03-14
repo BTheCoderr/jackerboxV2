@@ -24,15 +24,15 @@ interface EquipmentDetailPageProps {
 export default async function EquipmentDetailPage({
   params,
 }: EquipmentDetailPageProps) {
-  // Get the id from params
-  const { id } = params;
+  // Get the id from params - using await to ensure it's resolved
+  const equipmentId = await Promise.resolve(params.id);
   
   const user = await getCurrentUser();
   
   // Fetch the equipment with owner details
   const equipment = await db.equipment.findUnique({
     where: {
-      id,
+      id: equipmentId,
     },
     include: {
       owner: {
