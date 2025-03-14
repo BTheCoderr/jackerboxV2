@@ -5,6 +5,8 @@ import { getCurrentUser } from "@/lib/auth/auth-utils";
 import { db } from "@/lib/db";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import Image from "next/image";
+import { formatCurrency } from "@/lib/utils/format";
 
 interface AdminUserDetailPageProps {
   params: {
@@ -13,18 +15,22 @@ interface AdminUserDetailPageProps {
 }
 
 export default async function AdminUserDetailPage({ params }: AdminUserDetailPageProps) {
+  // Properly await the params.id
+  const userId = await Promise.resolve(params.id);
+  
   const currentUser = await getCurrentUser();
   
   if (!currentUser?.isAdmin) {
     throw new Error("Unauthorized");
   }
   
+  // Fix the include property to use the correct relation names
   const user = await db.user.findUnique({
     where: {
-      id: params.id,
+      id: userId,
     },
     include: {
-      equipment: {
+      equipmentListings: {
         orderBy: {
           createdAt: "desc",
         },
@@ -53,16 +59,18 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
     },
   });
   
+  // Fix the where clause to use renterId instead of userId
   const rentalCount = await db.rental.count({
     where: {
-      userId: user.id,
+      renterId: user.id,
     },
   });
   
+  // Fix the where clause to use renterId instead of userId
   const totalSpent = await db.payment.aggregate({
     where: {
       rental: {
-        userId: user.id,
+        renterId: user.id,
       },
       status: "COMPLETED",
     },
@@ -99,7 +107,13 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
           <div className="flex items-center">
             <div className="h-16 w-16 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden mr-4">
               {user.image ? (
-                <img src={user.image} alt={user.name || ""} className="h-full w-full object-cover" />
+                <Image 
+                  src={user.image} 
+                  alt={user.name || ""} 
+                  width={64}
+                  height={64}
+                  className="h-full w-full object-cover" 
+                />
               ) : (
                 <span className="text-gray-500 text-xl font-medium">
                   {user.name ? user.name.charAt(0).toUpperCase() : "U"}
@@ -206,12 +220,12 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
         
         <div className="bg-white p-6 rounded-lg shadow">
           <h2 className="text-sm font-medium text-gray-500">Total Spent</h2>
-          <p className="text-3xl font-bold">${totalSpent._sum.amount?.toFixed(2) || "0.00"}</p>
+          <p className="text-3xl font-bold">${totalSpent._sum?.amount?.toFixed(2) || "0.00"}</p>
         </div>
         
         <div className="bg-white p-6 rounded-lg shadow">
           <h2 className="text-sm font-medium text-gray-500">Total Earned</h2>
-          <p className="text-3xl font-bold">${totalEarned._sum.ownerPaidOutAmount?.toFixed(2) || "0.00"}</p>
+          <p className="text-3xl font-bold">${totalEarned._sum?.ownerPaidOutAmount?.toFixed(2) || "0.00"}</p>
         </div>
       </div>
       
@@ -225,11 +239,11 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
               </Link>
             </div>
             
-            {user.equipment.length === 0 ? (
+            {user.equipmentListings.length === 0 ? (
               <p className="text-gray-500">No equipment listed</p>
             ) : (
               <div className="space-y-4">
-                {user.equipment.map((item) => (
+                {user.equipmentListings.map((item) => (
                   <Link
                     key={item.id}
                     href={`/routes/admin/equipment/${item.id}`}
@@ -274,25 +288,27 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
                     href={`/routes/admin/rentals/${rental.id}`}
                     className="block p-4 border rounded-md hover:bg-gray-50"
                   >
-                    <div>
-                      <p className="font-medium">{rental.equipment.title}</p>
-                      <div className="flex justify-between mt-1">
+                    <div className="flex justify-between">
+                      <div>
+                        <p className="font-medium">{rental.equipment.title}</p>
                         <p className="text-sm text-gray-500">
                           {new Date(rental.startDate).toLocaleDateString()} - {new Date(rental.endDate).toLocaleDateString()}
                         </p>
+                      </div>
+                      <div>
                         <span className={`px-2 py-1 text-xs rounded-full ${
-                          rental.status === "ACTIVE"
-                            ? "bg-green-100 text-green-800"
-                            : rental.status === "PENDING"
-                            ? "bg-yellow-100 text-yellow-800"
-                            : rental.status === "COMPLETED"
-                            ? "bg-blue-100 text-blue-800"
-                            : "bg-red-100 text-red-800"
+                          rental.status === "ACTIVE" ? "bg-green-100 text-green-800" :
+                          rental.status === "PENDING" ? "bg-yellow-100 text-yellow-800" :
+                          rental.status === "COMPLETED" ? "bg-blue-100 text-blue-800" :
+                          "bg-red-100 text-red-800"
                         }`}>
                           {rental.status}
                         </span>
                       </div>
                     </div>
+                    <p className="text-sm text-gray-500 mt-2">
+                      Total: {formatCurrency(rental.totalPrice)}
+                    </p>
                   </Link>
                 ))}
               </div>

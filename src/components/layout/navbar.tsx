@@ -46,6 +46,13 @@ export function Navbar() {
                     Admin
                   </Link>
                   
+                  <Link 
+                    href="/routes/feature-flags"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  >
+                    Feature Flags
+                  </Link>
+                  
                   <div className="relative group">
                     <button
                       className="px-4 py-2 bg-purple-800 text-white rounded-md hover:bg-purple-700"

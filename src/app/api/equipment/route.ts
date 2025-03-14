@@ -8,6 +8,11 @@ import { EQUIPMENT_CATEGORIES, EQUIPMENT_CONDITIONS } from "@/lib/constants";
 // Minimum number of required images
 const MIN_REQUIRED_IMAGES = 7;
 
+// Cache control headers for GET requests
+const CACHE_CONTROL_HEADERS = {
+  'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300'
+};
+
 const equipmentSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters"),
   description: z.string().min(10, "Description must be at least 10 characters"),
@@ -113,11 +118,24 @@ export async function POST(req: Request) {
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
-    const limit = parseInt(url.searchParams.get("limit") || "10");
-    const page = parseInt(url.searchParams.get("page") || "1");
+    
+    // Parse query parameters with defaults and validation
+    const limit = Math.min(parseInt(url.searchParams.get("limit") || "10"), 50); // Cap at 50 items
+    const page = Math.max(parseInt(url.searchParams.get("page") || "1"), 1); // Minimum page 1
     const category = url.searchParams.get("category");
     const search = url.searchParams.get("search");
     const location = url.searchParams.get("location");
+    const minPrice = url.searchParams.get("minPrice") ? parseFloat(url.searchParams.get("minPrice")!) : undefined;
+    const maxPrice = url.searchParams.get("maxPrice") ? parseFloat(url.searchParams.get("maxPrice")!) : undefined;
+    const sortBy = url.searchParams.get("sortBy") || "relevance";
+    
+    // Parse user location if provided
+    const userLat = url.searchParams.get("userLat") ? parseFloat(url.searchParams.get("userLat")!) : undefined;
+    const userLng = url.searchParams.get("userLng") ? parseFloat(url.searchParams.get("userLng")!) : undefined;
+    const maxDistance = url.searchParams.get("maxDistance") ? parseFloat(url.searchParams.get("maxDistance")!) : undefined;
+    
+    // Check for cache parameter - if nocache is present, skip caching
+    const noCache = url.searchParams.has("nocache");
     
     // Calculate pagination
     const skip = (page - 1) * limit;
@@ -139,68 +157,194 @@ export async function GET(req: Request) {
     }
     
     // Import the search utilities if search parameter is provided
-    if (search) {
-      const { generateFuzzySearchQuery } = await import('@/lib/search/search-utils');
+    if (search || minPrice || maxPrice || (userLat && userLng && maxDistance)) {
+      const { generateEnhancedSearchQuery } = await import('@/lib/search/search-utils');
       
-      // Generate fuzzy search query for title and description
-      const fuzzySearchQuery = generateFuzzySearchQuery(search, ['title', 'description']);
+      // Prepare search options
+      const searchOptions: any = {};
       
-      // Merge the fuzzy search query with the existing where clause
-      where.OR = fuzzySearchQuery.OR;
+      // Add price range if provided
+      if (minPrice !== undefined || maxPrice !== undefined) {
+        searchOptions.priceRange = {
+          min: minPrice,
+          max: maxPrice
+        };
+      }
+      
+      // Add user location if provided
+      if (userLat !== undefined && userLng !== undefined) {
+        searchOptions.userLocation = {
+          latitude: userLat,
+          longitude: userLng
+        };
+        
+        // Add max distance if provided
+        if (maxDistance !== undefined) {
+          searchOptions.maxDistance = maxDistance;
+        }
+      }
+      
+      // Add categories if provided
+      if (category) {
+        searchOptions.categories = [category];
+      }
+      
+      // Generate enhanced search query for title, description, and tags
+      const enhancedSearchQuery = generateEnhancedSearchQuery(
+        search || '', 
+        ['title', 'description', 'tagsJson'],
+        searchOptions
+      );
+      
+      // Merge the enhanced search query with the existing where clause
+      if (Object.keys(enhancedSearchQuery).length > 0) {
+        if (enhancedSearchQuery.AND) {
+          where.AND = enhancedSearchQuery.AND;
+        } else {
+          Object.assign(where, enhancedSearchQuery);
+        }
+      }
+      
+      // Add location-based filtering if user coordinates and max distance are provided
+      if (userLat !== undefined && userLng !== undefined && maxDistance !== undefined) {
+        // We'll handle distance filtering in post-processing
+        // But we can add a rough bounding box filter to improve query performance
+        const earthRadius = 6371; // km
+        const latDelta = (maxDistance / earthRadius) * (180 / Math.PI);
+        const lngDelta = (maxDistance / earthRadius) * (180 / Math.PI) / Math.cos(userLat * Math.PI / 180);
+        
+        where.AND = where.AND || [];
+        where.AND.push({
+          latitude: {
+            gte: userLat - latDelta,
+            lte: userLat + latDelta,
+          },
+          longitude: {
+            gte: userLng - lngDelta,
+            lte: userLng + lngDelta,
+          }
+        });
+      }
     }
     
-    // Fetch equipment
-    const equipment = await db.equipment.findMany({
-      where,
-      orderBy: {
-        createdAt: "desc",
-      },
-      take: limit,
-      skip,
-      include: {
-        owner: {
-          select: {
-            id: true,
-            name: true,
-            image: true,
+    // Determine sort order
+    let orderBy: any = { createdAt: "desc" };
+    if (sortBy === "price_low") {
+      orderBy = { dailyRate: "asc" };
+    } else if (sortBy === "price_high") {
+      orderBy = { dailyRate: "desc" };
+    } else if (sortBy === "newest") {
+      orderBy = { createdAt: "desc" };
+    }
+    // For "relevance" and "distance", we'll sort in post-processing
+    
+    // Execute both queries in parallel for better performance
+    const [equipment, total] = await Promise.all([
+      db.equipment.findMany({
+        where,
+        orderBy,
+        take: limit,
+        skip,
+        include: {
+          owner: {
+            select: {
+              id: true,
+              name: true,
+              image: true,
+            },
           },
         },
-      },
+      }),
+      db.equipment.count({ where })
+    ]);
+    
+    // Define the type for processed equipment with enhanced properties
+    type ProcessedEquipment = typeof equipment[0] & {
+      images: string[];
+      tags: string[];
+      distance?: number;
+      relevanceScore?: number;
+    };
+    
+    // Process equipment to parse JSON fields and enhance with distance/relevance
+    let processedEquipment = equipment.map(item => {
+      try {
+        // Parse images JSON if it exists
+        let images: string[] = [];
+        if (item.imagesJson) {
+          try {
+            images = JSON.parse(item.imagesJson);
+          } catch (e) {
+            console.error("Error parsing images JSON:", e);
+          }
+        }
+        
+        // Parse tags JSON if it exists
+        let tags: string[] = [];
+        if (item.tagsJson) {
+          try {
+            tags = JSON.parse(item.tagsJson);
+          } catch (e) {
+            console.error("Error parsing tags JSON:", e);
+          }
+        }
+        
+        return {
+          ...item,
+          images,
+          tags,
+        } as ProcessedEquipment;
+      } catch (error) {
+        console.error("Error processing equipment item:", error);
+        return {
+          ...item,
+          images: [],
+          tags: [],
+        } as ProcessedEquipment;
+      }
     });
     
-    // Count total equipment for pagination
-    const total = await db.equipment.count({ where });
-    
-    // Process equipment to parse JSON fields
-    const processedEquipment = equipment.map(item => {
-      // Parse images JSON if it exists
-      let images: string[] = [];
-      if (item.imagesJson) {
-        try {
-          images = JSON.parse(item.imagesJson);
-        } catch (e) {
-          console.error("Error parsing images JSON:", e);
+    // Apply post-processing for distance and relevance sorting
+    if ((userLat !== undefined && userLng !== undefined) || search) {
+      const { enhanceSearchResults } = await import('@/lib/search/search-utils');
+      
+      // Prepare user location if available
+      const userLocation = userLat !== undefined && userLng !== undefined 
+        ? { latitude: userLat, longitude: userLng } 
+        : undefined;
+      
+      // Enhance results with distance and relevance scores
+      const enhancedResults = enhanceSearchResults(
+        processedEquipment,
+        search || '',
+        {
+          userLocation,
+          searchFields: ['title', 'description', 'tags'],
+          sortByDistance: sortBy === 'distance'
         }
+      );
+      
+      // Filter by max distance if needed
+      if (userLocation && maxDistance !== undefined) {
+        processedEquipment = enhancedResults
+          .filter(item => item.distance === undefined || item.distance <= maxDistance);
+      } else {
+        processedEquipment = enhancedResults;
       }
       
-      // Parse tags JSON if it exists
-      let tags: string[] = [];
-      if (item.tagsJson) {
-        try {
-          tags = JSON.parse(item.tagsJson);
-        } catch (e) {
-          console.error("Error parsing tags JSON:", e);
-        }
+      // Sort by relevance if needed
+      if (sortBy === 'relevance' && search) {
+        processedEquipment.sort((a, b) => ((b.relevanceScore || 0) - (a.relevanceScore || 0)));
       }
       
-      return {
-        ...item,
-        images,
-        tags,
-      };
-    });
+      // Sort by distance if needed
+      if (sortBy === 'distance' && userLocation) {
+        processedEquipment.sort((a, b) => ((a.distance || Infinity) - (b.distance || Infinity)));
+      }
+    }
     
-    return NextResponse.json({
+    // Create the response with pagination info
+    const response = {
       equipment: processedEquipment,
       pagination: {
         total,
@@ -208,7 +352,15 @@ export async function GET(req: Request) {
         limit,
         totalPages: Math.ceil(total / limit),
       },
-    });
+    };
+    
+    // Return the response with caching headers if caching is not disabled
+    return NextResponse.json(
+      response,
+      { 
+        headers: noCache ? undefined : CACHE_CONTROL_HEADERS 
+      }
+    );
   } catch (error) {
     console.error("Error fetching equipment:", error);
     return NextResponse.json(

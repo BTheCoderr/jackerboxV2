@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import Link from "next/link";
 import { EquipmentCard } from "@/components/equipment/equipment-card";
 import { EQUIPMENT_CATEGORIES } from "@/lib/constants";
-import { generateFuzzySearchQuery } from "@/lib/search/search-utils";
+import { generateEnhancedSearchQuery } from "@/lib/search/search-utils";
 import { EnhancedSearchForm } from "@/components/search/EnhancedSearchForm";
 
 interface EquipmentPageProps {
@@ -43,9 +43,17 @@ export default async function EquipmentPage({ searchParams }: EquipmentPageProps
   }
   
   if (query) {
-    // Use fuzzy search for better results
-    const fuzzySearchQuery = generateFuzzySearchQuery(query, ['title', 'description']);
-    whereClause.OR = fuzzySearchQuery.OR;
+    // Use enhanced search for better results
+    const enhancedSearchQuery = generateEnhancedSearchQuery(query, ['title', 'description', 'tagsJson']);
+    
+    // Merge the enhanced search query with the existing where clause
+    if (Object.keys(enhancedSearchQuery).length > 0) {
+      if (enhancedSearchQuery.AND) {
+        whereClause.AND = enhancedSearchQuery.AND;
+      } else {
+        Object.assign(whereClause, enhancedSearchQuery);
+      }
+    }
   }
   
   // Fetch equipment listings

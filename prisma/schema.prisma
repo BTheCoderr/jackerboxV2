@@ -38,6 +38,7 @@ model User {
   messages               Message[]      @relation("MessageSender")
   notifications          Notification[]
   payments               Payment[]
+  pushSubscriptions      PushSubscription[]
   rentals                Rental[]       @relation("RenterRentals")
   reviews                Review[]       @relation("ReviewAuthor")
   receivedReviews        Review[]       @relation("ReviewReceiver")
@@ -245,6 +246,19 @@ model CalendarSync {
   updatedAt     DateTime  @updatedAt
   equipment     Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
   user          User      @relation(fields: [userId], references: [id])
+}
+
+model PushSubscription {
+  id        String    @id @default(cuid())
+  endpoint  String    @unique
+  auth      String?
+  p256dh    String?
+  userId    String?
+  user      User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([userId])
 }
 
 enum ModerationStatus {

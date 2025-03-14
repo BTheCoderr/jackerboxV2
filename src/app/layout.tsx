@@ -15,6 +15,7 @@ import { SSEStatusIndicator } from '@/components/SSEStatusIndicator';
 import { cn } from '@/lib/utils';
 import Script from 'next/script';
 import { InstallPrompt } from '@/components/pwa/InstallPrompt';
+import { NotificationPermission } from '@/components/pwa/NotificationPermission';
 
 const geistSans = Geist({
   subsets: ["latin"],
@@ -94,10 +95,18 @@ export default function RootLayout({
         {/* Preload critical assets */}
         <link rel="preload" href="/icons/icon-192x192.png" as="image" />
         <link rel="preload" href="/icons/icon-512x512.png" as="image" />
+        <link rel="preload" href="/register-sw.js" as="script" />
+        <link rel="preload" href="/preload.js" as="script" />
         
         {/* Add preconnect for external resources */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://vercel.com" />
+        
+        {/* DNS prefetch for third-party domains */}
+        <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+        <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+        <link rel="dns-prefetch" href="https://vercel.com" />
         
         {/* PWA meta tags */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -106,6 +115,10 @@ export default function RootLayout({
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="theme-color" content="#0f172a" />
         <meta name="application-name" content="Jackerbox" />
+        
+        {/* Performance optimization meta tags */}
+        <meta httpEquiv="x-dns-prefetch-control" content="on" />
+        <meta name="format-detection" content="telephone=no" />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} font-sans`}>
         <Providers>
@@ -120,7 +133,9 @@ export default function RootLayout({
           <SocketStatusIndicator />
           <SSEStatusIndicator />
           <InstallPrompt />
+          <NotificationPermission />
           <Script src="/register-sw.js" strategy="afterInteractive" />
+          <Script src="/preload.js" strategy="beforeInteractive" />
           <Analytics />
           <SpeedInsights />
         </Providers>

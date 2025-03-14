@@ -4,12 +4,21 @@ import { useState, useCallback, FormEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { SearchSuggestions } from './SearchSuggestions';
 import { EQUIPMENT_CATEGORIES } from '@/lib/constants';
+import { FeatureToggle } from '@/components/feature-flags/FeatureToggle';
+import { FeatureFlags } from '@/lib/feature-flags';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Slider } from '@/components/ui/slider';
+import { Search, MapPin, DollarSign } from 'lucide-react';
+import { FEATURE_FLAGS } from '@/lib/statsig-config';
 
 interface EnhancedSearchFormProps {
   className?: string;
   defaultCategory?: string;
   defaultQuery?: string;
   defaultLocation?: string;
+  onSearch: (query: string, filters: any) => void;
 }
 
 export function EnhancedSearchForm({
@@ -17,6 +26,7 @@ export function EnhancedSearchForm({
   defaultCategory = '',
   defaultQuery = '',
   defaultLocation = '',
+  onSearch,
 }: EnhancedSearchFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -25,6 +35,10 @@ export function EnhancedSearchForm({
   const [query, setQuery] = useState(defaultQuery || searchParams?.get('query') || '');
   const [category, setCategory] = useState(defaultCategory || searchParams?.get('category') || '');
   const [location, setLocation] = useState(defaultLocation || searchParams?.get('location') || '');
+  
+  // New state for enhanced search features
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000]);
+  const [sortBy, setSortBy] = useState('relevance');
   
   // Handle form submission
   const handleSubmit = useCallback((e: FormEvent) => {
@@ -36,9 +50,15 @@ export function EnhancedSearchForm({
     if (category) params.set('category', category);
     if (location) params.set('location', location);
     
+    // Add enhanced search parameters if the feature is enabled
+    // These will be handled by the feature flag on the server
+    params.append('minPrice', priceRange[0].toString());
+    params.append('maxPrice', priceRange[1].toString());
+    params.append('sortBy', sortBy);
+    
     // Navigate to the equipment page with the search parameters
     router.push(`/routes/equipment?${params.toString()}`);
-  }, [query, category, location, router]);
+  }, [query, category, location, router, priceRange, sortBy]);
   
   // Handle suggestion selection for query
   const handleQuerySuggestion = useCallback((suggestion: string) => {
@@ -50,73 +70,68 @@ export function EnhancedSearchForm({
     setLocation(suggestion);
   }, []);
   
+  // Handle slider value change
+  const handlePriceRangeChange = (value: number[]) => {
+    setPriceRange([value[0], value[1]]);
+  };
+  
   return (
     <form onSubmit={handleSubmit} className={`space-y-4 ${className}`}>
-      <div className="space-y-3">
-        <div className="relative">
-          <label htmlFor="query" className="block text-sm mb-1 font-medium">
-            What are you looking for?
-          </label>
-          <input
-            id="query"
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search for equipment..."
-            className="w-full p-2 border rounded-md focus:ring-2 focus:ring-jacker-blue focus:border-jacker-blue"
-          />
-          <SearchSuggestions
-            query={query}
-            type="equipment"
-            onSelectSuggestion={handleQuerySuggestion}
-          />
+      <div className="flex flex-col md:flex-row gap-2">
+        <div className="flex-1">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+            <Input
+              type="text"
+              placeholder="Search for equipment..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="pl-8"
+            />
+          </div>
         </div>
         
-        <div className="relative">
-          <label htmlFor="location" className="block text-sm mb-1 font-medium">
-            Location
-          </label>
-          <input
-            id="location"
-            type="text"
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            placeholder="City, State"
-            className="w-full p-2 border rounded-md focus:ring-2 focus:ring-jacker-blue focus:border-jacker-blue"
-          />
-          <SearchSuggestions
-            query={location}
-            type="location"
-            onSelectSuggestion={handleLocationSuggestion}
-          />
-        </div>
+        <FeatureToggle featureKey={FEATURE_FLAGS.ENHANCED_SEARCH}>
+          <div className="flex-1">
+            <div className="relative">
+              <MapPin className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+              <Input
+                type="text"
+                placeholder="Location"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                className="pl-8"
+              />
+            </div>
+          </div>
+        </FeatureToggle>
         
-        <div>
-          <label htmlFor="category" className="block text-sm mb-1 font-medium">
-            Category
-          </label>
-          <select
-            id="category"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            className="w-full p-2 border rounded-md focus:ring-2 focus:ring-jacker-blue focus:border-jacker-blue"
-          >
-            <option value="">All Categories</option>
-            {EQUIPMENT_CATEGORIES.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat}
-              </option>
-            ))}
-          </select>
-        </div>
-        
-        <button
-          type="submit"
-          className="w-full py-2 bg-jacker-blue text-white rounded-md hover:bg-opacity-90"
-        >
+        <Button type="submit" className="md:w-auto">
           Search
-        </button>
+        </Button>
       </div>
+      
+      <FeatureToggle featureKey={FEATURE_FLAGS.ENHANCED_SEARCH}>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="price-range">Price Range</Label>
+            <div className="flex items-center gap-1">
+              <DollarSign className="h-4 w-4 text-gray-500" />
+              <span className="text-sm">
+                {priceRange[0]} - {priceRange[1]}
+              </span>
+            </div>
+          </div>
+          <Slider
+            id="price-range"
+            defaultValue={[0, 1000]}
+            max={1000}
+            step={10}
+            value={priceRange}
+            onValueChange={handlePriceRangeChange}
+          />
+        </div>
+      </FeatureToggle>
     </form>
   );
 } 

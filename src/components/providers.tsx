@@ -4,6 +4,8 @@ import { ReactNode } from "react";
 import { SessionProvider } from "@/components/providers/session-provider";
 import { SocketStatusProvider } from "@/components/providers/SocketStatusProvider";
 import { SSEProvider } from "@/components/providers/SSEProvider";
+import { MyStatsigProvider } from "@/components/statsig/StatsigProvider";
+import { FeatureFlagProvider } from "@/components/feature-flags/FeatureFlagProvider";
 
 interface ProvidersProps {
   children: ReactNode;
@@ -12,11 +14,15 @@ interface ProvidersProps {
 export function Providers({ children }: ProvidersProps) {
   return (
     <SessionProvider>
-      <SocketStatusProvider>
-        <SSEProvider>
-          {children}
-        </SSEProvider>
-      </SocketStatusProvider>
+      <MyStatsigProvider>
+        <FeatureFlagProvider>
+          <SocketStatusProvider>
+            <SSEProvider>
+              {children}
+            </SSEProvider>
+          </SocketStatusProvider>
+        </FeatureFlagProvider>
+      </MyStatsigProvider>
     </SessionProvider>
   );
 } 
