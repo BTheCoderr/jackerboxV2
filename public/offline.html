@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jackerbox - Offline</title>
+  <link rel="icon" href="/icons/icon-192x192.png">
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: #f9fafb;
+      color: #1f2937;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      text-align: center;
+    }
+    
+    .container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 2rem;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    
+    .logo {
+      width: 120px;
+      height: 120px;
+      margin-bottom: 2rem;
+    }
+    
+    h1 {
+      font-size: 1.875rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+      color: #0f172a;
+    }
+    
+    p {
+      font-size: 1rem;
+      line-height: 1.5;
+      margin-bottom: 1.5rem;
+      color: #4b5563;
+    }
+    
+    .button {
+      display: inline-block;
+      background-color: #0f172a;
+      color: white;
+      font-weight: 500;
+      padding: 0.75rem 1.5rem;
+      border-radius: 0.375rem;
+      text-decoration: none;
+      transition: background-color 0.2s;
+      margin-top: 1rem;
+    }
+    
+    .button:hover {
+      background-color: #1e293b;
+    }
+    
+    .footer {
+      padding: 1.5rem;
+      background-color: #0f172a;
+      color: white;
+      font-size: 0.875rem;
+    }
+    
+    .cached-content {
+      margin-top: 2rem;
+      width: 100%;
+      border-top: 1px solid #e5e7eb;
+      padding-top: 1.5rem;
+    }
+    
+    .cached-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      text-align: left;
+    }
+    
+    .cached-list li {
+      padding: 0.5rem 0;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    
+    .cached-list a {
+      color: #0f172a;
+      text-decoration: none;
+      display: block;
+    }
+    
+    .cached-list a:hover {
+      color: #2563eb;
+    }
+    
+    @media (prefers-color-scheme: dark) {
+      body {
+        background-color: #0f172a;
+        color: #f9fafb;
+      }
+      
+      h1 {
+        color: #f9fafb;
+      }
+      
+      p {
+        color: #d1d5db;
+      }
+      
+      .button {
+        background-color: #2563eb;
+      }
+      
+      .button:hover {
+        background-color: #1d4ed8;
+      }
+      
+      .footer {
+        background-color: #1e293b;
+      }
+      
+      .cached-content {
+        border-top: 1px solid #334155;
+      }
+      
+      .cached-list li {
+        border-bottom: 1px solid #334155;
+      }
+      
+      .cached-list a {
+        color: #d1d5db;
+      }
+      
+      .cached-list a:hover {
+        color: #60a5fa;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <img src="/icons/icon-192x192.png" alt="Jackerbox Logo" class="logo">
+    <h1>You're Offline</h1>
+    <p>It looks like you're not connected to the internet right now. Some features may be unavailable until you're back online.</p>
+    <p>Don't worry though! You can still access previously visited pages that have been cached.</p>
+    
+    <a href="/" class="button" id="retry-button">Try Again</a>
+    
+    <div class="cached-content">
+      <h2>Available Offline</h2>
+      <p>Here are some pages you can access while offline:</p>
+      <ul class="cached-list" id="cached-pages">
+        <li><a href="/">Home</a></li>
+        <!-- Dynamically populated list will appear here -->
+      </ul>
+    </div>
+  </div>
+  
+  <div class="footer">
+    &copy; 2024 Jackerbox. All rights reserved.
+  </div>
+  
+  <script>
+    // Check if we're back online
+    window.addEventListener('online', () => {
+      document.getElementById('retry-button').textContent = 'You\'re back online! Click to continue';
+    });
+    
+    // Try to fetch cached pages from the service worker
+    if ('caches' in window) {
+      caches.open('jackerbox-static-v1').then(cache => {
+        cache.keys().then(requests => {
+          const cachedList = document.getElementById('cached-pages');
+          const uniqueUrls = new Set();
+          
+          // Clear default item
+          cachedList.innerHTML = '';
+          
+          requests.forEach(request => {
+            const url = new URL(request.url);
+            
+            // Only show HTML pages (not assets)
+            if (url.pathname !== '/' && 
+                !url.pathname.includes('.') && 
+                url.origin === location.origin) {
+              
+              const path = url.pathname;
+              
+              // Avoid duplicates
+              if (!uniqueUrls.has(path)) {
+                uniqueUrls.add(path);
+                
+                // Create a friendly name from the path
+                let name = path.split('/').filter(Boolean).pop() || 'Home';
+                name = name.charAt(0).toUpperCase() + name.slice(1).replace(/-/g, ' ');
+                
+                const li = document.createElement('li');
+                const a = document.createElement('a');
+                a.href = path;
+                a.textContent = name;
+                li.appendChild(a);
+                cachedList.appendChild(li);
+              }
+            }
+          });
+          
+          // Always add home
+          if (!uniqueUrls.has('/')) {
+            const li = document.createElement('li');
+            const a = document.createElement('a');
+            a.href = '/';
+            a.textContent = 'Home';
+            li.appendChild(a);
+            cachedList.prepend(li);
+          }
+          
+          // If no cached pages found
+          if (cachedList.children.length === 0) {
+            const li = document.createElement('li');
+            li.textContent = 'No cached pages available';
+            cachedList.appendChild(li);
+          }
+        });
+      });
+    }
+    
+    // Retry button
+    document.getElementById('retry-button').addEventListener('click', (e) => {
+      e.preventDefault();
+      window.location.reload();
+    });
+  </script>
+</body>
+</html> 
