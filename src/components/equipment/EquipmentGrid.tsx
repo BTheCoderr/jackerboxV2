@@ -3,105 +3,132 @@
 import { useState, useEffect } from 'react';
 import { EquipmentCard } from './EquipmentCard';
 import { Skeleton } from '@/components/ui/skeleton';
-import LazyComponent from '@/components/ui/LazyComponent';
+import { useSearchParams } from 'next/navigation';
 
-interface EquipmentGridProps {
-  searchParams?: Record<string, string>;
+interface Equipment {
+  id: string;
+  title: string;
+  description: string;
+  price: number;
+  pricePerDay: number;
+  location: string;
+  images: string[];
+  category: string;
+  rating?: number;
+  reviewCount?: number;
+  distance?: number;
 }
 
-export function EquipmentGrid({ searchParams = {} }: EquipmentGridProps) {
-  const [equipment, setEquipment] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+export function EquipmentGrid() {
+  const [equipment, setEquipment] = useState<Equipment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const searchParams = useSearchParams();
 
   useEffect(() => {
-    async function fetchEquipment() {
+    const fetchEquipment = async () => {
+      setIsLoading(true);
+      setError(null);
+      
       try {
-        setLoading(true);
-        setError(null);
-        
-        // Construct query string from searchParams
+        // Build query string from searchParams
         const queryParams = new URLSearchParams();
-        Object.entries(searchParams).forEach(([key, value]) => {
-          if (value) queryParams.append(key, value);
-        });
         
-        const response = await fetch(`/api/equipment?${queryParams.toString()}`);
+        if (searchParams) {
+          const query = searchParams.get('query');
+          const category = searchParams.get('category');
+          const location = searchParams.get('location');
+          const minPrice = searchParams.get('minPrice');
+          const maxPrice = searchParams.get('maxPrice');
+          
+          if (query) queryParams.append('query', query);
+          if (category) queryParams.append('category', category);
+          if (location) queryParams.append('location', location);
+          if (minPrice) queryParams.append('minPrice', minPrice);
+          if (maxPrice) queryParams.append('maxPrice', maxPrice);
+        }
+        
+        const queryString = queryParams.toString();
+        const url = `/api/equipment${queryString ? `?${queryString}` : ''}`;
+        
+        const response = await fetch(url, {
+          next: { revalidate: 60 } // Revalidate every 60 seconds
+        });
         
         if (!response.ok) {
           throw new Error('Failed to fetch equipment');
         }
         
         const data = await response.json();
-        setEquipment(data.items || []);
+        setEquipment(data);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred');
         console.error('Error fetching equipment:', err);
+        setError('Failed to load equipment. Please try again later.');
       } finally {
-        setLoading(false);
+        // Add a small delay to prevent layout shift when loading is very fast
+        setTimeout(() => {
+          setIsLoading(false);
+        }, 100);
       }
-    }
+    };
     
     fetchEquipment();
   }, [searchParams]);
-
-  if (loading) {
+  
+  if (isLoading) {
     return <EquipmentGridSkeleton />;
   }
-
+  
   if (error) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-center text-red-800">
-        <p>Error: {error}</p>
+      <div className="text-center py-10">
+        <p className="text-red-500 mb-4">{error}</p>
         <button 
-          onClick={() => window.location.reload()} 
-          className="mt-2 rounded bg-red-100 px-4 py-2 text-red-800 hover:bg-red-200"
+          onClick={() => window.location.reload()}
+          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
         >
           Try Again
         </button>
       </div>
     );
   }
-
+  
   if (equipment.length === 0) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-gray-50 p-8 text-center">
-        <h3 className="mb-2 text-lg font-medium">No equipment found</h3>
-        <p className="text-gray-500">Try adjusting your search criteria</p>
+      <div className="text-center py-10">
+        <h3 className="text-xl font-semibold mb-2">No equipment found</h3>
+        <p className="text-gray-600">Try adjusting your search criteria.</p>
       </div>
     );
   }
-
+  
   return (
-    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
       {equipment.map((item, index) => (
-        <LazyComponent 
-          key={item.id}
-          fallback={<Skeleton className="aspect-[4/3] w-full rounded-lg" />}
-          rootMargin="400px"
-        >
-          <EquipmentCard equipment={item} />
-        </LazyComponent>
+        <EquipmentCard 
+          key={item.id} 
+          equipment={item} 
+          priority={index === 0} // Add priority loading for the first image
+        />
       ))}
     </div>
   );
 }
 
-function EquipmentGridSkeleton() {
+export function EquipmentGridSkeleton() {
+  // Pre-render a fixed number of skeletons for better CLS
   return (
-    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {Array.from({ length: 8 }).map((_, index) => (
-        <div key={index} className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-          <Skeleton className="aspect-[4/3] w-full" />
-          <div className="p-4">
-            <Skeleton className="mb-2 h-6 w-3/4" />
-            <Skeleton className="mb-4 h-4 w-1/2" />
-            <Skeleton className="h-5 w-1/3" />
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      {Array.from({ length: 8 }).map((_, i) => (
+        <div key={i} className="flex flex-col space-y-3 rounded-lg border border-gray-200 overflow-hidden">
+          <Skeleton className="h-48 w-full" /> {/* Image placeholder */}
+          <div className="p-4 space-y-3">
+            <Skeleton className="h-6 w-3/4" /> {/* Title placeholder */}
+            <Skeleton className="h-4 w-1/2" /> {/* Location placeholder */}
+            <Skeleton className="h-5 w-1/3" /> {/* Price placeholder */}
           </div>
         </div>
       ))}
     </div>
   );
-}
-
-export default EquipmentGrid; 
+} 
