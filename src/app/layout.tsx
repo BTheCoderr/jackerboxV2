@@ -105,8 +105,6 @@ export default function RootLayout({
         {/* Preload critical assets */}
         <link rel="preload" href="/icons/icon-192x192.png" as="image" type="image/png" />
         <link rel="preload" href="/icons/icon-512x512.png" as="image" />
-        <link rel="preload" href="/register-sw.js" as="script" />
-        <link rel="preload" href="/preload.js" as="script" />
         
         {/* Add preconnect for external resources */}
         <link rel="preconnect" href="https://res.cloudinary.com" />
@@ -130,11 +128,6 @@ export default function RootLayout({
         {/* Performance optimization meta tags */}
         <meta httpEquiv="x-dns-prefetch-control" content="on" />
         <meta name="format-detection" content="telephone=no" />
-        <Script 
-          src="/preload-critical.js"
-          strategy="beforeInteractive"
-          id="preload-critical"
-        />
         
         {/* Inline critical CSS */}
         <style dangerouslySetInnerHTML={{ __html: `
@@ -162,9 +155,6 @@ export default function RootLayout({
         <link rel="prefetch" href="/routes/equipment" />
         <link rel="prefetch" href="/routes/dashboard" />
         <link rel="prefetch" href="/auth/login" />
-        
-        {/* Fix CLS script - run early */}
-        <script src="/fix-cls.js" />
       </head>
       <body className="min-h-screen bg-gray-50 font-sans antialiased">
         <Providers>
@@ -185,8 +175,10 @@ export default function RootLayout({
         <Analytics />
         <SpeedInsights />
         
-        {/* Preload script */}
-        <script src="/preload-critical.js" async />
+        {/* Scripts */}
+        <Script src="/register-sw.js" strategy="afterInteractive" />
+        <Script src="/fix-cls.js" strategy="afterInteractive" />
+        <Script src="/preload-critical.js" strategy="beforeInteractive" />
       </body>
     </html>
   );

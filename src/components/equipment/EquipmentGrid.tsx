@@ -50,16 +50,14 @@ export function EquipmentGrid() {
         const queryString = params.toString();
         const url = `/api/equipment${queryString ? `?${queryString}` : ''}`;
         
-        const response = await fetch(url, {
-          cache: 'force-cache'
-        });
+        const response = await fetch(url);
         
         if (!response.ok) {
           throw new Error('Failed to fetch equipment');
         }
         
         const data = await response.json();
-        setEquipment(data);
+        setEquipment(Array.isArray(data) ? data : []);
         setError(null);
       } catch (err) {
         console.error('Error fetching equipment:', err);
@@ -95,7 +93,7 @@ export function EquipmentGrid() {
     );
   }
   
-  if (equipment.length === 0) {
+  if (!equipment || equipment.length === 0) {
     return (
       <div className="text-center py-10">
         <h3 className="text-xl font-semibold mb-2">No equipment found</h3>
