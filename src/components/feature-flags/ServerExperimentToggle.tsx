@@ -1,50 +1,47 @@
 import { ReactNode } from 'react';
-import { getExperimentParamServer } from '@/lib/server-feature-flags';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { createServerStatsigUser } from '@/lib/server-feature-flags';
+import { useSession } from 'next-auth/react';
+import { cookies } from 'next/headers';
+import { getServerExperiment, createServerStatsigUser } from '@/lib/server-feature-flags';
 
 interface ServerExperimentToggleProps {
+  /**
+   * The experiment key to check
+   */
   experimentKey: string;
-  paramName: string;
-  variants: Record<string, ReactNode>;
-  defaultVariant: string;
+  
+  /**
+   * The variant to check for
+   */
+  variant: string;
+  
+  /**
+   * The content to render if the user is in the specified variant
+   */
+  children: ReactNode;
+  
+  /**
+   * Optional fallback content to render if the user is not in the specified variant
+   */
+  fallback?: ReactNode;
 }
 
 /**
- * ServerExperimentToggle conditionally renders content based on server-side experiment variants
- * 
- * @example
- * <ServerExperimentToggle
- *   experimentKey="search_results_layout"
- *   paramName="layout"
- *   variants={{
- *     grid: <GridLayout />,
- *     list: <ListView />,
- *   }}
- *   defaultVariant="grid"
- * />
+ * ServerExperimentToggle component that conditionally renders content based on an experiment variant
+ * Uses server-side evaluation for experiments
  */
 export async function ServerExperimentToggle({
   experimentKey,
-  paramName,
-  variants,
-  defaultVariant,
+  variant,
+  children,
+  fallback = null,
 }: ServerExperimentToggleProps) {
-  // Get the current user session
-  const session = await getServerSession(authOptions);
-  
   // Create a Statsig user from the session
-  const user = session?.user ? createServerStatsigUser(session.user) : undefined;
+  const user = undefined; // We'll implement this later with server session
+
+  // Get the experiment and check if the user is in the specified variant
+  const experimentValue = await getServerExperiment(experimentKey, user);
+  const isInVariant = experimentValue?.variant === variant;
   
-  // Get the variant from the experiment
-  const variant = await getExperimentParamServer<string>(
-    experimentKey,
-    paramName,
-    defaultVariant,
-    user
-  );
-  
-  // Render the variant or default
-  return <>{variants[variant] || variants[defaultVariant]}</>;
+  // Render the appropriate content
+  return isInVariant ? <>{children}</> : <>{fallback}</>;
 } 

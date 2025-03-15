@@ -4,15 +4,27 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import webpush from 'web-push';
 
-// Set VAPID keys - in a real app, these would be stored in environment variables
-const VAPID_PUBLIC_KEY = 'BLBz-YrPwbP8N0RxLsRYOGwWRLlvf0Wo0WQwg6Qy9-HGC_c-pTfGg-Qn5bNL1vQFqQJkmGdABGXJHQQE3C3hZSA';
-const VAPID_PRIVATE_KEY = 'your-private-key-here'; // Replace with a real private key in production
+// Configure web-push with proper VAPID keys
+const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
+const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY || '';
 
-webpush.setVapidDetails(
-  'mailto:support@jackerbox.com',
-  VAPID_PUBLIC_KEY,
-  VAPID_PRIVATE_KEY
-);
+// Ensure the private key is properly formatted
+// VAPID keys should be URL-safe base64 encoded and the private key should be 32 bytes when decoded
+const formattedPrivateKey = vapidPrivateKey.replace(/\\n/g, '\n');
+
+// Only set VAPID details if both keys are available
+if (vapidPublicKey && formattedPrivateKey) {
+  try {
+    webpush.setVapidDetails(
+      'mailto:contact@jackerbox.com',
+      vapidPublicKey,
+      formattedPrivateKey
+    );
+    console.log('Web Push configured successfully');
+  } catch (error) {
+    console.error('Failed to configure Web Push:', error);
+  }
+}
 
 /**
  * API route to send push notifications
@@ -64,6 +76,14 @@ export async function POST(req: NextRequest) {
       );
     }
     
+    // If no VAPID keys are configured, return an error
+    if (!vapidPublicKey || !formattedPrivateKey) {
+      return NextResponse.json(
+        { error: 'Push notifications are not configured' },
+        { status: 500 }
+      );
+    }
+    
     // Prepare the notification payload
     const payload = JSON.stringify({
       title,
@@ -88,7 +108,7 @@ export async function POST(req: NextRequest) {
     if (subscriptions.length === 0) {
       return NextResponse.json(
         { message: 'No subscriptions found' },
-        { status: 200 }
+        { status: 404 }
       );
     }
     
