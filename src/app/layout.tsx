@@ -18,12 +18,13 @@ import { InstallPrompt } from '@/components/pwa/InstallPrompt';
 import { NotificationPermission } from '@/components/pwa/NotificationPermission';
 import { NetworkStatus } from '@/components/pwa/NetworkStatus';
 
-// Optimize font loading
+// Optimize font loading - preload with display swap
 const inter = Inter({
   subsets: ['latin'],
   display: 'swap',
   preload: true,
   variable: '--font-inter',
+  fallback: ['system-ui', 'sans-serif'],
 });
 
 export const metadata: Metadata = {
@@ -134,27 +135,58 @@ export default function RootLayout({
           strategy="beforeInteractive"
           id="preload-critical"
         />
+        
+        {/* Inline critical CSS */}
+        <style dangerouslySetInnerHTML={{ __html: `
+          :root {
+            --font-sans: var(--font-inter), system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            --foreground-rgb: 0, 0, 0;
+            --background-start-rgb: 250, 250, 250;
+            --background-end-rgb: 255, 255, 255;
+          }
+          body {
+            color: #171717;
+            background: #ffffff;
+            font-family: var(--font-sans);
+            margin: 0;
+            padding: 0;
+          }
+          img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+          }
+        `}} />
+        
+        {/* Preload critical routes */}
+        <link rel="prefetch" href="/routes/equipment" />
+        <link rel="prefetch" href="/routes/dashboard" />
+        <link rel="prefetch" href="/auth/login" />
+        
+        {/* Fix CLS script - run early */}
+        <script src="/fix-cls.js" />
       </head>
       <body className="min-h-screen bg-gray-50 font-sans antialiased">
         <Providers>
           <MobileOptimizedLayout>
-            <div className="flex flex-col min-h-screen">
-              <Navbar />
-              <main className="flex-1">{children}</main>
-              <Footer />
-            </div>
+            <Navbar />
+            <main className="flex-1">
+              {children}
+            </main>
+            <Footer />
           </MobileOptimizedLayout>
-          <Toaster position="top-center" />
+          <Toaster position="bottom-right" />
           <SocketStatusIndicator />
           <SSEStatusIndicator />
           <InstallPrompt />
           <NotificationPermission />
           <NetworkStatus />
-          <Script src="/register-sw.js" strategy="afterInteractive" />
-          <Script src="/preload.js" strategy="beforeInteractive" />
-          <Analytics />
-          <SpeedInsights />
         </Providers>
+        <Analytics />
+        <SpeedInsights />
+        
+        {/* Preload script */}
+        <script src="/preload-critical.js" async />
       </body>
     </html>
   );
