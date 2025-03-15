@@ -1,4 +1,4 @@
-import { ServerStatsig, StatsigUser } from 'statsig-node';
+import Statsig, { StatsigUser } from 'statsig-node';
 import { STATSIG_CONFIG } from './statsig-config';
 
 // Initialize Statsig on the server
@@ -8,7 +8,7 @@ const initializeServerStatsig = async () => {
   if (isInitialized) return;
   
   try {
-    await ServerStatsig.initialize(STATSIG_CONFIG.SERVER_API_KEY);
+    await Statsig.initialize(STATSIG_CONFIG.SERVER_API_KEY);
     isInitialized = true;
     console.log('Server Statsig initialized successfully');
   } catch (error) {
@@ -16,89 +16,75 @@ const initializeServerStatsig = async () => {
   }
 };
 
-// Check if a feature flag is enabled on the server
-export const isFeatureEnabledServer = async (
-  featureKey: string, 
-  user?: StatsigUser, 
-  defaultValue = false
+// Default anonymous user
+const anonymousUser: StatsigUser = { userID: 'anonymous' };
+
+/**
+ * Check if a feature flag is enabled on the server
+ * @param featureKey The feature flag key to check
+ * @param user Optional user object to check against
+ * @returns boolean indicating if the feature is enabled
+ */
+export const checkServerFeatureFlag = async (
+  featureKey: string,
+  user?: StatsigUser,
 ): Promise<boolean> => {
-  try {
-    await initializeServerStatsig();
-    
-    if (!user) {
-      return ServerStatsig.checkGateWithExposureLoggingDisabled(
-        featureKey,
-        { userID: 'anonymous' }
-      );
-    }
-    
-    return ServerStatsig.checkGateWithExposureLoggingDisabled(featureKey, user);
-  } catch (error) {
-    console.error(`Error checking server feature flag ${featureKey}:`, error);
-    return defaultValue;
-  }
-};
-
-// Get dynamic config for a feature on the server
-export const getFeatureConfigServer = async (
-  configKey: string, 
-  user?: StatsigUser
-) => {
-  try {
-    await initializeServerStatsig();
-    
-    if (!user) {
-      return ServerStatsig.getConfigWithExposureLoggingDisabled(
-        configKey,
-        { userID: 'anonymous' }
-      ).value;
-    }
-    
-    return ServerStatsig.getConfigWithExposureLoggingDisabled(configKey, user).value;
-  } catch (error) {
-    console.error(`Error getting server config for ${configKey}:`, error);
-    return {};
-  }
-};
-
-// Get experiment parameter on the server
-export const getExperimentParamServer = async <T>(
-  experimentKey: string, 
-  paramName: string, 
-  defaultValue: T,
-  user?: StatsigUser
-): Promise<T> => {
-  try {
-    await initializeServerStatsig();
-    
-    if (!user) {
-      const experiment = ServerStatsig.getExperimentWithExposureLoggingDisabled(
-        experimentKey,
-        { userID: 'anonymous' }
-      );
-      return experiment.get(paramName, defaultValue);
-    }
-    
-    const experiment = ServerStatsig.getExperimentWithExposureLoggingDisabled(experimentKey, user);
-    return experiment.get(paramName, defaultValue);
-  } catch (error) {
-    console.error(`Error getting server experiment param ${paramName} for ${experimentKey}:`, error);
-    return defaultValue;
-  }
-};
-
-// Create a user object for server-side feature flags
-export const createServerStatsigUser = (user: any): StatsigUser => {
-  if (!user) return { userID: 'anonymous' };
+  await initializeServerStatsig();
   
+  return Statsig.checkGateWithExposureLoggingDisabled(
+    user || anonymousUser,
+    featureKey
+  );
+};
+
+/**
+ * Get a dynamic config value on the server
+ * @param configKey The config key to get
+ * @param user Optional user object to check against
+ * @returns The config value
+ */
+export const getServerDynamicConfig = async (
+  configKey: string,
+  user?: StatsigUser
+): Promise<any> => {
+  await initializeServerStatsig();
+  
+  return Statsig.getConfigWithExposureLoggingDisabled(
+    user || anonymousUser,
+    configKey
+  ).value;
+};
+
+/**
+ * Get an experiment value on the server
+ * @param experimentKey The experiment key to get
+ * @param user Optional user object to check against
+ * @returns The experiment value
+ */
+export const getServerExperiment = async (
+  experimentKey: string,
+  user?: StatsigUser
+): Promise<any> => {
+  await initializeServerStatsig();
+  
+  const experiment = Statsig.getExperimentWithExposureLoggingDisabled(
+    user || anonymousUser,
+    experimentKey
+  );
+  return experiment.value;
+};
+
+/**
+ * Create a Statsig user object from a user object for server-side evaluation
+ * @param user The user object to create a Statsig user from
+ * @returns A Statsig user object
+ */
+export const createServerStatsigUser = (user: any): StatsigUser => {
   return {
-    userID: user.id,
+    userID: user.id || user.userId || user.sub || 'anonymous',
     email: user.email,
     custom: {
-      isVerified: user.idVerified || false,
-      isOwner: Boolean(user.equipmentListings?.length),
-      isRenter: Boolean(user.rentals?.length),
-      accountAge: user.createdAt ? Math.floor((Date.now() - new Date(user.createdAt).getTime()) / (1000 * 60 * 60 * 24)) : 0,
+      role: user.role || 'user',
     },
   };
 }; 

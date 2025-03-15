@@ -1,14 +1,15 @@
-import { Statsig, StatsigUser } from 'statsig-js';
+import Statsig from '@statsig/js-client';
+import type { StatsigUser } from '@statsig/js-client';
 import { STATSIG_CONFIG, FEATURE_FLAGS } from './statsig-config';
 
 // Initialize Statsig with your client key
 export const initializeStatsig = async (user: StatsigUser) => {
-  if (typeof window === 'undefined') return;
-  
   try {
+    if (typeof window === 'undefined') return;
+
     await Statsig.initialize(
       STATSIG_CONFIG.CLIENT_KEY,
-      user
+      { user }
     );
     console.log('Statsig initialized successfully');
   } catch (error) {
@@ -16,52 +17,44 @@ export const initializeStatsig = async (user: StatsigUser) => {
   }
 };
 
-// Check if a feature flag is enabled
-export const isFeatureEnabled = (featureKey: string, defaultValue = false): boolean => {
-  if (typeof window === 'undefined') return defaultValue;
-  
-  try {
-    return Statsig.checkGate(featureKey);
-  } catch (error) {
-    console.error(`Error checking feature flag ${featureKey}:`, error);
-    return defaultValue;
-  }
+/**
+ * Check if a feature flag is enabled
+ * @param featureKey The feature flag key to check
+ * @returns boolean indicating if the feature is enabled
+ */
+export const checkFeatureFlag = (featureKey: string): boolean => {
+  if (typeof window === 'undefined') return false;
+  return Statsig.checkGate(featureKey);
 };
 
-// Get dynamic config for a feature
-export const getFeatureConfig = (configKey: string) => {
+/**
+ * Get a dynamic config value
+ * @param configKey The config key to get
+ * @returns The config value
+ */
+export const getDynamicConfig = (configKey: string): any => {
   if (typeof window === 'undefined') return {};
-  
-  try {
-    return Statsig.getConfig(configKey).value;
-  } catch (error) {
-    console.error(`Error getting config for ${configKey}:`, error);
-    return {};
-  }
+  return Statsig.getConfig(configKey).value;
 };
 
-// Get experiment parameter
-export const getExperimentParam = <T>(experimentKey: string, paramName: string, defaultValue: T): T => {
-  if (typeof window === 'undefined') return defaultValue;
-  
-  try {
-    const experiment = Statsig.getExperiment(experimentKey);
-    return experiment.get(paramName, defaultValue);
-  } catch (error) {
-    console.error(`Error getting experiment param ${paramName} for ${experimentKey}:`, error);
-    return defaultValue;
-  }
+/**
+ * Get an experiment value
+ * @param experimentKey The experiment key to get
+ * @returns The experiment value
+ */
+export const getExperiment = (experimentKey: string): any => {
+  if (typeof window === 'undefined') return {};
+  const experiment = Statsig.getExperiment(experimentKey);
+  return experiment.value;
 };
 
-// Log exposure to an experiment
-export const logExposure = (experimentKey: string) => {
+/**
+ * Log an exposure event for an experiment
+ * @param experimentKey The experiment key to log exposure for
+ */
+export const logExposure = (experimentKey: string): void => {
   if (typeof window === 'undefined') return;
-  
-  try {
-    Statsig.logEvent('exposure', experimentKey);
-  } catch (error) {
-    console.error(`Error logging exposure for ${experimentKey}:`, error);
-  }
+  Statsig.logEvent('exposure', experimentKey);
 };
 
 // Feature flag keys
@@ -73,18 +66,17 @@ export const FeatureFlags = {
   MOBILE_OPTIMIZATIONS: 'mobile_optimizations',
 };
 
-// Example of how to use feature flags with user properties
-export const createStatsigUser = (user: any) => {
-  if (!user) return { userID: 'anonymous' };
-  
+/**
+ * Create a Statsig user object from a user object
+ * @param user The user object to create a Statsig user from
+ * @returns A Statsig user object
+ */
+export const createStatsigUser = (user: any): StatsigUser => {
   return {
-    userID: user.id,
+    userID: user.id || user.userId || user.sub || 'anonymous',
     email: user.email,
     custom: {
-      isVerified: user.idVerified || false,
-      isOwner: Boolean(user.equipmentListings?.length),
-      isRenter: Boolean(user.rentals?.length),
-      accountAge: user.createdAt ? Math.floor((Date.now() - new Date(user.createdAt).getTime()) / (1000 * 60 * 60 * 24)) : 0,
+      role: user.role || 'user',
     },
   };
 }; 
