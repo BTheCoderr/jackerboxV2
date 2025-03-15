@@ -1,3 +1,5 @@
+import withPWA from 'next-pwa';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -22,7 +24,26 @@ const nextConfig = {
   // Enable experimental features for server components
   experimental: {
     serverActions: true,
+    optimizeCss: true,
+    optimizePackageImports: ['react-icons', 'date-fns', 'recharts'],
+    // Reduce bundle size
+    modularizeImports: {
+      'react-icons': {
+        transform: 'react-icons/{{member}}',
+      },
+    },
   },
 };
 
-export default nextConfig; 
+// Add PWA configuration
+const pwaConfig = {
+  dest: 'public',
+  register: true,
+  skipWaiting: true,
+  disable: process.env.NODE_ENV === 'development',
+};
+
+export default withPWA({
+  ...nextConfig,
+  pwa: pwaConfig,
+}); 

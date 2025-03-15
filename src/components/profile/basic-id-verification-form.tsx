@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Camera, Upload, X } from "lucide-react";
+import { Camera, Upload, X, Info, AlertTriangle, CheckCircle2 } from "lucide-react";
+import Image from "next/image";
 
 // Define the form schema
 const idVerificationSchema = z.object({
@@ -34,10 +35,13 @@ export function BasicIdVerificationForm({ user }: BasicIdVerificationFormProps) 
   const [success, setSuccess] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [showTips, setShowTips] = useState(true);
+  const [verificationProgress, setVerificationProgress] = useState(0);
   
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<IdVerificationFormValues>({
     resolver: zodResolver(idVerificationSchema),
@@ -45,6 +49,8 @@ export function BasicIdVerificationForm({ user }: BasicIdVerificationFormProps) 
       documentType: user.idDocumentType as "passport" | "driver_license" | "national_id" | undefined,
     },
   });
+  
+  const selectedDocumentType = watch("documentType");
   
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -92,6 +98,18 @@ export function BasicIdVerificationForm({ user }: BasicIdVerificationFormProps) 
     setError(null);
     setSuccess(null);
     
+    // Start progress animation
+    setVerificationProgress(10);
+    const progressInterval = setInterval(() => {
+      setVerificationProgress(prev => {
+        if (prev >= 90) {
+          clearInterval(progressInterval);
+          return 90;
+        }
+        return prev + 10;
+      });
+    }, 500);
+    
     try {
       // Convert image to base64
       const reader = new FileReader();
@@ -110,6 +128,9 @@ export function BasicIdVerificationForm({ user }: BasicIdVerificationFormProps) 
             documentType: data.documentType,
           }),
         });
+        
+        clearInterval(progressInterval);
+        setVerificationProgress(100);
         
         const responseData = await response.json();
         
@@ -130,10 +151,14 @@ export function BasicIdVerificationForm({ user }: BasicIdVerificationFormProps) 
       };
       
       reader.onerror = () => {
+        clearInterval(progressInterval);
+        setVerificationProgress(0);
         setError("Error reading file");
         setIsLoading(false);
       };
     } catch (error) {
+      clearInterval(progressInterval);
+      setVerificationProgress(0);
       if (error instanceof Error) {
         setError(error.message);
       } else {
@@ -148,13 +173,14 @@ export function BasicIdVerificationForm({ user }: BasicIdVerificationFormProps) 
     return (
       <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
         <div className="flex items-center">
-          <svg className="w-5 h-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
+          <CheckCircle2 className="w-5 h-5 text-green-500 mr-2" />
           <h3 className="text-lg font-medium text-green-800">ID Verified</h3>
         </div>
         <p className="text-sm text-green-700 mt-1">
           Your identity has been verified on {user.idVerificationDate ? new Date(user.idVerificationDate).toLocaleDateString() : 'N/A'}.
+        </p>
+        <p className="text-sm text-green-700 mt-2">
+          Document type: <span className="font-medium capitalize">{user.idDocumentType?.replace('_', ' ') || 'ID Document'}</span>
         </p>
       </div>
     );
@@ -164,32 +190,70 @@ export function BasicIdVerificationForm({ user }: BasicIdVerificationFormProps) 
     return (
       <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
         <div className="flex items-center">
-          <svg className="w-5 h-5 text-yellow-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
+          <AlertTriangle className="w-5 h-5 text-yellow-500 mr-2" />
           <h3 className="text-lg font-medium text-yellow-800">Verification Pending</h3>
         </div>
         <p className="text-sm text-yellow-700 mt-1">
           Your ID verification is being processed. We'll notify you once it's complete.
         </p>
+        <div className="mt-3 bg-yellow-100 p-3 rounded-md">
+          <p className="text-sm text-yellow-800 font-medium">What happens next?</p>
+          <ol className="list-decimal list-inside text-sm text-yellow-800 mt-1 space-y-1">
+            <li>Our team will review your submitted document</li>
+            <li>We'll verify the information matches your account details</li>
+            <li>You'll receive an email notification with the result</li>
+          </ol>
+        </div>
       </div>
     );
   }
   
   return (
     <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-      <h3 className="text-lg font-medium mb-4">Verify Your Identity</h3>
+      <h3 className="text-lg font-medium mb-2">Verify Your Identity</h3>
+      <p className="text-sm text-gray-600 mb-4">
+        To ensure the safety of our community, we require identity verification before renting or listing equipment.
+      </p>
+      
+      {showTips && (
+        <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-6">
+          <div className="flex items-start">
+            <Info className="w-5 h-5 text-blue-500 mr-2 mt-0.5" />
+            <div>
+              <h4 className="text-sm font-medium text-blue-800">Tips for successful verification</h4>
+              <ul className="list-disc list-inside text-sm text-blue-700 mt-1 space-y-1">
+                <li>Use a well-lit environment to take the photo</li>
+                <li>Ensure all text on the document is clearly visible</li>
+                <li>Make sure the entire document is in the frame</li>
+                <li>Remove any glare or shadows from the document</li>
+              </ul>
+              <button 
+                onClick={() => setShowTips(false)} 
+                className="text-xs text-blue-600 hover:text-blue-800 mt-2 underline"
+              >
+                Hide tips
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         {error && (
           <div className="p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">
-            {error}
+            <div className="flex items-start">
+              <AlertTriangle className="w-4 h-4 text-red-500 mr-2 mt-0.5" />
+              <span>{error}</span>
+            </div>
           </div>
         )}
         
         {success && (
           <div className="p-3 bg-green-50 border border-green-200 rounded-md text-green-700 text-sm">
-            {success}
+            <div className="flex items-start">
+              <CheckCircle2 className="w-4 h-4 text-green-500 mr-2 mt-0.5" />
+              <span>{success}</span>
+            </div>
           </div>
         )}
         
@@ -210,6 +274,20 @@ export function BasicIdVerificationForm({ user }: BasicIdVerificationFormProps) 
           {errors.documentType && (
             <p className="mt-1 text-sm text-red-600">{errors.documentType.message}</p>
           )}
+          
+          {selectedDocumentType && (
+            <div className="mt-2 text-sm text-gray-600">
+              {selectedDocumentType === "passport" && (
+                <p>Please upload a clear photo of your passport's information page.</p>
+              )}
+              {selectedDocumentType === "driver_license" && (
+                <p>Please upload a clear photo of the front of your driver's license.</p>
+              )}
+              {selectedDocumentType === "national_id" && (
+                <p>Please upload a clear photo of the front of your national ID card.</p>
+              )}
+            </div>
+          )}
         </div>
         
         <div>
@@ -228,6 +306,7 @@ export function BasicIdVerificationForm({ user }: BasicIdVerificationFormProps) 
                 type="button"
                 onClick={clearImage}
                 className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full"
+                aria-label="Remove image"
               >
                 <X size={16} />
               </button>
@@ -257,33 +336,44 @@ export function BasicIdVerificationForm({ user }: BasicIdVerificationFormProps) 
           />
         </div>
         
+        {isLoading && (
+          <div className="mt-4">
+            <p className="text-sm text-gray-700 mb-1">Verifying your document...</p>
+            <div className="w-full bg-gray-200 rounded-full h-2.5">
+              <div 
+                className="bg-blue-600 h-2.5 rounded-full transition-all duration-300 ease-in-out" 
+                style={{ width: `${verificationProgress}%` }}
+              ></div>
+            </div>
+          </div>
+        )}
+        
         <div className="pt-2">
           <button
             type="submit"
-            disabled={isLoading || !previewImage}
-            className={`w-full py-2 px-4 rounded-md text-white ${
-              isLoading || !previewImage
+            disabled={isLoading}
+            className={`w-full py-2 px-4 rounded-md text-white font-medium ${
+              isLoading
                 ? "bg-gray-400 cursor-not-allowed"
                 : "bg-blue-600 hover:bg-blue-700"
             }`}
           >
-            {isLoading ? "Verifying..." : "Verify ID"}
+            {isLoading ? "Verifying..." : "Submit for Verification"}
           </button>
         </div>
         
-        <div className="mt-4 text-sm text-gray-600">
+        <div className="mt-4 text-xs text-gray-500">
           <p>
-            <strong>Note:</strong> We use automated verification to process your ID. Your document will be securely stored and only used for verification purposes.
+            By submitting your ID, you agree to our{" "}
+            <a href="/terms" className="text-blue-600 hover:underline">
+              Terms of Service
+            </a>{" "}
+            and{" "}
+            <a href="/privacy" className="text-blue-600 hover:underline">
+              Privacy Policy
+            </a>
+            .
           </p>
-          <p className="mt-1">
-            For faster verification, please ensure:
-          </p>
-          <ul className="list-disc pl-5 mt-1 space-y-1">
-            <li>The image is clear and not blurry</li>
-            <li>All text on the document is readable</li>
-            <li>The entire document is visible in the frame</li>
-            <li>There is good lighting with no glare</li>
-          </ul>
         </div>
       </form>
     </div>
