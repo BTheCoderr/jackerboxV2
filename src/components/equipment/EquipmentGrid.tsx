@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { EquipmentCard } from './EquipmentCard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useSearchParams } from 'next/navigation';
+import useSWR from 'swr';
 
 interface Equipment {
   id: string;
@@ -19,61 +20,54 @@ interface Equipment {
   distance?: number;
 }
 
-export function EquipmentGrid() {
-  const [equipment, setEquipment] = useState<Equipment[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const searchParams = useSearchParams();
+// Fetch function for SWR
+const fetcher = async (url: string) => {
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error('Failed to fetch equipment');
+  }
+  return res.json();
+};
 
+export function EquipmentGrid() {
+  const searchParams = useSearchParams();
+  const [queryString, setQueryString] = useState<string>('');
+  
+  // Build query string from searchParams
   useEffect(() => {
-    const fetchEquipment = async () => {
-      setIsLoading(true);
-      setError(null);
-      
-      try {
-        // Build query string from searchParams
-        const queryParams = new URLSearchParams();
-        
-        if (searchParams) {
-          const query = searchParams.get('query');
-          const category = searchParams.get('category');
-          const location = searchParams.get('location');
-          const minPrice = searchParams.get('minPrice');
-          const maxPrice = searchParams.get('maxPrice');
-          
-          if (query) queryParams.append('query', query);
-          if (category) queryParams.append('category', category);
-          if (location) queryParams.append('location', location);
-          if (minPrice) queryParams.append('minPrice', minPrice);
-          if (maxPrice) queryParams.append('maxPrice', maxPrice);
-        }
-        
-        const queryString = queryParams.toString();
-        const url = `/api/equipment${queryString ? `?${queryString}` : ''}`;
-        
-        const response = await fetch(url, {
-          next: { revalidate: 60 } // Revalidate every 60 seconds
-        });
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch equipment');
-        }
-        
-        const data = await response.json();
-        setEquipment(data);
-      } catch (err) {
-        console.error('Error fetching equipment:', err);
-        setError('Failed to load equipment. Please try again later.');
-      } finally {
-        // Add a small delay to prevent layout shift when loading is very fast
-        setTimeout(() => {
-          setIsLoading(false);
-        }, 100);
-      }
-    };
+    const params = new URLSearchParams();
     
-    fetchEquipment();
+    if (searchParams) {
+      const query = searchParams.get('query');
+      const category = searchParams.get('category');
+      const location = searchParams.get('location');
+      const minPrice = searchParams.get('minPrice');
+      const maxPrice = searchParams.get('maxPrice');
+      
+      if (query) params.append('query', query);
+      if (category) params.append('category', category);
+      if (location) params.append('location', location);
+      if (minPrice) params.append('minPrice', minPrice);
+      if (maxPrice) params.append('maxPrice', maxPrice);
+    }
+    
+    setQueryString(params.toString());
   }, [searchParams]);
+  
+  // Use SWR for data fetching with caching and revalidation
+  const { data, error, isLoading } = useSWR<Equipment[]>(
+    `/api/equipment${queryString ? `?${queryString}` : ''}`,
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      revalidateIfStale: false,
+      dedupingInterval: 60000, // 1 minute
+      errorRetryCount: 3
+    }
+  );
+  
+  // Memoize the equipment data to prevent unnecessary re-renders
+  const equipment = data || [];
   
   if (isLoading) {
     return <EquipmentGridSkeleton />;
@@ -82,7 +76,7 @@ export function EquipmentGrid() {
   if (error) {
     return (
       <div className="text-center py-10">
-        <p className="text-red-500 mb-4">{error}</p>
+        <p className="text-red-500 mb-4">Failed to load equipment. Please try again later.</p>
         <button 
           onClick={() => window.location.reload()}
           className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"

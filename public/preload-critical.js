@@ -1,64 +1,59 @@
-// Preload critical resources for better performance
+// This script runs before any other JavaScript to preload critical resources
 (function() {
-  // Preload critical images
-  const imagesToPreload = [
-    '/icons/icon-192x192.png',
-    '/logo.png'
-  ];
-  
-  // Preload critical stylesheets
-  const stylesToPreload = [
-    '/_next/static/css/app.css'
-  ];
-  
-  // Preload critical JavaScript
-  const scriptsToPreload = [
-    '/_next/static/chunks/main.js',
-    '/_next/static/chunks/webpack.js'
-  ];
-  
-  // Preload critical fonts
-  const fontsToPreload = [
-    'https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap',
-    'https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&display=swap'
-  ];
-  
-  // Function to create preload link
-  function createPreloadLink(href, as) {
+  // Helper function to create and append link elements
+  function createLink(rel, href, as, type, crossOrigin) {
     const link = document.createElement('link');
-    link.rel = 'preload';
+    link.rel = rel;
     link.href = href;
-    link.as = as;
-    
-    if (as === 'font') {
-      link.type = 'font/woff2';
-      link.crossOrigin = 'anonymous';
-    }
-    
-    return link;
+    if (as) link.as = as;
+    if (type) link.type = type;
+    if (crossOrigin) link.crossOrigin = crossOrigin;
+    document.head.appendChild(link);
+  }
+
+  // Preload critical images
+  createLink('preload', '/icons/icon-192x192.png', 'image', 'image/png');
+  
+  // Preload critical CSS
+  const criticalCSS = document.querySelector('link[rel="stylesheet"]');
+  if (criticalCSS) {
+    criticalCSS.setAttribute('media', 'all');
+    criticalCSS.setAttribute('fetchpriority', 'high');
   }
   
-  // Preload images
-  imagesToPreload.forEach(image => {
-    const link = createPreloadLink(image, 'image');
-    document.head.appendChild(link);
+  // Preload critical routes for faster navigation
+  const criticalRoutes = [
+    '/routes/equipment',
+    '/routes/dashboard',
+    '/auth/login'
+  ];
+  
+  criticalRoutes.forEach(route => {
+    createLink('prefetch', route);
   });
   
-  // Preload stylesheets
-  stylesToPreload.forEach(style => {
-    const link = createPreloadLink(style, 'style');
-    document.head.appendChild(link);
+  // Add connection hints for third-party domains
+  const domains = [
+    'res.cloudinary.com',
+    'fonts.googleapis.com',
+    'fonts.gstatic.com'
+  ];
+  
+  domains.forEach(domain => {
+    createLink('preconnect', `https://${domain}`, null, null, domain.includes('gstatic') ? 'anonymous' : null);
+    createLink('dns-prefetch', `https://${domain}`);
   });
   
-  // Preload scripts
-  scriptsToPreload.forEach(script => {
-    const link = createPreloadLink(script, 'script');
-    document.head.appendChild(link);
-  });
-  
-  // Preload fonts
-  fontsToPreload.forEach(font => {
-    const link = createPreloadLink(font, 'font');
-    document.head.appendChild(link);
-  });
+  // Detect slow connections and adjust loading strategy
+  if (navigator.connection && 
+      (navigator.connection.saveData || 
+       (navigator.connection.effectiveType && navigator.connection.effectiveType.includes('2g')))) {
+    // For slow connections, disable prefetching
+    document.querySelectorAll('link[rel=prefetch]').forEach(link => {
+      link.remove();
+    });
+    
+    // Add a class to the body for CSS optimizations
+    document.body.classList.add('slow-connection');
+  }
 })(); 

@@ -5,7 +5,12 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* Critical CSS for above-the-fold content */
 :root {
+  --font-sans: var(--font-inter), system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 250, 250, 250;
+  --background-end-rgb: 255, 255, 255;
   --background: #ffffff;
   --foreground: #171717;
 }
@@ -15,6 +20,38 @@
     --background: #0a0a0a;
     --foreground: #ededed;
   }
+}
+
+/* Optimize content visibility for below-the-fold content */
+.content-visibility-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 500px;
+}
+
+/* Optimize layout shifts */
+img, video {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Optimize font display */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Optimize for slow connections */
+.slow-connection img:not([loading="eager"]):not([fetchpriority="high"]) {
+  content-visibility: auto;
+}
+
+.slow-connection .defer-load {
+  display: none;
 }
 
 body {
