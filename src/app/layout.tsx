@@ -17,6 +17,7 @@ import Script from 'next/script';
 import { InstallPrompt } from '@/components/pwa/InstallPrompt';
 import { NotificationPermission } from '@/components/pwa/NotificationPermission';
 import { NetworkStatus } from '@/components/pwa/NetworkStatus';
+import { SessionStateManager } from '@/lib/auth/session-fix';
 
 // Optimize font loading - preload with display swap
 const inter = Inter({
@@ -158,6 +159,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen bg-gray-50 font-sans antialiased">
         <Providers>
+          <SessionStateManager />
           <MobileOptimizedLayout>
             <Navbar />
             <main className="flex-1">
