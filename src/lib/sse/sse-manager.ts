@@ -25,6 +25,7 @@ let debugMode = process.env.NODE_ENV === 'development';
 let totalConnections = 0;
 const MAX_CLIENTS_PER_USER = 3;
 const INACTIVE_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+const HEARTBEAT_INTERVAL = 60000; // Increase heartbeat interval to 60 seconds (from 30)
 
 /**
  * Toggle debug mode
@@ -52,41 +53,12 @@ export function createSSEConnection(userId?: string): ReadableStream {
     // Clean up inactive clients first
     cleanupInactiveClients();
     
-    // If userId is provided, check if we need to limit connections
-    if (userId) {
-      const userClients = Array.from(clients.values()).filter(client => client.userId === userId);
-      
-      // If user has too many connections, close the oldest one
-      if (userClients.length >= MAX_CLIENTS_PER_USER) {
-        const oldestClient = userClients.sort((a, b) => a.lastActivity - b.lastActivity)[0];
-        
-        if (oldestClient) {
-          try {
-            if (debugMode) {
-              console.log(`Closing oldest connection for user ${userId}: ${oldestClient.id}`);
-            }
-            
-            // Send a close message to the client
-            sendToClient(oldestClient.id, {
-              type: 'close',
-              reason: 'Too many connections',
-            });
-            
-            // Remove the client
-            removeClient(oldestClient.id);
-          } catch (err) {
-            console.error('Error closing oldest client connection:', err);
-          }
-        }
-      }
-    }
-    
     // Create a new client ID
     const clientId = `client-${uuidv4()}`;
     const encoder = new TextEncoder();
     
     // Create the SSE stream
-    const stream = new ReadableStream({
+    return new ReadableStream({
       start(controller) {
         try {
           // Register the client
@@ -99,58 +71,72 @@ export function createSSEConnection(userId?: string): ReadableStream {
             encoder,
           });
           
+          // Increment total connections
           totalConnections++;
           
           if (debugMode) {
-            console.log(`SSE connections: ${clients.size} active (${totalConnections} total)`);
+            console.log(`New client connected: ${clientId}. Total connections: ${totalConnections}`);
           }
           
-          // Send the connection message
-          const connectionMessage = {
-            type: 'connection',
+          // Send initial connection message
+          const initialMessage = JSON.stringify({ 
+            type: 'connected', 
             clientId,
-          };
+            timestamp: Date.now()
+          });
+          controller.enqueue(encoder.encode(`data: ${initialMessage}\n\n`));
           
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify(connectionMessage)}\n\n`));
-          
-          // Start the heartbeat
+          // Set up heartbeat with error handling
           const heartbeatInterval = setInterval(() => {
             try {
-              if (clients.has(clientId)) {
-                const client = clients.get(clientId)!;
-                client.lastActivity = Date.now();
-                
-                const heartbeatMessage = {
+              const client = clients.get(clientId);
+              if (client && !client.controller.desiredSize) {
+                const heartbeat = JSON.stringify({ 
                   type: 'heartbeat',
-                  timestamp: Date.now(),
-                };
-                
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify(heartbeatMessage)}\n\n`));
+                  timestamp: Date.now()
+                });
+                client.controller.enqueue(encoder.encode(`data: ${heartbeat}\n\n`));
+                client.lastActivity = Date.now();
               } else {
                 clearInterval(heartbeatInterval);
+                removeClient(clientId);
               }
             } catch (err) {
-              console.error('Error sending heartbeat:', err);
+              console.error(`Heartbeat error for client ${clientId}:`, err);
               clearInterval(heartbeatInterval);
+              removeClient(clientId);
             }
-          }, 30000); // Send heartbeat every 30 seconds
+          }, HEARTBEAT_INTERVAL);
+          
+          // Clean up on stream end
+          return () => {
+            try {
+              clearInterval(heartbeatInterval);
+              removeClient(clientId);
+              if (debugMode) {
+                console.log(`Stream ended for client ${clientId}`);
+              }
+            } catch (err) {
+              console.error(`Error cleaning up client ${clientId}:`, err);
+            }
+          };
         } catch (err) {
-          console.error('Error starting SSE stream:', err);
+          console.error('Error in SSE stream start:', err);
           controller.error(err);
         }
       },
       
       cancel() {
         try {
-          // Remove the client when the connection is closed
           removeClient(clientId);
+          if (debugMode) {
+            console.log(`Stream cancelled for client ${clientId}`);
+          }
         } catch (err) {
-          console.error('Error canceling SSE stream:', err);
+          console.error(`Error cancelling stream for client ${clientId}:`, err);
         }
-      },
+      }
     });
-    
-    return stream;
   } catch (err) {
     console.error('Error creating SSE connection:', err);
     throw err;

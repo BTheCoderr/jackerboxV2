@@ -15,6 +15,22 @@ export function InstallPrompt() {
   const [isIOS, setIsIOS] = useState(false);
 
   useEffect(() => {
+    // Check if the user has dismissed the prompt in the last 7 days
+    const checkPromptDismissed = () => {
+      const lastDismissed = localStorage.getItem('installPromptDismissed');
+      if (lastDismissed) {
+        const dismissedDate = new Date(parseInt(lastDismissed));
+        const now = new Date();
+        const daysSinceDismissed = Math.floor((now.getTime() - dismissedDate.getTime()) / (1000 * 60 * 60 * 24));
+        return daysSinceDismissed < 7;
+      }
+      return false;
+    };
+
+    if (checkPromptDismissed()) {
+      return; // Don't show if recently dismissed
+    }
+
     // Check if on iOS
     const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
     setIsIOS(isIOSDevice);
@@ -65,13 +81,15 @@ export function InstallPrompt() {
   };
 
   const dismissPrompt = () => {
+    // Save dismissal time to localStorage
+    localStorage.setItem('installPromptDismissed', Date.now().toString());
     setShowPrompt(false);
   };
 
   if (!showPrompt) return null;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 p-4 shadow-lg border-t border-gray-200 dark:border-gray-700 z-50">
+    <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 p-4 shadow-lg border-t border-gray-200 dark:border-gray-700 z-30 mb-16 md:mb-0">
       <div className="flex items-center justify-between">
         <div className="flex-1">
           <h3 className="text-sm font-medium text-gray-900 dark:text-white">

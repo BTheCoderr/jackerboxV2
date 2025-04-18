@@ -22,7 +22,7 @@ export async function POST(
       );
     }
     
-    const reviewId = params.id;
+    const reviewId = await Promise.resolve(params.id);
     
     // Check if review exists
     const review = await db.review.findUnique({

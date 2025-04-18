@@ -16,7 +16,7 @@ export async function GET(
       );
     }
     
-    const userId = await Promise.resolve(params.id);
+    const userId = params.id;
     
     const user = await db.user.findUnique({
       where: { id: userId },

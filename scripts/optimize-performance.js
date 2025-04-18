@@ -122,4 +122,11 @@ async function main() {
   console.log('3. Clear browser cache and verify improvements');
 }
 
-main().catch(console.error); 
+main().catch(console.error);
+
+export default {
+  optimizeEquipmentDetailPage,
+  addImageOptimization,
+  addCaching,
+  main,
+}; 

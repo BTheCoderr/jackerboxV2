@@ -1,60 +1,52 @@
-import Statsig from '@statsig/js-client';
-import type { StatsigUser } from '@statsig/js-client';
-import { STATSIG_CONFIG, FEATURE_FLAGS } from './statsig-config';
+// Mock implementation to replace Statsig
+import { FEATURE_FLAGS } from './statsig-config';
 
-// Initialize Statsig with your client key
-export const initializeStatsig = async (user: StatsigUser) => {
-  try {
-    if (typeof window === 'undefined') return;
+// Mock StatsigUser type
+export type StatsigUser = {
+  userID: string;
+  email?: string | null;
+  custom?: Record<string, any>;
+};
 
-    await Statsig.initialize(
-      STATSIG_CONFIG.CLIENT_KEY,
-      { user }
-    );
-    console.log('Statsig initialized successfully');
-  } catch (error) {
-    console.error('Failed to initialize Statsig:', error);
-  }
+// Mock initialize function that does nothing
+export const initializeStatsig = async (_user: StatsigUser) => {
+  console.log('Mock Statsig initialized - No actual Statsig integration');
+  return;
 };
 
 /**
- * Check if a feature flag is enabled
+ * Mock implementation - always returns true
  * @param featureKey The feature flag key to check
  * @returns boolean indicating if the feature is enabled
  */
-export const checkFeatureFlag = (featureKey: string): boolean => {
-  if (typeof window === 'undefined') return false;
-  return Statsig.checkGate(featureKey);
+export const checkFeatureFlag = (_featureKey: string): boolean => {
+  return true;
 };
 
 /**
- * Get a dynamic config value
+ * Mock implementation that returns empty object
  * @param configKey The config key to get
- * @returns The config value
+ * @returns Empty object
  */
-export const getDynamicConfig = (configKey: string): any => {
-  if (typeof window === 'undefined') return {};
-  return Statsig.getConfig(configKey).value;
+export const getDynamicConfig = (_configKey: string): any => {
+  return {};
 };
 
 /**
- * Get an experiment value
- * @param experimentKey The experiment key to get
- * @returns The experiment value
+ * Mock experiment values
+ * @param experimentKey The experiment key
+ * @returns Empty object
  */
-export const getExperiment = (experimentKey: string): any => {
-  if (typeof window === 'undefined') return {};
-  const experiment = Statsig.getExperiment(experimentKey);
-  return experiment.value;
+export const getExperiment = (_experimentKey: string): any => {
+  return { value: {} };
 };
 
 /**
- * Log an exposure event for an experiment
+ * Mock log exposure function
  * @param experimentKey The experiment key to log exposure for
  */
-export const logExposure = (experimentKey: string): void => {
-  if (typeof window === 'undefined') return;
-  Statsig.logEvent('exposure', experimentKey);
+export const logExposure = (_experimentKey: string): void => {
+  return;
 };
 
 // Feature flag keys
@@ -67,7 +59,7 @@ export const FeatureFlags = {
 };
 
 /**
- * Create a Statsig user object from a user object
+ * Create a mock Statsig user object from a user object
  * @param user The user object to create a Statsig user from
  * @returns A Statsig user object
  */

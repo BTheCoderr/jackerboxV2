@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { EQUIPMENT_CATEGORIES } from "@/lib/constants";
+import { fetchWithRetry } from "@/lib/utils/fetch-with-retry";
 
 interface Equipment {
   id: string;
@@ -29,24 +30,79 @@ export default function HomePage() {
   const { data: session } = useSession();
   const [featuredEquipment, setFeaturedEquipment] = useState<Equipment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [imageLoadError, setImageLoadError] = useState<Record<string, boolean>>({});
+  
+  const fetchFeaturedEquipment = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      // Use fetchWithRetry instead of regular fetch
+      const response = await fetchWithRetry('/api/equipment?limit=6', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }, {
+        maxRetries: 2, // Try up to 3 times total (initial + 2 retries)
+        retryDelay: 800 // Start with 800ms delay, then increase by backoffFactor
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setFeaturedEquipment(data.equipment || []);
+      } else {
+        console.error("Error fetching equipment:", response.statusText);
+        setError(`Failed to load equipment: ${response.status} ${response.statusText}`);
+      }
+    } catch (error) {
+      console.error("Error fetching featured equipment:", error);
+      setError(`Failed to load equipment: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
   
   useEffect(() => {
-    const fetchFeaturedEquipment = async () => {
-      try {
-        const response = await fetch('/api/equipment?limit=6');
-        if (response.ok) {
-          const data = await response.json();
-          setFeaturedEquipment(data.equipment);
-        }
-      } catch (error) {
-        console.error("Error fetching featured equipment:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
     fetchFeaturedEquipment();
-  }, []);
+  }, [fetchFeaturedEquipment]);
+  
+  // Handle image load errors
+  const handleImageError = (id: string) => {
+    setImageLoadError(prev => ({
+      ...prev,
+      [id]: true
+    }));
+  };
+
+  // Get equipment image source with fallback
+  const getEquipmentImageSrc = (equipment: Equipment, index: number = 0) => {
+    // If image already failed to load, use fallback
+    if (imageLoadError[equipment.id]) {
+      return `/images/equipment-placeholder-${(index % 5) + 1}.jpg`;
+    }
+    
+    // Try to get image from images array
+    if (equipment.images && equipment.images.length > 0) {
+      return equipment.images[0];
+    }
+    
+    // Try to parse imagesJson
+    if (equipment.imagesJson) {
+      try {
+        const images = JSON.parse(equipment.imagesJson);
+        if (images && images.length > 0) {
+          return images[0];
+        }
+      } catch (e) {
+        console.error("Error parsing imagesJson", e);
+      }
+    }
+    
+    // Fallback to numbered placeholder based on ID
+    return `/images/equipment-placeholder-${(index % 5) + 1}.jpg`;
+  };
   
   // Get a subset of categories for the homepage
   // Make sure EQUIPMENT_CATEGORIES is treated as an array
@@ -101,7 +157,7 @@ export default function HomePage() {
                 <div className="relative z-10 bg-white p-4 rounded-lg shadow-lg">
                   <div className="w-full h-64 bg-gray-100 rounded-lg overflow-hidden">
                     <Image 
-                      src="https://res.cloudinary.com/dgtqpyphg/image/upload/v1741276322/jackerbox/hero-equipment.jpg"
+                      src="/images/hero-equipment.jpg"
                       alt="Professional equipment rental"
                       width={600}
                       height={400}
@@ -172,44 +228,43 @@ export default function HomePage() {
             <div className="flex justify-center py-12">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
             </div>
+          ) : error ? (
+            <div className="text-center py-12">
+              <p className="text-red-500 mb-4">{error}</p>
+              <button 
+                onClick={fetchFeaturedEquipment}
+                className="px-4 py-2 bg-jacker-blue text-white rounded-md hover:bg-opacity-90"
+              >
+                Try Again
+              </button>
+            </div>
           ) : featuredEquipment.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-gray-500">No equipment listings yet.</p>
+              <button 
+                onClick={fetchFeaturedEquipment}
+                className="mt-4 px-4 py-2 bg-jacker-blue text-white rounded-md hover:bg-opacity-90"
+              >
+                Refresh
+              </button>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {featuredEquipment.map((equipment) => (
+              {featuredEquipment.map((equipment, index) => (
                 <Link
                   key={equipment.id}
                   href={`/routes/equipment/${equipment.id}`}
-                  className="block rounded-lg overflow-hidden border hover:shadow-md transition-shadow"
+                  className="block rounded-lg overflow-hidden border hover:shadow-md transition-shadow bg-white"
                 >
                   <div className="relative h-48 bg-gray-100">
-                    {equipment.images && equipment.images.length > 0 ? (
-                      <Image
-                        src={equipment.images[0]}
-                        alt={equipment.title}
-                        width={400}
-                        height={300}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : equipment.imagesJson ? (
-                      <Image
-                        src={JSON.parse(equipment.imagesJson)[0] || `https://res.cloudinary.com/dgtqpyphg/image/upload/v1741276323/jackerbox/equipment-sample-${(equipment.id.charCodeAt(0) % 5) + 1}.jpg`}
-                        alt={equipment.title}
-                        width={400}
-                        height={300}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <Image
-                        src={`https://res.cloudinary.com/dgtqpyphg/image/upload/v1741276323/jackerbox/equipment-sample-${(equipment.id.charCodeAt(0) % 5) + 1}.jpg`}
-                        alt={equipment.title}
-                        width={400}
-                        height={300}
-                        className="w-full h-full object-cover"
-                      />
-                    )}
+                    <Image
+                      src={getEquipmentImageSrc(equipment, index)}
+                      alt={equipment.title}
+                      width={400}
+                      height={300}
+                      className="w-full h-full object-cover"
+                      onError={() => handleImageError(equipment.id)}
+                    />
                     {equipment.isVerified && (
                       <div className="absolute top-2 right-2 bg-blue-500 text-white text-xs px-2 py-1 rounded-full">
                         Verified
@@ -262,7 +317,9 @@ export default function HomePage() {
                             className="w-6 h-6 rounded-full mr-2"
                           />
                         ) : (
-                          <div className="w-6 h-6 rounded-full bg-gray-200 mr-2"></div>
+                          <div className="w-6 h-6 rounded-full bg-gray-200 mr-2 flex items-center justify-center text-xs text-gray-600">
+                            {equipment.owner.name?.[0]?.toUpperCase() || "U"}
+                          </div>
                         )}
                         <span className="text-sm text-gray-600">
                           {equipment.owner.name || "Owner"}
@@ -304,7 +361,7 @@ export default function HomePage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="bg-white p-6 rounded-lg shadow-sm">
               <div className="flex items-center mb-4">
-                <div className="w-12 h-12 bg-gray-200 rounded-full mr-4"></div>
+                <div className="w-12 h-12 bg-gray-200 rounded-full mr-4 flex items-center justify-center text-lg font-bold text-gray-600">J</div>
                 <div>
                   <h3 className="font-medium">John D.</h3>
                   <p className="text-sm text-gray-500">Equipment Owner</p>
@@ -316,7 +373,7 @@ export default function HomePage() {
             </div>
             <div className="bg-white p-6 rounded-lg shadow-sm">
               <div className="flex items-center mb-4">
-                <div className="w-12 h-12 bg-gray-200 rounded-full mr-4"></div>
+                <div className="w-12 h-12 bg-gray-200 rounded-full mr-4 flex items-center justify-center text-lg font-bold text-gray-600">S</div>
                 <div>
                   <h3 className="font-medium">Sarah M.</h3>
                   <p className="text-sm text-gray-500">Renter</p>
@@ -328,7 +385,7 @@ export default function HomePage() {
             </div>
             <div className="bg-white p-6 rounded-lg shadow-sm">
               <div className="flex items-center mb-4">
-                <div className="w-12 h-12 bg-gray-200 rounded-full mr-4"></div>
+                <div className="w-12 h-12 bg-gray-200 rounded-full mr-4 flex items-center justify-center text-lg font-bold text-gray-600">M</div>
                 <div>
                   <h3 className="font-medium">Michael T.</h3>
                   <p className="text-sm text-gray-500">Equipment Owner & Renter</p>

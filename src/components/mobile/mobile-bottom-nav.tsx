@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Search, Calendar, MessageSquare, User } from 'lucide-react';
+import { Home, Search, Calendar, MessageSquare, User, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSession } from 'next-auth/react';
 
@@ -61,36 +61,36 @@ export function MobileBottomNav() {
         </Link>
         
         <Link 
-          href="/search" 
+          href="/routes/equipment" 
           className={cn(
             "flex flex-col items-center justify-center w-full h-full text-xs",
-            pathname?.startsWith('/search') 
+            pathname?.startsWith('/routes/equipment') 
               ? "text-blue-600 dark:text-blue-400" 
               : "text-gray-500 dark:text-gray-400"
           )}
         >
           <Search size={20} />
-          <span className="mt-1">Search</span>
+          <span className="mt-1">Equipment</span>
         </Link>
         
         <Link 
-          href="/bookings" 
+          href="/routes/dashboard/rentals" 
           className={cn(
             "flex flex-col items-center justify-center w-full h-full text-xs",
-            pathname?.startsWith('/bookings') 
+            pathname?.startsWith('/routes/dashboard/rentals') 
               ? "text-blue-600 dark:text-blue-400" 
               : "text-gray-500 dark:text-gray-400"
           )}
         >
           <Calendar size={20} />
-          <span className="mt-1">Bookings</span>
+          <span className="mt-1">Rentals</span>
         </Link>
         
         <Link 
-          href="/messages" 
+          href="/routes/messages" 
           className={cn(
             "flex flex-col items-center justify-center w-full h-full text-xs",
-            pathname?.startsWith('/messages') 
+            pathname?.startsWith('/routes/messages') 
               ? "text-blue-600 dark:text-blue-400" 
               : "text-gray-500 dark:text-gray-400"
           )}
@@ -100,16 +100,16 @@ export function MobileBottomNav() {
         </Link>
         
         <Link 
-          href={session ? "/dashboard" : "/auth/login"} 
+          href={session ? "/routes/profile/settings" : "/auth/login"} 
           className={cn(
             "flex flex-col items-center justify-center w-full h-full text-xs",
-            (pathname?.startsWith('/dashboard') || pathname?.startsWith('/profile')) 
+            pathname?.startsWith('/routes/profile/settings') 
               ? "text-blue-600 dark:text-blue-400" 
               : "text-gray-500 dark:text-gray-400"
           )}
         >
-          <User size={20} />
-          <span className="mt-1">{session ? "Account" : "Login"}</span>
+          <Settings size={20} />
+          <span className="mt-1">Settings</span>
         </Link>
       </nav>
     </div>

@@ -156,6 +156,10 @@ export async function GET(req: Request) {
       };
     }
     
+    // Debug logs
+    console.log('Equipment API called with params:', Object.fromEntries(url.searchParams.entries()));
+    console.log('Using where clause:', JSON.stringify(where));
+    
     // Import the search utilities if search parameter is provided
     if (search || minPrice || maxPrice || (userLat && userLng && maxDistance)) {
       const { generateEnhancedSearchQuery } = await import('@/lib/search/search-utils');
@@ -245,7 +249,23 @@ export async function GET(req: Request) {
         orderBy,
         take: limit,
         skip,
-        include: {
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          category: true,
+          subcategory: true,
+          condition: true,
+          location: true,
+          hourlyRate: true,
+          dailyRate: true,
+          weeklyRate: true,
+          imagesJson: true,
+          tagsJson: true,
+          latitude: true,
+          longitude: true,
+          createdAt: true,
+          updatedAt: true,
           owner: {
             select: {
               id: true,
@@ -258,12 +278,15 @@ export async function GET(req: Request) {
       db.equipment.count({ where })
     ]);
     
+    console.log(`Found ${total} equipment items matching the criteria`);
+    
     // Define the type for processed equipment with enhanced properties
     type ProcessedEquipment = typeof equipment[0] & {
       images: string[];
       tags: string[];
       distance?: number;
       relevanceScore?: number;
+      pricePerDay: number;
     };
     
     // Process equipment to parse JSON fields and enhance with distance/relevance
@@ -293,6 +316,7 @@ export async function GET(req: Request) {
           ...item,
           images,
           tags,
+          pricePerDay: item.dailyRate || 0, // Add pricePerDay for EquipmentCard compatibility
         } as ProcessedEquipment;
       } catch (error) {
         console.error("Error processing equipment item:", error);
@@ -300,6 +324,7 @@ export async function GET(req: Request) {
           ...item,
           images: [],
           tags: [],
+          pricePerDay: item.dailyRate || 0,
         } as ProcessedEquipment;
       }
     });

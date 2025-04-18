@@ -6,7 +6,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const equipmentId = params.id;
+    const equipmentId = await Promise.resolve(params.id);
     
     // Generate iCal feed
     const icalContent = await generateICalFeed(equipmentId);

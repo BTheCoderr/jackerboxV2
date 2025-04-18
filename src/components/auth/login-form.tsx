@@ -38,6 +38,7 @@ export function LoginForm() {
     setError(null);
     
     try {
+      console.log("Signing in with:", data.identifier);
       const result = await signIn("credentials", {
         identifier: data.identifier,
         password: data.password,
@@ -45,13 +46,18 @@ export function LoginForm() {
       });
       
       if (result?.error) {
+        console.error("Login error:", result.error);
         setError("Invalid email/phone or password");
         return;
       }
       
-      router.push("/");
-      router.refresh();
+      // Add a small delay to ensure the session is updated
+      setTimeout(() => {
+        router.push("/");
+        router.refresh();
+      }, 500);
     } catch (error) {
+      console.error("Login exception:", error);
       setError("Something went wrong. Please try again.");
     } finally {
       setIsLoading(false);

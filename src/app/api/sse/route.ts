@@ -5,11 +5,24 @@ import { authOptions } from '@/lib/auth/auth-options';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+export const preferredRegion = 'auto';
+export const maxDuration = 300; // 5 minutes
 
 /**
  * Handle SSE connection requests
  */
 export async function GET(req: NextRequest) {
+  // Create headers for SSE
+  const headers = new Headers({
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache, no-transform',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no', // Disable nginx buffering
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+  });
+
   try {
     // Get user session if available
     let userId: string | undefined = undefined;
@@ -21,50 +34,25 @@ export async function GET(req: NextRequest) {
       // Continue without user ID
     }
 
-    // Create headers for SSE
-    const headers = new Headers({
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache, no-transform',
-      'Connection': 'keep-alive',
-      // Add CORS headers to prevent connection issues
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-    });
+    // Create the SSE stream
+    const stream = await Promise.resolve().then(() => createSSEConnection(userId));
 
-    try {
-      // Create the SSE stream
-      const stream = createSSEConnection(userId);
-      
-      // Return the stream as the response
-      return new Response(stream, { headers });
-    } catch (streamError) {
-      console.error('Error creating SSE stream:', streamError);
-      
-      // Create a simple error stream that won't break the client
-      const encoder = new TextEncoder();
-      const errorStream = new ReadableStream({
-        start(controller) {
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'error', message: 'Failed to establish SSE connection' })}\n\n`));
-          controller.close();
-        }
-      });
-      
-      return new Response(errorStream, { headers });
-    }
+    // Return the stream response - don't try to attach any abort listeners as they cause "stream locked" errors
+    return new Response(stream, { headers });
   } catch (error) {
     console.error('Error in SSE GET route:', error);
     
-    // Return a simple error response that won't break the client
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
-      status: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
-      }
-    });
+    // Return a more detailed error response
+    return new Response(
+      `data: ${JSON.stringify({
+        type: 'error',
+        message: 'Failed to establish SSE connection',
+        code: 'CONNECTION_ERROR',
+        timestamp: Date.now(),
+        details: error instanceof Error ? error.message : 'Unknown error'
+      })}\n\n`,
+      { headers, status: 500 }
+    );
   }
 }
 
@@ -133,6 +121,10 @@ export async function POST(req: NextRequest) {
     }
   } catch (error) {
     console.error('Error in SSE API route:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ 
+      error: 'Internal server error',
+      code: 'INTERNAL_ERROR',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
   }
 } 

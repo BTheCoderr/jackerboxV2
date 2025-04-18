@@ -1,7 +1,6 @@
 import '@/lib/suppress-console';
 import '@/lib/polyfills';
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
 import { Footer } from "@/components/layout/footer";
 import { Navbar } from "@/components/layout/navbar";
@@ -10,78 +9,74 @@ import { Providers } from "@/components/providers";
 import { Toaster } from "sonner";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
-import { SocketStatusIndicator } from '@/components/SocketStatusIndicator';
-import { SSEStatusIndicator } from '@/components/SSEStatusIndicator';
-import { cn } from '@/lib/utils';
 import Script from 'next/script';
 import { InstallPrompt } from '@/components/pwa/InstallPrompt';
-import { NotificationPermission } from '@/components/pwa/NotificationPermission';
-import { NetworkStatus } from '@/components/pwa/NetworkStatus';
 import { SessionStateManager } from '@/lib/auth/session-fix';
-
-// Optimize font loading - preload with display swap
-const inter = Inter({
-  subsets: ['latin'],
-  display: 'swap',
-  preload: true,
-  variable: '--font-inter',
-  fallback: ['system-ui', 'sans-serif'],
-});
+import { cn } from '@/lib/utils';
+import { ClientStatusIndicators } from '@/components/ClientStatusIndicators';
+import { MobileBottomNav } from "@/components/mobile/mobile-bottom-nav";
+import { ClientOnly } from "@/lib/utils/hydration-safe";
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://jackerbox.app'),
   title: {
-    template: '%s | Jackerbox',
-    default: 'Jackerbox - Peer-to-Peer Equipment Rental',
+    default: "Jackerbox - Rent equipment from people in your area",
+    template: "%s | Jackerbox"
   },
-  description: 'Rent equipment from people in your area or list your own equipment for others to rent.',
-  keywords: ['equipment rental', 'peer-to-peer', 'tools', 'camera', 'outdoor gear'],
-  authors: [{ name: 'Jackerbox Team' }],
-  creator: 'Jackerbox',
-  publisher: 'Jackerbox',
+  description: "Jackerbox connects people who need equipment with those who have it. Find what you need or make money renting out your gear.",
+  keywords: ["equipment rental", "peer-to-peer", "tool rental", "camera rental", "local rental"],
+  authors: [
+    {
+      name: "Jackerbox Team",
+      url: "https://jackerbox.app",
+    },
+  ],
+  creator: "Jackerbox LLC",
+  publisher: "Jackerbox",
   formatDetection: {
     email: false,
     address: false,
     telephone: false,
   },
-  manifest: "/manifest.json",
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: "https://jackerbox.app",
+    title: "Jackerbox - Rent Equipment from People Near You",
+    description: "Jackerbox lets you rent equipment from people in your area or make money by renting out your own tools, cameras, and more.",
+    siteName: "Jackerbox",
+    images: [
+      {
+        url: "/og-image.jpg",
+        width: 1200,
+        height: 630,
+        alt: "Jackerbox - Rent Equipment from People Near You",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Jackerbox - Rent Equipment from People Near You",
+    description: "Jackerbox lets you rent equipment from people in your area or make money by renting out your own tools, cameras, and more.",
+    creator: "@jackerboxapp",
+    images: ["/twitter-image.jpg"],
+  },
+  icons: {
+    icon: [
+      { url: '/favicon.ico' },
+      { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
+      { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' }
+    ],
+    apple: { url: '/apple-touch-icon.png' },
+    other: [
+      { rel: 'mask-icon', url: '/safari-pinned-tab.svg', color: '#2980b9' }
+    ]
+  },
+  manifest: '/site.webmanifest',
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",
-    title: "Jackerbox",
-    startupImage: [
-      {
-        url: "/icons/splash/apple-splash-2048-2732.png",
-        media: "(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)"
-      },
-      {
-        url: "/icons/splash/apple-splash-1668-2388.png",
-        media: "(device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)"
-      },
-      {
-        url: "/icons/splash/apple-splash-1536-2048.png",
-        media: "(device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)"
-      },
-      {
-        url: "/icons/splash/apple-splash-1125-2436.png",
-        media: "(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)"
-      },
-      {
-        url: "/icons/splash/apple-splash-1242-2688.png",
-        media: "(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)"
-      },
-      {
-        url: "/icons/splash/apple-splash-828-1792.png",
-        media: "(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)"
-      },
-      {
-        url: "/icons/splash/apple-splash-750-1334.png",
-        media: "(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)"
-      },
-      {
-        url: "/icons/splash/apple-splash-640-1136.png",
-        media: "(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)"
-      }
-    ]
+    statusBarStyle: 'default',
+    title: 'Jackerbox'
   }
 };
 
@@ -93,25 +88,34 @@ export const viewport: Viewport = {
   userScalable: true
 };
 
+// Critical CSS that will be consistent between server and client
+const criticalCSS = `
+  :root {
+    --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  }
+`;
+
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={inter.variable} suppressHydrationWarning>
+    <html lang="en" className="font-sans" suppressHydrationWarning>
       <head>
         <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192x192.png" />
-        
-        {/* Preload critical assets */}
-        <link rel="preload" href="/icons/icon-192x192.png" as="image" type="image/png" />
-        <link rel="preload" href="/icons/icon-512x512.png" as="image" />
         
         {/* Add preconnect for external resources */}
         <link rel="preconnect" href="https://res.cloudinary.com" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://vercel.com" />
+        
+        {/* Load Inter font from Google Fonts */}
+        <link
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+          rel="stylesheet"
+        />
         
         {/* DNS prefetch for third-party domains */}
         <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
@@ -123,41 +127,21 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="Jackerbox" />
         <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="theme-color" content="#0f172a" />
         <meta name="application-name" content="Jackerbox" />
         
         {/* Performance optimization meta tags */}
         <meta httpEquiv="x-dns-prefetch-control" content="on" />
         <meta name="format-detection" content="telephone=no" />
         
-        {/* Inline critical CSS */}
-        <style dangerouslySetInnerHTML={{ __html: `
-          :root {
-            --font-sans: var(--font-inter), system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            --foreground-rgb: 0, 0, 0;
-            --background-start-rgb: 250, 250, 250;
-            --background-end-rgb: 255, 255, 255;
-          }
-          body {
-            color: #171717;
-            background: #ffffff;
-            font-family: var(--font-sans);
-            margin: 0;
-            padding: 0;
-          }
-          img {
-            max-width: 100%;
-            height: auto;
-            display: block;
-          }
-        `}} />
+        {/* Move critical CSS to a safer implementation */}
+        <style dangerouslySetInnerHTML={{ __html: criticalCSS }} />
         
-        {/* Preload critical routes */}
-        <link rel="prefetch" href="/routes/equipment" />
-        <link rel="prefetch" href="/routes/dashboard" />
-        <link rel="prefetch" href="/auth/login" />
+        {/* Prefetch critical routes instead of preload */}
+        <link rel="prefetch" href="/routes/equipment" as="document" />
+        <link rel="prefetch" href="/routes/dashboard" as="document" />
+        <link rel="prefetch" href="/auth/login" as="document" />
       </head>
-      <body className="min-h-screen bg-gray-50 font-sans antialiased">
+      <body className="min-h-screen bg-gray-50 font-sans antialiased" suppressHydrationWarning>
         <Providers>
           <SessionStateManager />
           <MobileOptimizedLayout>
@@ -168,19 +152,53 @@ export default function RootLayout({
             <Footer />
           </MobileOptimizedLayout>
           <Toaster position="bottom-right" />
-          <SocketStatusIndicator />
-          <SSEStatusIndicator />
           <InstallPrompt />
-          <NotificationPermission />
-          <NetworkStatus />
+          <ClientOnly>
+            <ClientStatusIndicators />
+          </ClientOnly>
         </Providers>
         <Analytics />
         <SpeedInsights />
         
-        {/* Scripts */}
-        <Script src="/register-sw.js" strategy="afterInteractive" />
-        <Script src="/fix-cls.js" strategy="afterInteractive" />
-        <Script src="/preload-critical.js" strategy="beforeInteractive" />
+        {/* Add fallback webpack.js to handle missing chunks */}
+        <Script src="/webpack.js" strategy="beforeInteractive" />
+        
+        {/* Scripts with proper loading strategies */}
+        <Script src="/register-sw.js" strategy="lazyOnload" />
+        <Script src="/fix-cls.js" strategy="lazyOnload" />
+        <Script src="/preload-critical.js" strategy="afterInteractive" />
+        <Script src="/hydration-fix.js" strategy="afterInteractive" />
+        
+        {/* Add chunk error handler to recover from chunk load errors */}
+        <Script src="/chunk-error-handler.js" strategy="beforeInteractive" />
+        
+        {/* Add CSS fix to prevent infinite CSS loading loops */}
+        <Script src="/css-fix.js" strategy="beforeInteractive" />
+        
+        {/* Script to help prevent hydration errors */}
+        <Script id="hydration-fix" strategy="beforeInteractive">{`
+          // Attempt to prevent hydration mismatches by removing certain attributes
+          // that might be different between server and client
+          window.__NEXT_HYDRATION_HELPERS__ = {
+            fixHydrationIssues: function() {
+              // Remove problematic style attributes that might cause mismatches
+              var problematicStyles = document.querySelectorAll('style[type="text/css"]');
+              problematicStyles.forEach(function(style) {
+                style.removeAttribute('type');
+              });
+            }
+          };
+          
+          // Execute before hydration
+          window.__NEXT_HYDRATION_HELPERS__.fixHydrationIssues();
+          
+          // Fix after react loads as a failsafe
+          document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(function() {
+              window.__NEXT_HYDRATION_HELPERS__.fixHydrationIssues();
+            }, 0);
+          });
+        `}</Script>
       </body>
     </html>
   );

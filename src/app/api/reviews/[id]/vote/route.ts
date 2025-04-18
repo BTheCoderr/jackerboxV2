@@ -23,7 +23,7 @@ export async function POST(
       );
     }
     
-    const reviewId = params.id;
+    const reviewId = await Promise.resolve(params.id);
     
     // Check if review exists
     const review = await db.review.findUnique({
@@ -157,7 +157,7 @@ export async function DELETE(
       );
     }
     
-    const reviewId = params.id;
+    const reviewId = await Promise.resolve(params.id);
     
     // Check if review exists
     const review = await db.review.findUnique({

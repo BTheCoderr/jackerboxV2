@@ -1,16 +1,12 @@
 import { Suspense } from 'react';
 import { Metadata } from 'next';
-import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
 
-// Dynamically import components with loading states
-const EquipmentSearch = dynamic(() => import('@/components/search/EquipmentSearch'), {
-  loading: () => <EquipmentSearchSkeleton />,
-  ssr: true
-});
+// Import EquipmentGrid from the index file
+import EquipmentGrid, { EquipmentGridSkeleton } from '@/components/equipment';
 
-// Import EquipmentGrid directly for better SSR
-import { EquipmentGrid, EquipmentGridSkeleton } from '@/components/equipment/EquipmentGrid';
+// Import the client component wrapper for EquipmentSearch
+import ClientEquipmentSearch from '@/components/search/ClientEquipmentSearch';
 
 // Define skeleton loaders with exact dimensions to prevent layout shifts
 function EquipmentSearchSkeleton() {
@@ -37,6 +33,9 @@ export const metadata: Metadata = {
   description: 'Find and rent equipment from people in your area. Browse our selection of tools, cameras, and more.',
 };
 
+// Add configuration to make the page dynamic
+export const dynamic = 'force-dynamic';
+
 // Define page props interface
 interface EquipmentPageProps {
   searchParams?: {
@@ -48,24 +47,24 @@ interface EquipmentPageProps {
   };
 }
 
-export default function EquipmentPage({ searchParams = {} }: EquipmentPageProps) {
+export default async function EquipmentPage({ searchParams = {} }: EquipmentPageProps) {
   // Prepare search params for components
+  const searchParamsObj = await Promise.resolve(searchParams);
+  
   const searchValues = {
-    query: searchParams.query || '',
-    category: searchParams.category || '',
-    location: searchParams.location || '',
-    minPrice: searchParams.minPrice || '',
-    maxPrice: searchParams.maxPrice || ''
+    query: searchParamsObj.query || '',
+    category: searchParamsObj.category || '',
+    location: searchParamsObj.location || '',
+    minPrice: searchParamsObj.minPrice || '',
+    maxPrice: searchParamsObj.maxPrice || ''
   };
 
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="mb-6 text-3xl font-bold">Browse Equipment</h1>
       
-      {/* Use Suspense for better loading states */}
-      <Suspense fallback={<EquipmentSearchSkeleton />}>
-        <EquipmentSearch defaultValues={searchValues} />
-      </Suspense>
+      {/* Use the client wrapper component */}
+      <ClientEquipmentSearch defaultValues={searchValues} />
       
       {/* Render equipment grid with suspense */}
       <div className="mt-8">

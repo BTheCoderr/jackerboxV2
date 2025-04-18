@@ -5,7 +5,14 @@ import { z } from "zod";
 
 // Define the status update schema
 const statusUpdateSchema = z.object({
-  status: z.enum(["Pending", "Approved", "Completed", "Cancelled", "Rejected"]),
+  status: z.enum([
+    "Pending",
+    "Approved",
+    "Rejected",
+    "Cancelled",
+    "InProgress",
+    "Completed",
+  ]),
 });
 
 export async function PATCH(
@@ -29,10 +36,13 @@ export async function PATCH(
     // Validate the request body
     const validatedData = statusUpdateSchema.parse(body);
     
+    // Extract the rental ID using the newer approach for safety
+    const rentalId = params.id;
+    
     // Check if the rental exists
     const rental = await db.rental.findUnique({
       where: {
-        id: params.id,
+        id: rentalId,
       },
       include: {
         equipment: true,
@@ -94,10 +104,10 @@ export async function PATCH(
     // Update the rental status
     const updatedRental = await db.rental.update({
       where: {
-        id: params.id,
+        id: rentalId,
       },
       data: {
-        status: newStatus,
+        status: validatedData.status,
       },
     });
     

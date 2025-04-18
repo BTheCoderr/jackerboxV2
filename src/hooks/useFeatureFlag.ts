@@ -1,121 +1,106 @@
 'use client';
 
-import { useStatsigClient } from '@statsig/react-bindings';
-import { FEATURE_FLAGS, EXPERIMENTS } from '@/lib/statsig-config';
+import { FEATURE_FLAGS } from '@/lib/statsig-config';
 
 /**
- * Hook to check if a feature flag is enabled
+ * Mock implementation of feature flags
+ * This version always returns true to enable all features
  * 
  * @param featureKey The feature flag key to check
  * @param defaultValue The default value to return if the flag is not found
- * @returns Whether the feature flag is enabled
- * 
- * @example
- * const isEnhancedSearchEnabled = useFeatureFlag('enhanced-search');
- * 
- * @example
- * const isEnhancedSearchEnabled = useFeatureFlag(FEATURE_FLAGS.ENHANCED_SEARCH);
+ * @returns Always returns true to enable all features
  */
-export function useFeatureFlag(featureKey: string, defaultValue = false): boolean {
-  const { client } = useStatsigClient();
-  return client.checkGate(featureKey) ?? defaultValue;
+export function useFeatureFlag(_featureKey: string, _defaultValue = false): boolean {
+  // Always return true to enable all features
+  return true;
 }
 
 /**
- * Hook to get an experiment parameter
+ * Mock implementation of experiment parameters
  * 
  * @param experimentKey The experiment key
  * @param paramName The parameter name
- * @param defaultValue The default value to return if the parameter is not found
- * @returns The experiment parameter value
- * 
- * @example
- * const layout = useExperimentParam('search-results-layout', 'layout', 'grid');
- * 
- * @example
- * const layout = useExperimentParam(EXPERIMENTS.SEARCH_RESULTS_LAYOUT, 'layout', 'grid');
+ * @param defaultValue The default value to return
+ * @returns The default value
  */
 export function useExperimentParam<T>(
-  experimentKey: string,
-  paramName: string,
+  _experimentKey: string,
+  _paramName: string,
   defaultValue: T
 ): T {
-  const { client } = useStatsigClient();
-  const experiment = client.getExperiment(experimentKey);
-  return experiment.get(paramName, defaultValue);
+  return defaultValue;
 }
 
 /**
- * Hook to get a dynamic config
+ * Mock implementation of config
  * 
  * @param configKey The config key
- * @returns The dynamic config
- * 
- * @example
- * const config = useConfig('app_config');
- * const title = config.get('title', 'Default Title');
+ * @returns A mock config object
  */
-export function useConfig(configKey: string) {
-  const { client } = useStatsigClient();
-  return client.getConfig(configKey);
+export function useConfig(_configKey: string) {
+  return {
+    get: <T>(key: string, defaultValue: T): T => defaultValue
+  };
 }
 
 /**
- * Hook to get a layer
+ * Mock implementation of layer
  * 
  * @param layerKey The layer key
- * @returns The layer
- * 
- * @example
- * const layer = useLayer('homepage_layer');
- * const heroText = layer.get('hero_text', 'Welcome');
+ * @returns A mock layer object
  */
-export function useLayer(layerKey: string) {
-  const { client } = useStatsigClient();
-  return client.getLayer(layerKey);
+export function useLayer(_layerKey: string) {
+  return {
+    get: <T>(key: string, defaultValue: T): T => defaultValue
+  };
 }
 
 /**
  * Hook to check if a specific feature flag is enabled
+ * Mock implementation - always returns true
  * 
  * @returns Whether the enhanced search feature flag is enabled
  */
 export function useEnhancedSearch(): boolean {
-  return useFeatureFlag(FEATURE_FLAGS.ENHANCED_SEARCH);
+  return true;
 }
 
 /**
  * Hook to check if push notifications are enabled
+ * Mock implementation - always returns true
  * 
  * @returns Whether the push notifications feature flag is enabled
  */
 export function usePushNotifications(): boolean {
-  return useFeatureFlag(FEATURE_FLAGS.PUSH_NOTIFICATIONS);
+  return true;
 }
 
 /**
  * Hook to check if the new booking flow is enabled
+ * Mock implementation - always returns true
  * 
  * @returns Whether the new booking flow feature flag is enabled
  */
 export function useNewBookingFlow(): boolean {
-  return useFeatureFlag(FEATURE_FLAGS.NEW_BOOKING_FLOW);
+  return true;
 }
 
 /**
  * Hook to check if dark mode is enabled
+ * Mock implementation - always returns true
  * 
  * @returns Whether the dark mode feature flag is enabled
  */
 export function useDarkMode(): boolean {
-  return useFeatureFlag(FEATURE_FLAGS.DARK_MODE);
+  return true;
 }
 
 /**
  * Hook to check if beta features are enabled
+ * Mock implementation - always returns true
  * 
  * @returns Whether the beta features feature flag is enabled
  */
 export function useBetaFeatures(): boolean {
-  return useFeatureFlag(FEATURE_FLAGS.BETA_FEATURES);
+  return true;
 } 

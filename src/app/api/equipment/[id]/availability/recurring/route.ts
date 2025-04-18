@@ -61,7 +61,7 @@ export async function POST(
       );
     }
     
-    const equipmentId = params.id;
+    const equipmentId = await Promise.resolve(params.id);
     
     // Check if equipment exists and user is the owner
     const equipment = await db.equipment.findUnique({

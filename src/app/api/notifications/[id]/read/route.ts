@@ -13,8 +13,8 @@ export async function POST(
       return new NextResponse('Unauthorized', { status: 401 });
     }
 
-    // Properly await params before using
-    const notificationId = await Promise.resolve(params.id);
+    // Use params.id directly without awaiting
+    const notificationId = params.id;
 
     // Verify the notification belongs to the current user
     const notification = await db.notification.findUnique({
