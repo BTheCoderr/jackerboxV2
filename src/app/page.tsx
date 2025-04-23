@@ -76,11 +76,17 @@ export default function HomePage() {
     }));
   };
 
+  // Helper function to get placeholder image
+  const getPlaceholderImage = (index: number) => {
+    // Use a single placeholder image or a service like placeholder.com
+    return 'https://via.placeholder.com/400x300?text=Equipment+Image';
+  };
+
   // Get equipment image source with fallback
   const getEquipmentImageSrc = (equipment: Equipment, index: number = 0) => {
     // If image already failed to load, use fallback
     if (imageLoadError[equipment.id]) {
-      return `/images/equipment-placeholder-${(index % 5) + 1}.jpg`;
+      return getPlaceholderImage(index);
     }
     
     // Try to get image from images array
@@ -101,7 +107,7 @@ export default function HomePage() {
     }
     
     // Fallback to numbered placeholder based on ID
-    return `/images/equipment-placeholder-${(index % 5) + 1}.jpg`;
+    return getPlaceholderImage(index);
   };
   
   // Get a subset of categories for the homepage

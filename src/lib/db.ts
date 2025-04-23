@@ -8,7 +8,7 @@ const globalForPrisma = global as unknown as {
 };
 
 // Cache configuration
-const CACHE_TTL = 60; // 60 seconds default cache TTL
+const CACHE_TTL = 10; // 10 seconds cache TTL for better real-time data
 const QUERY_CACHE_ENABLED = process.env.NODE_ENV === 'production';
 
 /**

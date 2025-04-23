@@ -25,7 +25,7 @@ let debugMode = process.env.NODE_ENV === 'development';
 let totalConnections = 0;
 const MAX_CLIENTS_PER_USER = 3;
 const INACTIVE_TIMEOUT = 5 * 60 * 1000; // 5 minutes
-const HEARTBEAT_INTERVAL = 60000; // Increase heartbeat interval to 60 seconds (from 30)
+const HEARTBEAT_INTERVAL = 30000; // Decreased from 60000 to 30000 (30 seconds)
 
 /**
  * Toggle debug mode
@@ -62,14 +62,16 @@ export function createSSEConnection(userId?: string): ReadableStream {
       start(controller) {
         try {
           // Register the client
-          clients.set(clientId, {
+          const client: SSEClient = {
             id: clientId,
             userId,
             controller,
             topics: new Set(),
             lastActivity: Date.now(),
             encoder,
-          });
+          };
+          
+          clients.set(clientId, client);
           
           // Increment total connections
           totalConnections++;
