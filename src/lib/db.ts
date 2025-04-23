@@ -80,3 +80,13 @@ process.on('unhandledRejection', (reason) => {
 export const db = globalForPrisma.prisma || prismaClientSingleton();
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db;
+
+// Handle connection close
+process.on('beforeExit', async () => {
+  console.log('Database connection closing...');
+  try {
+    await db.$disconnect();
+  } catch (error) {
+    console.error('Error disconnecting from database:', error);
+  }
+});
