@@ -37,13 +37,14 @@ model User {
   receivedMessages       Message[]      @relation("MessageReceiver")
   messages               Message[]      @relation("MessageSender")
   notifications          Notification[]
-  payments               Payment[]
+  payments               Payment[]      @relation("UserPayments")
   pushSubscriptions      PushSubscription[]
   rentals                Rental[]       @relation("RenterRentals")
   reviews                Review[]       @relation("ReviewAuthor")
   receivedReviews        Review[]       @relation("ReviewReceiver")
   reviewVotes            ReviewVote[]
   sessions               Session[]
+  fraudDetection         FraudDetection[] @relation("UserFraudDetection")
 }
 
 model Account {
@@ -111,6 +112,7 @@ model Equipment {
   owner            User             @relation("OwnerEquipment", fields: [ownerId], references: [id])
   rentals          Rental[]
   reviews          Review[]         @relation("EquipmentReviews")
+  analytics        PaymentAnalytics[] @relation("EquipmentAnalytics")
 
   @@index([ownerId])
   @@index([moderationStatus])
@@ -130,21 +132,110 @@ model Availability {
   equipment            Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
 }
 
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+  BLOCKED
+  RETRY_SCHEDULED
+}
+
+enum RentalStatus {
+  PENDING
+  PAID
+  PAYMENT_FAILED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  REFUNDED
+}
+
+model Payment {
+  id                    String      @id @default(cuid())
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+  amount               Float
+  currency             String
+  status               PaymentStatus
+  stripePaymentIntentId String?    @unique
+  stripeChargeId      String?     @unique
+  paidAt              DateTime?
+  failedAt            DateTime?
+  refundedAt          DateTime?
+  metadata            Json?
+  retryCount          Int         @default(0)
+  lastRetryAt         DateTime?
+  nextRetryAt         DateTime?
+  ipAddress           String?
+  userAgent           String?
+  fraudScore          Float?      @default(0)
+  velocityScore       Float?      @default(0)
+  isBlocked           Boolean     @default(false)
+  blockReason         String?
+  rental              Rental?     @relation(fields: [rentalId], references: [id])
+  rentalId            String?     @unique
+  user                User        @relation("UserPayments", fields: [userId], references: [id])
+  userId              String
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([ipAddress])
+}
+
+model PaymentAnalytics {
+  id                String    @id @default(cuid())
+  date              DateTime  @default(now())
+  totalTransactions Int       @default(0)
+  successCount      Int       @default(0)
+  failureCount      Int       @default(0)
+  totalAmount       Float     @default(0)
+  averageAmount     Float     @default(0)
+  peakHour          Int?
+  equipmentId       String?
+  equipment         Equipment? @relation("EquipmentAnalytics", fields: [equipmentId], references: [id])
+
+  @@unique([date, equipmentId])
+  @@index([date])
+  @@index([equipmentId])
+}
+
+model FraudDetection {
+  id                String    @id @default(cuid())
+  ipAddress         String
+  lastAttemptAt     DateTime  @default(now())
+  attemptCount      Int       @default(1)
+  isBlocked         Boolean   @default(false)
+  blockExpiresAt    DateTime?
+  failureCount      Int       @default(0)
+  successCount      Int       @default(0)
+  riskScore         Float     @default(0)
+  userId            String?
+  user              User?     @relation("UserFraudDetection", fields: [userId], references: [id])
+
+  @@unique([ipAddress])
+  @@index([userId])
+  @@index([lastAttemptAt])
+}
+
 model Rental {
-  id              String    @id @default(cuid())
+  id              String       @id @default(cuid())
   startDate       DateTime
   endDate         DateTime
   totalPrice      Float
   securityDeposit Float?
-  status          String
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  status          RentalStatus @default(PENDING)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
   equipmentId     String
   renterId        String
   payment         Payment?
-  equipment       Equipment @relation(fields: [equipmentId], references: [id])
-  renter          User      @relation("RenterRentals", fields: [renterId], references: [id])
+  equipment       Equipment    @relation(fields: [equipmentId], references: [id])
+  renter          User         @relation("RenterRentals", fields: [renterId], references: [id])
   review          Review?
+
+  @@index([equipmentId])
+  @@index([renterId])
 }
 
 model Review {
@@ -180,30 +271,6 @@ model ReviewVote {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([reviewId, userId])
-}
-
-model Payment {
-  id                      String   @id @default(cuid())
-  amount                  Float
-  currency                String   @default("USD")
-  status                  String
-  paymentMethod           String?
-  stripeId                String?  @unique
-  stripePaymentIntentId   String?  @unique
-  stripeTransferId        String?  @unique
-  disputeId               String?  @unique
-  securityDepositAmount   Float?
-  rentalAmount            Float?
-  securityDepositReturned Boolean  @default(false)
-  ownerPaidOut            Boolean  @default(false)
-  ownerPaidOutAmount      Float?
-  platformFee             Float?
-  createdAt               DateTime @default(now())
-  updatedAt               DateTime @updatedAt
-  userId                  String
-  rentalId                String   @unique
-  rental                  Rental   @relation(fields: [rentalId], references: [id])
-  user                    User     @relation(fields: [userId], references: [id])
 }
 
 model Message {

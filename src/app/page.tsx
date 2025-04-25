@@ -39,7 +39,7 @@ export default function HomePage() {
       setError(null);
       
       // Use fetchWithRetry instead of regular fetch
-      const response = await fetchWithRetry('/api/equipment?limit=6', {
+      const response = await fetchWithRetry(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/equipment?limit=6`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
@@ -77,16 +77,16 @@ export default function HomePage() {
   };
 
   // Helper function to get placeholder image
-  const getPlaceholderImage = (index: number) => {
-    // Use a single placeholder image or a service like placeholder.com
-    return 'https://via.placeholder.com/400x300?text=Equipment+Image';
+  const getPlaceholderImage = () => {
+    // Use Cloudinary's built-in placeholder
+    return 'https://res.cloudinary.com/dgtqpyphg/image/upload/c_scale,w_400,h_300/e_blur:1000,q_1,f_auto/sample';
   };
 
   // Get equipment image source with fallback
   const getEquipmentImageSrc = (equipment: Equipment, index: number = 0) => {
     // If image already failed to load, use fallback
     if (imageLoadError[equipment.id]) {
-      return getPlaceholderImage(index);
+      return getPlaceholderImage();
     }
     
     // Try to get image from images array
@@ -107,7 +107,7 @@ export default function HomePage() {
     }
     
     // Fallback to numbered placeholder based on ID
-    return getPlaceholderImage(index);
+    return getPlaceholderImage();
   };
   
   // Get a subset of categories for the homepage
@@ -222,12 +222,12 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex justify-between items-center mb-8">
             <h2 className="text-3xl font-bold">Featured Equipment</h2>
-            <Link
-              href="/routes/equipment"
-              className="text-jacker-blue hover:underline"
+            <button 
+              onClick={fetchFeaturedEquipment}
+              className="px-4 py-2 text-jacker-blue hover:text-jacker-orange transition-colors"
             >
-              View All →
-            </Link>
+              ↻ Refresh
+            </button>
           </div>
           
           {isLoading ? (

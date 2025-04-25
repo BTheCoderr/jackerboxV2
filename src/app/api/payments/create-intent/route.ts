@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { stripe, formatAmountForStripe } from '@/lib/stripe';
+import { formatAmountForStripe } from '@/lib/stripe';
 import { db } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth/session';
+import { PaymentService } from '@/lib/services/payment';
+import logger from '@/lib/logger';
 
 // Schema for validating the request body
 const paymentIntentSchema = z.object({
@@ -64,40 +66,46 @@ export async function POST(req: Request) {
       ? amount + securityDeposit 
       : amount;
     
-    // Create a payment intent with Stripe
+    // Create a payment intent using PaymentService
     const amountInCents = formatAmountForStripe(totalAmount, currency);
     
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: amountInCents,
-      currency: currency.toLowerCase(),
-      metadata: {
-        rentalId,
-        paymentId,
-        equipmentId: rental.equipmentId,
-        equipmentTitle: rental.equipment.title,
-        hasSecurityDeposit: securityDeposit ? 'true' : 'false',
-        securityDepositAmount: securityDeposit ? securityDeposit.toString() : '0',
-        rentalAmount: amount.toString(),
-      },
-    });
+    try {
+      const paymentIntent = await PaymentService.createPaymentIntent(amountInCents, currency.toLowerCase());
+      
+      // Add metadata to the payment intent
+      await PaymentService.updatePaymentIntent(paymentIntent.id, {
+        metadata: {
+          rentalId,
+          paymentId,
+          equipmentId: rental.equipmentId,
+          equipmentTitle: rental.equipment.title,
+          hasSecurityDeposit: securityDeposit ? 'true' : 'false',
+          securityDepositAmount: securityDeposit ? securityDeposit.toString() : '0',
+          rentalAmount: amount.toString(),
+        },
+      });
 
-    // Update the payment record with the Stripe payment intent ID and security deposit info
-    await db.payment.update({
-      where: {
-        id: paymentId,
-      },
-      data: {
-        stripePaymentIntentId: paymentIntent.id,
-        amount: totalAmount, // Update to include security deposit
-      },
-    });
+      // Update the payment record with the Stripe payment intent ID
+      await db.payment.update({
+        where: {
+          id: paymentId,
+        },
+        data: {
+          stripePaymentIntentId: paymentIntent.id,
+          amount: totalAmount, // Update to include security deposit
+        },
+      });
 
-    // Return the client secret to the client
-    return NextResponse.json({
-      clientSecret: paymentIntent.client_secret,
-    });
+      // Return the client secret to the client
+      return NextResponse.json({
+        clientSecret: paymentIntent.client_secret,
+      });
+    } catch (error) {
+      logger.error('Error creating payment intent:', error);
+      throw error;
+    }
   } catch (error) {
-    console.error('Error creating payment intent:', error);
+    logger.error('Error in payment intent route:', error);
     return new NextResponse('Error creating payment intent', { status: 500 });
   }
 } 
