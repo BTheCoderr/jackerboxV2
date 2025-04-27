@@ -5,10 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 
 // Initialize Stripe
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
@@ -34,7 +33,6 @@ function CheckoutForm({ clientSecret, paymentIntentId }: { clientSecret: string,
   const elements = useElements();
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState('');
-  const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,17 +54,10 @@ function CheckoutForm({ clientSecret, paymentIntentId }: { clientSecret: string,
 
     if (error) {
       setMessage(error.message || 'An unexpected error occurred');
-      toast({
-        title: 'Payment Failed',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast.error(error.message || 'Payment Failed');
     } else {
       setMessage('Payment processed successfully!');
-      toast({
-        title: 'Payment Successful',
-        description: 'Your payment was processed successfully',
-      });
+      toast.success('Your payment was processed successfully');
       
       // Simulate success on the backend
       try {
@@ -84,19 +75,12 @@ function CheckoutForm({ clientSecret, paymentIntentId }: { clientSecret: string,
     try {
       const data = await callPaymentTestApi('refund', paymentIntentId);
       setMessage('Payment refunded successfully!');
-      toast({
-        title: 'Refund Processed',
-        description: 'Your payment was refunded successfully',
-      });
+      toast.success('Your payment was refunded successfully');
       console.log('Refund processed:', data);
     } catch (err) {
       console.error('Error processing refund:', err);
       setMessage('Failed to process refund');
-      toast({
-        title: 'Refund Failed',
-        description: 'There was an error processing the refund',
-        variant: 'destructive',
-      });
+      toast.error('There was an error processing the refund');
     }
   };
 
@@ -104,19 +88,12 @@ function CheckoutForm({ clientSecret, paymentIntentId }: { clientSecret: string,
     try {
       const data = await callPaymentTestApi('simulate-failure', paymentIntentId);
       setMessage('Payment failure simulated successfully!');
-      toast({
-        title: 'Failure Simulated',
-        description: 'Payment failure was simulated',
-      });
+      toast.success('Payment failure was simulated');
       console.log('Failure simulated:', data);
     } catch (err) {
       console.error('Error simulating failure:', err);
       setMessage('Failed to simulate failure');
-      toast({
-        title: 'Simulation Failed',
-        description: 'There was an error simulating payment failure',
-        variant: 'destructive',
-      });
+      toast.error('There was an error simulating payment failure');
     }
   };
 
@@ -169,7 +146,6 @@ export default function PaymentTestPage() {
   } | null>(null);
   const [amount, setAmount] = useState('10');
   const [loading, setLoading] = useState(false);
-  const { toast } = useToast();
 
   const createPaymentIntent = async () => {
     setLoading(true);
@@ -196,102 +172,63 @@ export default function PaymentTestPage() {
         payment: data.payment,
       });
       
-      toast({
-        title: 'Payment Intent Created',
-        description: 'You can now test the payment process',
-      });
+      toast.success('Payment Intent Created');
     } catch (error) {
       console.error('Error creating payment intent:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to create payment intent',
-        variant: 'destructive',
-      });
+      toast.error('Failed to create payment intent');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="container mx-auto py-10">
-      <h1 className="text-3xl font-bold mb-6">Payment Service Test</h1>
-      <p className="text-muted-foreground mb-6">
-        This page allows you to test the payment service with a real Stripe account.
-      </p>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Create Payment Intent</CardTitle>
-            <CardDescription>
-              Create a new payment intent for testing
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+    <div className="container mx-auto py-8">
+      <Card>
+        <CardHeader>
+          <CardTitle>Payment Test</CardTitle>
+          <CardDescription>
+            Test payment processing with Stripe integration
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {!paymentIntent ? (
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="amount">Amount (USD)</Label>
                 <Input
                   id="amount"
                   type="number"
-                  min="1"
-                  step="0.01"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
+                  min="0.01"
+                  step="0.01"
                 />
               </div>
+              <Button onClick={createPaymentIntent} disabled={loading}>
+                {loading ? 'Creating...' : 'Create Payment Intent'}
+              </Button>
             </div>
-          </CardContent>
-          <CardFooter>
-            <Button 
-              onClick={createPaymentIntent} 
-              disabled={loading}
-              className="w-full"
-            >
-              {loading ? 'Creating...' : 'Create Payment Intent'}
-            </Button>
-          </CardFooter>
-        </Card>
+          ) : (
+            <Elements stripe={stripePromise} options={{ clientSecret: paymentIntent.clientSecret }}>
+              <CheckoutForm 
+                clientSecret={paymentIntent.clientSecret}
+                paymentIntentId={paymentIntent.paymentIntentId}
+              />
+            </Elements>
+          )}
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Process Payment</CardTitle>
-            <CardDescription>
-              Use the Stripe Elements to process the payment
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {paymentIntent ? (
-              <Elements 
-                stripe={stripePromise} 
-                options={{ clientSecret: paymentIntent.clientSecret }}
-              >
-                <CheckoutForm 
-                  clientSecret={paymentIntent.clientSecret} 
-                  paymentIntentId={paymentIntent.paymentIntentId} 
-                />
-              </Elements>
-            ) : (
-              <div className="text-center py-6 text-muted-foreground">
-                Create a payment intent first to enable the payment form
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {paymentIntent && (
-        <div className="mt-8">
-          <h2 className="text-xl font-semibold mb-4">Payment Details</h2>
-          <Card>
-            <CardContent className="pt-6">
-              <pre className="bg-slate-100 p-4 rounded overflow-x-auto">
+          {/* Payment details section */}
+          {paymentIntent?.payment && (
+            <div className="mt-8">
+              <hr className="my-4" />
+              <h3 className="font-medium mb-2">Payment Intent Details</h3>
+              <pre className="bg-slate-100 p-4 rounded text-xs overflow-auto max-h-64">
                 {JSON.stringify(paymentIntent.payment, null, 2)}
               </pre>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 } 

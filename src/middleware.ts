@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
+import { apiRateLimiter, authRateLimiter, messageRateLimiter, rateLimitRequest } from './lib/rate-limiter';
 
 // Cache commonly used URLs
 const PROTECTED_ROUTES = new Set([
@@ -41,6 +42,55 @@ export async function middleware(request: NextRequest) {
     response.headers.set('Cache-Control', CACHE_STRATEGIES.static);
     response.headers.set('CDN-Cache-Control', CACHE_STRATEGIES.static);
     response.headers.set('Vercel-CDN-Cache-Control', CACHE_STRATEGIES.static);
+    return response;
+  }
+
+  // Apply rate limiting for API routes
+  if (path.startsWith('/api')) {
+    // Choose the appropriate rate limiter based on the path
+    let limiter = apiRateLimiter;
+    if (path.startsWith('/api/auth')) {
+      limiter = authRateLimiter;
+    } else if (path.startsWith('/api/messages')) {
+      limiter = messageRateLimiter;
+    }
+    
+    // Check rate limit
+    const rateLimit = await rateLimitRequest(request, limiter);
+    
+    // If rate limited, return 429 Too Many Requests
+    if (rateLimit.isLimited) {
+      return new NextResponse(
+        JSON.stringify({
+          error: 'Too many requests',
+          message: 'Rate limit exceeded. Please try again later.',
+          resetIn: rateLimit.reset
+        }),
+        {
+          status: 429,
+          headers: rateLimit.headers
+        }
+      );
+    }
+    
+    // Continue with the request but include rate limit headers
+    const response = NextResponse.next();
+    
+    // Apply rate limit headers
+    Object.entries(rateLimit.headers).forEach(([key, value]) => {
+      response.headers.set(key, value);
+    });
+    
+    // Add security headers
+    Object.entries(SECURITY_HEADERS).forEach(([key, value]) => {
+      response.headers.set(key, value);
+    });
+    
+    // Add appropriate caching strategy
+    response.headers.set('Cache-Control', CACHE_STRATEGIES.api);
+    response.headers.set('CDN-Cache-Control', CACHE_STRATEGIES.api);
+    response.headers.set('Vercel-CDN-Cache-Control', CACHE_STRATEGIES.api);
+    
     return response;
   }
 
@@ -85,11 +135,7 @@ export async function middleware(request: NextRequest) {
   });
 
   // Add appropriate caching strategy based on route type
-  if (path.startsWith('/api')) {
-    response.headers.set('Cache-Control', CACHE_STRATEGIES.api);
-    response.headers.set('CDN-Cache-Control', CACHE_STRATEGIES.api);
-    response.headers.set('Vercel-CDN-Cache-Control', CACHE_STRATEGIES.api);
-  } else if (isProtectedRoute) {
+  if (isProtectedRoute) {
     response.headers.set('Cache-Control', CACHE_STRATEGIES.protected);
   } else {
     response.headers.set('Cache-Control', CACHE_STRATEGIES.dynamic);

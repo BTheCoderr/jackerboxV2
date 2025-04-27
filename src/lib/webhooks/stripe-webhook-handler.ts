@@ -2,7 +2,6 @@ import Stripe from 'stripe';
 import { NextResponse } from 'next/server';
 import { PaymentService } from '@/lib/services/payment';
 import logger from '@/lib/logger';
-import { db } from '@/lib/db';
 
 // Initialize Stripe
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {

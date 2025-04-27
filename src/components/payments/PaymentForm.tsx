@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useStripe, useElements, PaymentElement } from '@stripe/react-stripe-js';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 
 interface PaymentFormProps {
   amount: number;
@@ -14,7 +14,6 @@ interface PaymentFormProps {
 export function PaymentForm({ amount, onSuccess, onError }: PaymentFormProps) {
   const stripe = useStripe();
   const elements = useElements();
-  const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -35,25 +34,14 @@ export function PaymentForm({ amount, onSuccess, onError }: PaymentFormProps) {
       });
 
       if (error) {
-        toast({
-          title: 'Payment failed',
-          description: error.message,
-          variant: 'destructive',
-        });
-        onError?.(error.message);
+        toast.error(error.message || 'Payment failed');
+        onError?.(error.message || 'Payment failed');
       } else {
-        toast({
-          title: 'Payment successful',
-          description: 'Your payment has been processed successfully.',
-        });
+        toast.success('Your payment has been processed successfully.');
         onSuccess?.();
       }
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'An unexpected error occurred.',
-        variant: 'destructive',
-      });
+      toast.error('An unexpected error occurred.');
       onError?.('An unexpected error occurred');
     } finally {
       setIsLoading(false);

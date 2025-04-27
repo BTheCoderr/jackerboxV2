@@ -1,18 +1,29 @@
 import { DefaultSession } from "next-auth";
+import { JWT } from "next-auth/jwt";
 
 declare module "next-auth" {
   interface Session {
     user: {
       id: string;
-      isAdmin?: boolean;
-      stripeConnectAccountId?: string;
-      userType?: string;
-    } & DefaultSession["user"];
+      email: string;
+      isAdmin: boolean;
+      idVerified: boolean;
+    } & DefaultSession["user"]
   }
-  
+
   interface User {
-    isAdmin?: boolean;
-    stripeConnectAccountId?: string;
-    userType?: string;
+    id: string;
+    email: string;
+    isAdmin: boolean;
+    idVerified: boolean;
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    id: string;
+    email: string;
+    isAdmin: boolean;
+    idVerified: boolean;
   }
 } 

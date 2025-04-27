@@ -16,6 +16,11 @@ const QUERY_CACHE_ENABLED = process.env.NODE_ENV === 'production';
  * Allows for fallback to direct URL if configured
  */
 function getDatabaseUrl() {
+  // In development, override with local connection
+  if (process.env.NODE_ENV === 'development') {
+    return 'postgresql://postgres:password@localhost:5432/jackerbox';
+  }
+  
   // If we have a direct database URL and need to use it for some reason, return it
   if (process.env.USE_DIRECT_URL === 'true' && process.env.DIRECT_DATABASE_URL) {
     console.log('Using direct database connection');
@@ -29,8 +34,11 @@ function getDatabaseUrl() {
 const prismaClientSingleton = () => {
   // Create Prisma client with the appropriate URL
   const dbUrl = getDatabaseUrl();
+  
+  console.log('Connecting to database with URL:', dbUrl.split('@')[1]); // Log only the host part for security
+  
   const client = new PrismaClient({
-    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+    log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
     datasources: {
       db: {
         url: dbUrl,

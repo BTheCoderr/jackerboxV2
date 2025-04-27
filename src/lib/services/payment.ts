@@ -1,10 +1,10 @@
 import Stripe from 'stripe';
 import { db } from '@/lib/db';
 import logger from '@/lib/logger';
-import { Prisma } from '@prisma/client';
+import { Prisma, PaymentStatus, RentalStatus } from '@prisma/client';
 
-// Define the enums since they're not exported directly from @prisma/client
-const PaymentStatus = {
+// Define the enums to use in this file for clearer type safety
+const PaymentStatusEnum = {
   PENDING: 'PENDING',
   COMPLETED: 'COMPLETED',
   FAILED: 'FAILED',
@@ -13,7 +13,7 @@ const PaymentStatus = {
   RETRY_SCHEDULED: 'RETRY_SCHEDULED'
 } as const;
 
-const RentalStatus = {
+const RentalStatusEnum = {
   PENDING: 'PENDING',
   PAID: 'PAID',
   PAYMENT_FAILED: 'PAYMENT_FAILED',
@@ -24,11 +24,13 @@ const RentalStatus = {
 } as const;
 
 // Map payment statuses to rental statuses
-const PAYMENT_TO_RENTAL_STATUS_MAP: Record<string, string> = {
+const PAYMENT_TO_RENTAL_STATUS_MAP: Record<PaymentStatus, RentalStatus> = {
   [PaymentStatus.COMPLETED]: RentalStatus.PAID,
   [PaymentStatus.FAILED]: RentalStatus.PAYMENT_FAILED,
   [PaymentStatus.BLOCKED]: RentalStatus.PAYMENT_FAILED,
   [PaymentStatus.REFUNDED]: RentalStatus.REFUNDED,
+  [PaymentStatus.PENDING]: RentalStatus.PENDING,
+  [PaymentStatus.RETRY_SCHEDULED]: RentalStatus.PENDING,
 };
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -81,7 +83,7 @@ const findPaymentByIntentId = async (paymentIntentId: string) => {
 // Helper to update payment status and related rental if exists
 const updatePaymentAndRentalStatus = async (
   paymentIntentId: string, 
-  paymentStatus: string,
+  paymentStatus: PaymentStatus,
   additionalData: Prisma.PaymentUpdateInput = {}
 ) => {
   const payment = await findPaymentByIntentId(paymentIntentId);
@@ -129,21 +131,21 @@ export class PaymentService {
       currency: currency.toUpperCase(),
       status: PaymentStatus.PENDING,
       userId: metadata.userId!,
-      securityDepositAmount: metadata.securityDeposit ? parseFloat(metadata.securityDeposit) : null,
       rentalAmount: metadata.rentalAmount ? parseFloat(metadata.rentalAmount) : null,
       securityDepositReturned: false,
       ownerPaidOut: false,
       rentalId: rentalId
     };
 
-    const payment = await db.payment.create({
+    // Create the payment record
+    const result = await db.payment.create({
       data: paymentData,
       include: {
         rental: true
       }
     });
 
-    return { paymentIntent, payment };
+    return { paymentIntent, payment: result };
   }
 
   static async handlePaymentSuccess(paymentIntentId: string) {
@@ -215,13 +217,13 @@ export class PaymentService {
   }
 
   static async scheduleRetry(paymentIntentId: string) {
-    const payment = await db.payment.update({
+    const updatedPayment = await db.payment.update({
       where: { stripePaymentIntentId: paymentIntentId },
       data: {
         status: PaymentStatus.RETRY_SCHEDULED,
       }
     });
 
-    return payment;
+    return updatedPayment;
   }
 } 
