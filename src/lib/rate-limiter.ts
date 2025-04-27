@@ -1,43 +1,53 @@
 import { Redis } from '@upstash/redis';
 import { Ratelimit } from '@upstash/ratelimit';
 
-// Create a new Redis client
-const redis = new Redis({
+// Skip rate limiting if disabled
+const isRateLimitDisabled = process.env.DISABLE_RATE_LIMIT === 'true' || process.env.NODE_ENV === 'development';
+
+// Create a mock limiter for development
+const mockLimiter = {
+  limit: async () => ({
+    success: true,
+    limit: 1000,
+    reset: Date.now() + 10000,
+    remaining: 999,
+  })
+};
+
+// Create a new Redis client only if rate limiting is enabled
+const redis = !isRateLimitDisabled ? new Redis({
   url: process.env.UPSTASH_REDIS_URL || 'https://example.upstash.io',
   token: process.env.UPSTASH_REDIS_TOKEN || 'example_token',
-});
+}) : null;
 
-// Create a new rate limiter that allows 10 requests per 10 seconds
-export const generalRateLimiter = new Ratelimit({
+// Create rate limiters only if not disabled
+export const generalRateLimiter = !isRateLimitDisabled ? new Ratelimit({
   redis,
   limiter: Ratelimit.slidingWindow(10, '10 s'),
   analytics: true,
   prefix: 'ratelimit:general',
-});
+}) : mockLimiter;
 
-// More restrictive rate limiter for authentication routes
-export const authRateLimiter = new Ratelimit({
+export const authRateLimiter = !isRateLimitDisabled ? new Ratelimit({
   redis,
   limiter: Ratelimit.slidingWindow(5, '30 s'),
   analytics: true,
   prefix: 'ratelimit:auth',
-});
+}) : mockLimiter;
 
-// Rate limiter for API routes
-export const apiRateLimiter = new Ratelimit({
+export const apiRateLimiter = !isRateLimitDisabled ? new Ratelimit({
   redis,
   limiter: Ratelimit.slidingWindow(20, '10 s'),
   analytics: true,
   prefix: 'ratelimit:api',
-});
+}) : mockLimiter;
 
-// Rate limiter specifically for messaging to prevent spam
-export const messageRateLimiter = new Ratelimit({
+export const messageRateLimiter = !isRateLimitDisabled ? new Ratelimit({
   redis,
   limiter: Ratelimit.slidingWindow(5, '60 s'),
   analytics: true,
   prefix: 'ratelimit:messages',
-});
+}) : mockLimiter;
 
 /**
  * Check if a request is rate limited

@@ -3,8 +3,8 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import AppleProvider from "next-auth/providers/apple";
 import { PrismaAdapter } from "@auth/prisma-adapter";
-import { db } from "@/lib/db";
-import { compare } from "bcryptjs";
+import { prisma } from "@/lib/prisma";
+import bcrypt from "bcryptjs";
 
 // Extend the default NextAuth user session with our custom fields
 export interface ExtendedUser {
@@ -35,13 +35,13 @@ const MOCK_USER = {
 };
 
 export const authOptions: NextAuthOptions = {
-  adapter: process.env.NODE_ENV === 'development' ? undefined : PrismaAdapter(db),
+  adapter: PrismaAdapter(prisma) as any, // Type assertion needed due to version mismatch
   session: {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   pages: {
-    signIn: "/auth/login",
+    signIn: "/auth/signin",
     error: "/auth/error",
   },
   debug: process.env.NODE_ENV === "development",
@@ -57,28 +57,31 @@ export const authOptions: NextAuthOptions = {
     CredentialsProvider({
       name: "credentials",
       credentials: {
-        email: { label: "Email", type: "email" },
+        email: { label: "Email", type: "text" },
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          throw new Error("Invalid credentials");
+          return null;
         }
 
-        const user = await db.user.findUnique({
+        const user = await prisma.user.findUnique({
           where: {
             email: credentials.email
           }
         });
 
         if (!user || !user.password) {
-          throw new Error("Invalid credentials");
+          return null;
         }
 
-        const isValid = await compare(credentials.password, user.password);
+        const isPasswordValid = await bcrypt.compare(
+          credentials.password,
+          user.password
+        );
 
-        if (!isValid) {
-          throw new Error("Invalid credentials");
+        if (!isPasswordValid) {
+          return null;
         }
 
         return {
@@ -93,18 +96,15 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async session({ session, token }) {
-      if (token) {
-        session.user.id = token.id;
-        session.user.email = token.email;
-        session.user.isAdmin = token.isAdmin;
-        session.user.idVerified = token.idVerified;
+      if (token && session.user) {
+        session.user.id = token.sub!;
+        session.user.isAdmin = token.isAdmin as boolean;
+        session.user.idVerified = token.idVerified as boolean;
       }
       return session;
     },
     async jwt({ token, user }) {
       if (user) {
-        token.id = user.id;
-        token.email = user.email;
         token.isAdmin = user.isAdmin;
         token.idVerified = user.idVerified;
       }

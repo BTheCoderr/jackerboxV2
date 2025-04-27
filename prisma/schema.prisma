@@ -3,56 +3,57 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
-  id                     String         @id @default(cuid())
-  name                   String?
-  email                  String         @unique
-  emailVerified          DateTime?
-  image                  String?
-  password               String?
-  phone                  String?        @unique
-  phoneVerified          Boolean        @default(false)
-  bio                    String?
-  createdAt              DateTime       @default(now())
-  updatedAt              DateTime       @updatedAt
-  verificationToken      String?
-  twoFactorEnabled       Boolean        @default(false)
-  idVerified             Boolean        @default(false)
-  idVerificationStatus   String?
-  idDocumentType         String?
-  idDocumentUrl          String?
-  idVerificationDate     DateTime?
-  isAdmin                Boolean        @default(false)
-  stripeConnectAccountId String?
-  userType               String?        @default("both")
-  accounts               Account[]
-  calendarSyncs          CalendarSync[]
-  moderatedEquipment     Equipment[]    @relation("ModeratedEquipment")
-  equipmentListings      Equipment[]    @relation("OwnerEquipment")
-  receivedMessages       Message[]      @relation("MessageReceiver")
-  messages               Message[]      @relation("MessageSender")
-  notifications          Notification[]
-  payments               Payment[]      @relation("UserPayments")
-  pushSubscriptions      PushSubscription[]
-  rentals                Rental[]       @relation("RenterRentals")
-  reviews                Review[]       @relation("ReviewAuthor")
-  receivedReviews        Review[]       @relation("ReviewReceiver")
-  reviewVotes            ReviewVote[]
-  sessions               Session[]
-  fraudDetection         FraudDetection[] @relation("UserFraudDetection")
+  id                                    String             @id @default(cuid())
+  name                                  String?
+  email                                 String             @unique
+  emailverified                         DateTime?          @db.Timestamp(6)
+  image                                 String?
+  password                              String?
+  phone                                 String?            @unique
+  phoneverified                         Boolean?           @default(false)
+  bio                                   String?
+  createdat                             DateTime?          @default(now()) @db.Timestamp(6)
+  updatedat                             DateTime?          @db.Timestamp(6)
+  verificationtoken                     String?
+  twofactorenabled                      Boolean?           @default(false)
+  idverified                            Boolean?           @default(false)
+  idverificationstatus                  String?            @default("PENDING")
+  iddocumenttype                        String?
+  iddocumenturl                         String?
+  idverificationdate                    DateTime?          @db.Timestamp(6)
+  role                                  String?            @default("USER")
+  isadmin                               Boolean?           @default(false)
+  stripeconnectaccountid                String?
+  usertype                              String?            @default("both")
+  Account                               Account[]
+  CalendarSync                          CalendarSync[]
+  Equipment_Equipment_moderatedbyToUser  Equipment[]        @relation("Equipment_moderatedbyToUser")
+  Equipment_Equipment_owneridToUser      Equipment[]        @relation("Equipment_owneridToUser")
+  FraudDetection                        FraudDetection[]
+  Message_Message_receiveridToUser       Message[]          @relation("Message_receiveridToUser")
+  Message_Message_senderidToUser         Message[]          @relation("Message_senderidToUser")
+  Notification                          Notification[]
+  Payment                               Payment[]
+  PushSubscription                      PushSubscription[]
+  Rental                                Rental[]
+  Review_Review_authoridToUser          Review[]           @relation("Review_authoridToUser")
+  Review_Review_receiveridToUser        Review[]           @relation("Review_receiveridToUser")
+  ReviewVote                            ReviewVote[]
+  Session                               Session[]
+  VerificationRequest                   VerificationRequest[]  @relation("UserVerificationRequests")
 }
 
 model Account {
   id                String  @id @default(cuid())
-  userId            String
+  userid            String
   type              String
   provider          String
-  providerAccountId String
+  provideraccountid String
   refresh_token     String?
   access_token      String?
   expires_at        Int?
@@ -60,76 +61,241 @@ model Account {
   scope             String?
   id_token          String?
   session_state     String?
-  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  User              User    @relation(fields: [userid], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
-  @@unique([provider, providerAccountId])
+  @@unique([provider, provideraccountid])
 }
 
 model Session {
   id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       String
-  expires      DateTime
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessiontoken String   @unique
+  userid       String
+  expires      DateTime @db.Timestamp(6)
+  User         User     @relation(fields: [userid], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
 
 model VerificationToken {
   identifier String
   token      String   @unique
-  expires    DateTime
+  expires    DateTime @db.Timestamp(6)
 
   @@unique([identifier, token])
 }
 
 model Equipment {
-  id               String           @id @default(cuid())
-  title            String
-  description      String
-  condition        String
-  category         String
-  subcategory      String?
-  tagsJson         String           @default("[]")
-  location         String
-  latitude         Float?
-  longitude        Float?
-  hourlyRate       Float?
-  dailyRate        Float?
-  weeklyRate       Float?
-  securityDeposit  Float?
-  imagesJson       String           @default("[]")
-  isVerified       Boolean          @default(false)
-  isAvailable      Boolean          @default(true)
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
-  moderationStatus ModerationStatus @default(PENDING)
-  moderatedAt      DateTime?
-  moderatedBy      String?
-  moderationNotes  String?
-  ownerId          String
-  availability     Availability[]
-  calendarSync     CalendarSync?
-  moderator        User?            @relation("ModeratedEquipment", fields: [moderatedBy], references: [id])
-  owner            User             @relation("OwnerEquipment", fields: [ownerId], references: [id])
-  rentals          Rental[]
-  reviews          Review[]         @relation("EquipmentReviews")
-  analytics        PaymentAnalytics[] @relation("EquipmentAnalytics")
+  id                               String             @id @default(cuid())
+  title                            String
+  description                      String
+  condition                        String
+  category                         String
+  subcategory                      String?
+  tagsjson                         String?            @default("[]")
+  location                         String
+  latitude                         Float?
+  longitude                        Float?
+  hourlyrate                       Float?
+  dailyrate                        Float?
+  weeklyrate                       Float?
+  securitydeposit                  Float?
+  imagesjson                       String?            @default("[]")
+  isverified                       Boolean?           @default(false)
+  isavailable                      Boolean?           @default(true)
+  createdat                        DateTime?          @default(now()) @db.Timestamp(6)
+  updatedat                        DateTime?          @db.Timestamp(6)
+  moderationstatus                 ModerationStatus?  @default(PENDING)
+  moderatedat                      DateTime?          @db.Timestamp(6)
+  moderatedby                      String?
+  moderationnotes                  String?
+  ownerid                          String
+  Availability                     Availability[]
+  CalendarSync                     CalendarSync?
+  User_Equipment_moderatedbyToUser User?              @relation("Equipment_moderatedbyToUser", fields: [moderatedby], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  User_Equipment_owneridToUser     User               @relation("Equipment_owneridToUser", fields: [ownerid], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  PaymentAnalytics                 PaymentAnalytics[]
+  Rental                           Rental[]
+  Review                           Review[]
 
-  @@index([ownerId])
-  @@index([moderationStatus])
-  @@index([moderatedBy])
+  @@index([moderationstatus], map: "equipment_moderation_idx")
+  @@index([moderatedby], map: "equipment_moderator_idx")
+  @@index([ownerid], map: "equipment_owner_idx")
 }
 
 model Availability {
   id                   String    @id @default(cuid())
-  startDate            DateTime
-  endDate              DateTime
-  equipmentId          String
-  isRecurring          Boolean   @default(false)
-  recurrenceDaysOfWeek String?
-  recurrenceEndDate    DateTime?
-  recurrenceInterval   Int?
-  recurrenceType       String?
-  equipment            Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  startdate            DateTime  @db.Timestamp(6)
+  enddate              DateTime  @db.Timestamp(6)
+  equipmentid          String
+  isrecurring          Boolean?  @default(false)
+  recurrencedaysofweek String?
+  recurrenceenddate    DateTime? @db.Timestamp(6)
+  recurrenceinterval   Int?
+  recurrencetype       String?
+  Equipment            Equipment @relation(fields: [equipmentid], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model Payment {
+  id                    String        @id @default(cuid())
+  createdat             DateTime?     @default(now()) @db.Timestamp(6)
+  updatedat             DateTime?     @default(now()) @db.Timestamp(6)
+  amount                Float
+  currency              String
+  status                PaymentStatus
+  stripepaymentintentid String?       @unique
+  stripechargeid        String?       @unique
+  paidat                DateTime?     @db.Timestamp(6)
+  failedat              DateTime?     @db.Timestamp(6)
+  refundedat            DateTime?     @db.Timestamp(6)
+  metadata              Json?
+  retrycount            Int?          @default(0)
+  lastretryat           DateTime?     @db.Timestamp(6)
+  nextretryat           DateTime?     @db.Timestamp(6)
+  ipaddress             String?
+  useragent             String?
+  fraudscore            Float?        @default(0)
+  velocityscore         Float?        @default(0)
+  isblocked             Boolean?      @default(false)
+  blockreason           String?
+  rentalid              String?       @unique
+  userid                String
+  Rental                Rental?       @relation(fields: [rentalid], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  User                  User          @relation(fields: [userid], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([createdat], map: "payment_created_idx")
+  @@index([ipaddress], map: "payment_ip_idx")
+  @@index([status], map: "payment_status_idx")
+}
+
+model PaymentAnalytics {
+  id                String     @id @default(cuid())
+  date              DateTime?  @default(now()) @db.Timestamp(6)
+  totaltransactions Int?       @default(0)
+  successcount      Int?       @default(0)
+  failurecount      Int?       @default(0)
+  totalamount       Float?     @default(0)
+  averageamount     Float?     @default(0)
+  peakhour          Int?
+  equipmentid       String?
+  Equipment         Equipment? @relation(fields: [equipmentid], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([date, equipmentid])
+  @@index([date], map: "analytics_date_idx")
+  @@index([equipmentid], map: "analytics_equipment_idx")
+}
+
+model FraudDetection {
+  id             String    @id @default(cuid())
+  ipaddress      String
+  useragent      String?
+  score          Float?    @default(0)
+  lastdetectedat DateTime? @default(now()) @db.Timestamp(6)
+  detectioncount Int?      @default(1)
+  userid         String
+  User           User      @relation(fields: [userid], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model Rental {
+  id          String       @id @default(cuid())
+  startdate   DateTime     @db.Timestamp(6)
+  enddate     DateTime     @db.Timestamp(6)
+  status      RentalStatus
+  totalamount Float
+  equipmentid String
+  renterid    String
+  createdat   DateTime?    @default(now()) @db.Timestamp(6)
+  updatedat   DateTime?    @default(now()) @db.Timestamp(6)
+  Payment     Payment?
+  Equipment   Equipment    @relation(fields: [equipmentid], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  User        User         @relation(fields: [renterid], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  Review      Review[]
+}
+
+model Review {
+  id                           String       @id @default(cuid())
+  rating                       Int
+  comment                      String?
+  createdat                    DateTime?    @default(now()) @db.Timestamp(6)
+  updatedat                    DateTime?    @default(now()) @db.Timestamp(6)
+  authorid                     String
+  receiverid                   String
+  equipmentid                  String?
+  rentalid                     String?
+  User_Review_authoridToUser   User         @relation("Review_authoridToUser", fields: [authorid], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  Equipment                    Equipment?   @relation(fields: [equipmentid], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  User_Review_receiveridToUser User         @relation("Review_receiveridToUser", fields: [receiverid], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  Rental                       Rental?      @relation(fields: [rentalid], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  ReviewVote                   ReviewVote[]
+}
+
+model ReviewVote {
+  id        String    @id @default(cuid())
+  value     Int
+  userid    String
+  reviewid  String
+  createdat DateTime? @default(now()) @db.Timestamp(6)
+  Review    Review    @relation(fields: [reviewid], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  User      User      @relation(fields: [userid], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model Message {
+  id                            String    @id @default(cuid())
+  content                       String
+  createdat                     DateTime? @default(now()) @db.Timestamp(6)
+  senderid                      String
+  receiverid                    String
+  readat                        DateTime? @db.Timestamp(6)
+  User_Message_receiveridToUser User      @relation("Message_receiveridToUser", fields: [receiverid], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  User_Message_senderidToUser   User      @relation("Message_senderidToUser", fields: [senderid], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  type      String
+  title     String
+  message   String
+  userid    String
+  read      Boolean?  @default(false)
+  createdat DateTime? @default(now()) @db.Timestamp(6)
+  User      User      @relation(fields: [userid], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model CalendarSync {
+  id           String     @id @default(cuid())
+  provider     String
+  calendarid   String
+  accesstoken  String?
+  refreshtoken String?
+  expiresat    DateTime?  @db.Timestamp(6)
+  lastsyncedat DateTime?  @db.Timestamp(6)
+  userid       String
+  equipmentid  String?    @unique
+  Equipment    Equipment? @relation(fields: [equipmentid], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  User         User       @relation(fields: [userid], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model PushSubscription {
+  id        String    @id @default(cuid())
+  endpoint  String
+  p256dh    String
+  auth      String
+  userid    String
+  createdat DateTime? @default(now()) @db.Timestamp(6)
+  User      User      @relation(fields: [userid], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model VerificationRequest {
+  id                String    @id @default(cuid())
+  userid            String
+  status            String    @default("PENDING")
+  documenttype      String
+  documenturl       String
+  notes             String?
+  submittedat       DateTime  @default(now()) @db.Timestamp(6)
+  processedat       DateTime? @db.Timestamp(6)
+  processedby       String?
+  user              User      @relation("UserVerificationRequests", fields: [userid], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([userid])
 }
 
 enum PaymentStatus {
@@ -151,186 +317,8 @@ enum RentalStatus {
   REFUNDED
 }
 
-model Payment {
-  id                    String      @id @default(cuid())
-  createdAt            DateTime    @default(now())
-  updatedAt            DateTime    @updatedAt
-  amount               Float
-  currency             String
-  status               PaymentStatus
-  stripePaymentIntentId String?    @unique
-  stripeChargeId      String?     @unique
-  paidAt              DateTime?
-  failedAt            DateTime?
-  refundedAt          DateTime?
-  metadata            Json?
-  retryCount          Int         @default(0)
-  lastRetryAt         DateTime?
-  nextRetryAt         DateTime?
-  ipAddress           String?
-  userAgent           String?
-  fraudScore          Float?      @default(0)
-  velocityScore       Float?      @default(0)
-  isBlocked           Boolean     @default(false)
-  blockReason         String?
-  rental              Rental?     @relation(fields: [rentalId], references: [id])
-  rentalId            String?     @unique
-  user                User        @relation("UserPayments", fields: [userId], references: [id])
-  userId              String
-
-  @@index([status])
-  @@index([createdAt])
-  @@index([ipAddress])
-}
-
-model PaymentAnalytics {
-  id                String    @id @default(cuid())
-  date              DateTime  @default(now())
-  totalTransactions Int       @default(0)
-  successCount      Int       @default(0)
-  failureCount      Int       @default(0)
-  totalAmount       Float     @default(0)
-  averageAmount     Float     @default(0)
-  peakHour          Int?
-  equipmentId       String?
-  equipment         Equipment? @relation("EquipmentAnalytics", fields: [equipmentId], references: [id])
-
-  @@unique([date, equipmentId])
-  @@index([date])
-  @@index([equipmentId])
-}
-
-model FraudDetection {
-  id                String    @id @default(cuid())
-  ipAddress         String
-  lastAttemptAt     DateTime  @default(now())
-  attemptCount      Int       @default(1)
-  isBlocked         Boolean   @default(false)
-  blockExpiresAt    DateTime?
-  failureCount      Int       @default(0)
-  successCount      Int       @default(0)
-  riskScore         Float     @default(0)
-  userId            String?
-  user              User?     @relation("UserFraudDetection", fields: [userId], references: [id])
-
-  @@unique([ipAddress])
-  @@index([userId])
-  @@index([lastAttemptAt])
-}
-
-model Rental {
-  id              String       @id @default(cuid())
-  startDate       DateTime
-  endDate         DateTime
-  totalPrice      Float
-  securityDeposit Float?
-  status          RentalStatus @default(PENDING)
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-  equipmentId     String
-  renterId        String
-  payment         Payment?
-  equipment       Equipment    @relation(fields: [equipmentId], references: [id])
-  renter          User         @relation("RenterRentals", fields: [renterId], references: [id])
-  review          Review?
-
-  @@index([equipmentId])
-  @@index([renterId])
-}
-
-model Review {
-  id                String       @id @default(cuid())
-  rating            Int
-  comment           String?
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
-  authorId          String
-  receiverId        String?
-  equipmentId       String?
-  rentalId          String?      @unique
-  helpfulVotes      Int          @default(0)
-  isVerifiedRental  Boolean      @default(true)
-  ownerResponse     String?
-  ownerResponseDate DateTime?
-  reportCount       Int          @default(0)
-  unhelpfulVotes    Int          @default(0)
-  author            User         @relation("ReviewAuthor", fields: [authorId], references: [id])
-  equipment         Equipment?   @relation("EquipmentReviews", fields: [equipmentId], references: [id])
-  receiver          User?        @relation("ReviewReceiver", fields: [receiverId], references: [id])
-  rental            Rental?      @relation(fields: [rentalId], references: [id])
-  votes             ReviewVote[]
-}
-
-model ReviewVote {
-  id        String   @id @default(cuid())
-  reviewId  String
-  userId    String
-  isHelpful Boolean
-  createdAt DateTime @default(now())
-  review    Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([reviewId, userId])
-}
-
-model Message {
-  id              String   @id @default(cuid())
-  content         String
-  isRead          Boolean  @default(false)
-  createdAt       DateTime @default(now())
-  senderId        String
-  receiverId      String
-  attachmentsJson String?  @default("[]")
-  receiver        User     @relation("MessageReceiver", fields: [receiverId], references: [id])
-  sender          User     @relation("MessageSender", fields: [senderId], references: [id])
-}
-
-model Notification {
-  id        String   @id @default(cuid())
-  type      String
-  userId    String
-  data      Json?
-  read      Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model CalendarSync {
-  id            String    @id @default(cuid())
-  userId        String
-  equipmentId   String    @unique
-  calendarType  String
-  calendarId    String?
-  icalUrl       String?
-  syncDirection String
-  syncFrequency String
-  lastSynced    DateTime?
-  accessToken   String?
-  refreshToken  String?
-  tokenExpiry   DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  equipment     Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
-  user          User      @relation(fields: [userId], references: [id])
-}
-
-model PushSubscription {
-  id        String    @id @default(cuid())
-  endpoint  String    @unique
-  auth      String?
-  p256dh    String?
-  userId    String?
-  user      User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-
-  @@index([userId])
-}
-
 enum ModerationStatus {
   PENDING
   APPROVED
   REJECTED
-  FLAGGED
 }
