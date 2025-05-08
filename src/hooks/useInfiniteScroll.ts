@@ -1,111 +1,43 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { useInView } from 'react-intersection-observer';
 import debounce from 'lodash/debounce';
 
-interface UseInfiniteScrollOptions<T> {
-  fetchData: (page: number) => Promise<{
-    data: T[];
-    total: number;
-  }>;
-  initialData?: T[];
-  pageSize?: number;
+interface UseInfiniteScrollOptions {
+  onLoadMore: () => Promise<void>;
+  hasMore: boolean;
+  isLoading: boolean;
   threshold?: number;
-  debounceMs?: number;
+  rootMargin?: string;
 }
 
-export function useInfiniteScroll<T>({
-  fetchData,
-  initialData = [],
-  pageSize = 10,
+export function useInfiniteScroll({
+  onLoadMore,
+  hasMore,
+  isLoading,
   threshold = 0.5,
-  debounceMs = 250,
-}: UseInfiniteScrollOptions<T>) {
-  const [data, setData] = useState<T[]>(initialData);
-  const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
-  const [hasMore, setHasMore] = useState(true);
-  const totalItems = useRef(0);
-
-  // Use intersection observer to detect when the sentinel element is visible
+  rootMargin = '100px',
+}: UseInfiniteScrollOptions) {
   const { ref, inView } = useInView({
     threshold,
-    rootMargin: '100px',
+    rootMargin,
   });
 
-  // Debounced fetch function to prevent multiple rapid requests
-  const debouncedFetch = useCallback(
-    debounce(async (pageNum: number) => {
-      try {
-        setLoading(true);
-        setError(null);
+  const loadingRef = useRef(isLoading);
+  loadingRef.current = isLoading;
 
-        const { data: newData, total } = await fetchData(pageNum);
-        totalItems.current = total;
-
-        setData(prevData => {
-          // Filter out duplicates based on ID
-          const uniqueData = newData.filter(
-            newItem => !prevData.some(
-              existingItem => (existingItem as any).id === (newItem as any).id
-            )
-          );
-          return [...prevData, ...uniqueData];
-        });
-
-        setHasMore(data.length + newData.length < total);
-      } catch (err) {
-        setError(err instanceof Error ? err : new Error('Failed to fetch data'));
-      } finally {
-        setLoading(false);
-      }
-    }, debounceMs),
-    [fetchData, debounceMs]
+  const loadMore = useCallback(
+    debounce(async () => {
+      if (loadingRef.current || !hasMore) return;
+      await onLoadMore();
+    }, 300),
+    [onLoadMore, hasMore]
   );
 
-  // Load more data when the sentinel becomes visible
   useEffect(() => {
-    if (inView && !loading && hasMore) {
-      const nextPage = page + 1;
-      setPage(nextPage);
-      debouncedFetch(nextPage);
+    if (inView && hasMore && !isLoading) {
+      loadMore();
     }
-  }, [inView, loading, hasMore, page, debouncedFetch]);
+  }, [inView, hasMore, isLoading, loadMore]);
 
-  // Reset function for filtering or refreshing
-  const reset = useCallback(async () => {
-    setData([]);
-    setPage(1);
-    setHasMore(true);
-    setError(null);
-
-    try {
-      setLoading(true);
-      const { data: newData, total } = await fetchData(1);
-      totalItems.current = total;
-      setData(newData);
-      setHasMore(newData.length < total);
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error('Failed to fetch data'));
-    } finally {
-      setLoading(false);
-    }
-  }, [fetchData]);
-
-  // Manual refresh function
-  const refresh = useCallback(() => {
-    if (!loading) {
-      reset();
-    }
-  }, [loading, reset]);
-
-  return {
-    data,
-    loading,
-    error,
-    hasMore,
-    refresh,
-    sentinelRef: ref,
-    totalItems: totalItems.current,
-  };
+  return { ref };
 } 

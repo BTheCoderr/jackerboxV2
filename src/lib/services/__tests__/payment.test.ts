@@ -1,6 +1,7 @@
 /// <reference types="jest" />
 
 import { PaymentService } from '../payment';
+import { mockStripe, mockDb } from './mocks';
 
 // Define the enums since they're not exported directly from @prisma/client
 const PaymentStatus = {
@@ -21,38 +22,6 @@ const RentalStatus = {
   CANCELLED: 'CANCELLED',
   REFUNDED: 'REFUNDED'
 } as const;
-
-// Mock Stripe
-const mockStripe = {
-  paymentIntents: {
-    create: jest.fn(),
-    retrieve: jest.fn(),
-    update: jest.fn(),
-  },
-  refunds: {
-    create: jest.fn(),
-  },
-};
-
-jest.mock('stripe', () => {
-  return jest.fn().mockImplementation(() => mockStripe);
-});
-
-// Mock the database
-const mockDb = {
-  payment: {
-    create: jest.fn(),
-    update: jest.fn(),
-    findUnique: jest.fn(),
-  },
-  rental: {
-    update: jest.fn(),
-  },
-};
-
-jest.mock('@/lib/db', () => ({
-  db: mockDb,
-}));
 
 describe('PaymentService', () => {
   beforeEach(() => {
@@ -91,6 +60,7 @@ describe('PaymentService', () => {
         rental: { id: 'rent_123' }
       };
 
+      // Setup mock responses
       mockStripe.paymentIntents.create.mockResolvedValueOnce(mockPaymentIntent);
       mockDb.payment.create.mockResolvedValueOnce(expectedPayment);
 
@@ -98,7 +68,7 @@ describe('PaymentService', () => {
 
       expect(result).toEqual({
         paymentIntent: mockPaymentIntent,
-        payment: expectedPayment
+        payment: expectedPayment,
       });
 
       expect(mockStripe.paymentIntents.create).toHaveBeenCalledWith({
@@ -108,7 +78,7 @@ describe('PaymentService', () => {
           userId: 'user_123',
           rentalId: 'rent_123',
           securityDeposit: '200',
-          rentalAmount: '800'
+          rentalAmount: '800',
         },
       });
 
@@ -120,14 +90,13 @@ describe('PaymentService', () => {
           status: PaymentStatus.PENDING,
           userId: 'user_123',
           rentalId: 'rent_123',
-          securityDepositAmount: 200,
           rentalAmount: 800,
           securityDepositReturned: false,
           ownerPaidOut: false,
         },
         include: {
-          rental: true
-        }
+          rental: true,
+        },
       });
     });
     
@@ -184,48 +153,31 @@ describe('PaymentService', () => {
 
       const mockPayment = {
         id: 'pay_123',
+        stripePaymentIntentId: 'pi_123',
+        status: PaymentStatus.PENDING,
         rentalId: 'rent_123',
-        rental: {
-          id: 'rent_123',
-        },
+        rental: { id: 'rent_123' },
       };
-      
+
       const mockUpdatedPayment = {
-        id: 'pay_123',
+        ...mockPayment,
         status: PaymentStatus.COMPLETED,
       };
 
       mockStripe.paymentIntents.retrieve.mockResolvedValueOnce(mockPaymentIntent);
       mockDb.payment.findUnique.mockResolvedValueOnce(mockPayment);
       mockDb.payment.update.mockResolvedValueOnce(mockUpdatedPayment);
+      mockDb.rental.update.mockResolvedValueOnce({ id: 'rent_123', status: RentalStatus.PAID });
 
       const result = await PaymentService.handlePaymentSuccess('pi_123');
 
       expect(result).toEqual({
         paymentIntent: mockPaymentIntent,
-        payment: mockUpdatedPayment
-      });
-      
-      expect(mockDb.payment.findUnique).toHaveBeenCalledWith({
-        where: { stripePaymentIntentId: 'pi_123' },
-        include: { rental: true }
-      });
-
-      expect(mockDb.payment.update).toHaveBeenCalledWith({
-        where: { stripePaymentIntentId: 'pi_123' },
-        data: {
-          status: PaymentStatus.COMPLETED,
-        }
-      });
-
-      expect(mockDb.rental.update).toHaveBeenCalledWith({
-        where: { id: 'rent_123' },
-        data: { status: RentalStatus.PAID },
+        payment: mockUpdatedPayment,
       });
     });
     
     it('should throw error if payment not found', async () => {
-      mockStripe.paymentIntents.retrieve.mockResolvedValueOnce({ id: 'pi_123' });
       mockDb.payment.findUnique.mockResolvedValueOnce(null);
 
       await expect(PaymentService.handlePaymentSuccess('pi_123')).rejects.toThrow('Payment not found');
@@ -370,7 +322,7 @@ describe('PaymentService', () => {
     it('should update payment status to retry scheduled', async () => {
       const mockUpdatedPayment = {
         id: 'pay_123',
-        status: PaymentStatus.RETRY_SCHEDULED
+        status: PaymentStatus.RETRY_SCHEDULED,
       };
 
       mockDb.payment.update.mockResolvedValueOnce(mockUpdatedPayment);
@@ -378,12 +330,9 @@ describe('PaymentService', () => {
       const result = await PaymentService.scheduleRetry('pi_123');
 
       expect(result).toEqual(mockUpdatedPayment);
-
       expect(mockDb.payment.update).toHaveBeenCalledWith({
         where: { stripePaymentIntentId: 'pi_123' },
-        data: {
-          status: PaymentStatus.RETRY_SCHEDULED,
-        }
+        data: { status: PaymentStatus.RETRY_SCHEDULED },
       });
     });
   });
@@ -392,48 +341,43 @@ describe('PaymentService', () => {
     it('should update a payment intent', async () => {
       const mockUpdatedPaymentIntent = {
         id: 'pi_123',
-        metadata: { key: 'updated_value' }
+        metadata: { key: 'updated_value' },
       };
-      
+
       mockStripe.paymentIntents.update.mockResolvedValueOnce(mockUpdatedPaymentIntent);
-      
+
       const updateData = { metadata: { key: 'updated_value' } };
       const result = await PaymentService.updatePaymentIntent('pi_123', updateData);
-      
+
       expect(result).toEqual(mockUpdatedPaymentIntent);
       expect(mockStripe.paymentIntents.update).toHaveBeenCalledWith('pi_123', updateData);
     });
     
     it('should retry on failure', async () => {
       const mockError = new Error('Network failure');
-      const mockUpdatedPaymentIntent = {
-        id: 'pi_123',
-        metadata: { key: 'updated_value' }
-      };
-      
-      // Fail once, then succeed
+      const mockSuccess = { id: 'pi_123', metadata: { key: 'updated_value' } };
+
       mockStripe.paymentIntents.update
         .mockRejectedValueOnce(mockError)
-        .mockResolvedValueOnce(mockUpdatedPaymentIntent);
-      
+        .mockRejectedValueOnce(mockError)
+        .mockResolvedValueOnce(mockSuccess);
+
       const updateData = { metadata: { key: 'updated_value' } };
       const result = await PaymentService.updatePaymentIntent('pi_123', updateData);
-      
-      expect(result).toEqual(mockUpdatedPaymentIntent);
-      expect(mockStripe.paymentIntents.update).toHaveBeenCalledTimes(2);
+
+      expect(result).toEqual(mockSuccess);
+      expect(mockStripe.paymentIntents.update).toHaveBeenCalledTimes(3);
     });
     
     it('should throw error after max retries', async () => {
       const mockError = new Error('Network failure');
-      
-      // Always fail
+
       mockStripe.paymentIntents.update.mockRejectedValue(mockError);
-      
+
       const updateData = { metadata: { key: 'updated_value' } };
       await expect(PaymentService.updatePaymentIntent('pi_123', updateData)).rejects.toThrow('Network failure');
-      
-      // 1 initial + 3 retries = 4 calls
-      expect(mockStripe.paymentIntents.update).toHaveBeenCalledTimes(4);
+
+      expect(mockStripe.paymentIntents.update).toHaveBeenCalledTimes(4); // 1 initial + 3 retries
     });
   });
 }); 

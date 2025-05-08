@@ -244,6 +244,28 @@ const equipmentSchema = z.object({
   }
 );
 
+// Add type for processed data
+interface ProcessedData {
+  images: string[];
+  tags: string[];
+  [key: string]: any;
+}
+
+// Add type for comparison function parameters
+interface SortableItem {
+  relevanceScore?: number;
+  pricePerDay: number;
+  createdAt: Date;
+}
+
+function processData(data: ProcessedData) {
+  return {
+    ...data,
+    images: JSON.parse(data.imagesJson || '[]'),
+    tags: JSON.parse(data.tagsJson || '[]')
+  };
+}
+
 export async function POST(req: Request) {
   try {
     // For development, we'll just mock the response
@@ -283,7 +305,7 @@ export async function POST(req: Request) {
     // Check if user is a renter (has rental history)
     const userRentals = await db.rental.count({
       where: {
-        renterId: user.id
+        renterid: user.id
       }
     });
     
@@ -305,14 +327,14 @@ export async function POST(req: Request) {
         category: validatedData.category,
         subcategory: validatedData.subcategory,
         location: validatedData.location,
-        hourlyRate: validatedData.hourlyRate,
-        dailyRate: validatedData.dailyRate,
-        weeklyRate: validatedData.weeklyRate,
-        securityDeposit: validatedData.securityDeposit,
-        tagsJson: validatedData.tagsJson,
-        imagesJson: validatedData.imagesJson,
-        isVerified: false,
-        isAvailable: true,
+        hourlyrate: validatedData.hourlyRate,
+        dailyrate: validatedData.dailyRate,
+        weeklyrate: validatedData.weeklyRate,
+        securitydeposit: validatedData.securityDeposit,
+        tagsjson: validatedData.tagsJson,
+        imagesjson: validatedData.imagesJson,
+        isverified: validatedData.isVerified,
+        isavailable: validatedData.isAvailable,
         ownerId: user.id,
       },
     });
@@ -420,7 +442,7 @@ export async function GET(req: Request) {
     
     // Build the where clause
     const where: any = {
-      isAvailable: true,
+      isavailable: true,
     };
     
     if (category) {
@@ -474,7 +496,7 @@ export async function GET(req: Request) {
       // Generate enhanced search query for title, description, and tags
       const enhancedSearchQuery = generateEnhancedSearchQuery(
         search || '', 
-        ['title', 'description', 'tagsJson'],
+        ['title', 'description', 'tagsjson'],
         searchOptions
       );
       
@@ -510,13 +532,13 @@ export async function GET(req: Request) {
     }
     
     // Determine sort order
-    let orderBy: any = { createdAt: "desc" };
+    let orderBy: any = { createdat: "desc" };
     if (sortBy === "price_low") {
-      orderBy = { dailyRate: "asc" };
+      orderBy = { dailyrate: "asc" };
     } else if (sortBy === "price_high") {
-      orderBy = { dailyRate: "desc" };
+      orderBy = { dailyrate: "desc" };
     } else if (sortBy === "newest") {
-      orderBy = { createdAt: "desc" };
+      orderBy = { createdat: "desc" };
     }
     // For "relevance" and "distance", we'll sort in post-processing
     
@@ -531,18 +553,17 @@ export async function GET(req: Request) {
           id: true,
           title: true,
           description: true,
+          dailyrate: true,
+          createdat: true,
           category: true,
           subcategory: true,
           condition: true,
           location: true,
-          hourlyRate: true,
-          dailyRate: true,
-          weeklyRate: true,
-          imagesJson: true,
-          tagsJson: true,
+          hourlyrate: true,
+          imagesjson: true,
+          tagsjson: true,
           latitude: true,
           longitude: true,
-          createdAt: true,
           updatedAt: true,
           owner: {
             select: {
@@ -572,9 +593,9 @@ export async function GET(req: Request) {
       try {
         // Parse images JSON if it exists
         let images: string[] = [];
-        if (item.imagesJson) {
+        if (item.imagesjson) {
           try {
-            images = JSON.parse(item.imagesJson);
+            images = JSON.parse(item.imagesjson);
           } catch (e) {
             console.error("Error parsing images JSON:", e);
           }
@@ -582,9 +603,9 @@ export async function GET(req: Request) {
         
         // Parse tags JSON if it exists
         let tags: string[] = [];
-        if (item.tagsJson) {
+        if (item.tagsjson) {
           try {
-            tags = JSON.parse(item.tagsJson);
+            tags = JSON.parse(item.tagsjson);
           } catch (e) {
             console.error("Error parsing tags JSON:", e);
           }
@@ -594,7 +615,7 @@ export async function GET(req: Request) {
           ...item,
           images,
           tags,
-          pricePerDay: item.dailyRate || 0, // Add pricePerDay for EquipmentCard compatibility
+          pricePerDay: item.dailyrate || 0, // Add pricePerDay for EquipmentCard compatibility
         } as ProcessedEquipment;
       } catch (error) {
         console.error("Error processing equipment item:", error);
@@ -602,7 +623,7 @@ export async function GET(req: Request) {
           ...item,
           images: [],
           tags: [],
-          pricePerDay: item.dailyRate || 0,
+          pricePerDay: item.dailyrate || 0,
         } as ProcessedEquipment;
       }
     });
@@ -664,11 +685,17 @@ export async function GET(req: Request) {
         headers: noCache ? undefined : CACHE_CONTROL_HEADERS 
       }
     );
-  } catch (error) {
-    console.error("Error fetching equipment:", error);
-    return NextResponse.json(
-      { message: "Failed to fetch equipment" },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    console.error('Error processing request:', error instanceof Error ? error.message : String(error));
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
+}
+
+// Add types to comparison functions
+function compareByRelevance(a: SortableItem, b: SortableItem): number {
+  return (b.relevanceScore || 0) - (a.relevanceScore || 0);
+}
+
+function compareByPrice(a: SortableItem, b: SortableItem): number {
+  return a.pricePerDay - b.pricePerDay;
 } 

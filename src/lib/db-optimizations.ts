@@ -162,10 +162,32 @@ export async function getCachedReviewStats(equipmentId: string) {
     where: { equipmentId }
   });
   
+  // Fix the equipment include type
+  const equipmentInclude = {
+    reviews: true,
+    owner: {
+      select: {
+        id: true,
+        name: true,
+        email: true,
+      },
+    },
+  };
+
+  // Fix the review where input
+  const reviewWhere = {
+    equipmentid: equipmentId, // Changed from equipmentId to equipmentid
+  };
+
+  // Fix the null check for avgRating
   const avgRating = await db.review.aggregate({
-    where: { equipmentId },
-    _avg: { rating: true }
+    where: reviewWhere,
+    _avg: {
+      rating: true,
+    },
   });
+
+  const rating = avgRating._avg?.rating ?? 0;
   
   // Get rating distribution
   const ratingDistribution = await db.review.groupBy({
@@ -185,7 +207,7 @@ export async function getCachedReviewStats(equipmentId: string) {
   
   const stats = {
     totalReviews,
-    averageRating: avgRating._avg.rating || 0,
+    averageRating: rating,
     distribution
   };
   

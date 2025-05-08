@@ -7,6 +7,7 @@ import { SSEProvider } from "@/components/providers/SSEProvider";
 import { ClientOnlyProvider } from "@/components/providers/ClientOnlyProvider";
 import { FeatureFlagProvider } from "@/components/feature-flags/FeatureFlagProvider";
 import { ThemeProvider } from "@/components/theme/theme-provider";
+import CSRFTokenProvider from "@/components/CSRFTokenProvider";
 
 interface ProvidersProps {
   children: ReactNode;
@@ -25,8 +26,10 @@ export function Providers({ children }: ProvidersProps) {
           defaultTheme="light"
           enableSystem={false}
           children={
-            <SocketStatusProvider children={
-              <SSEProvider children={content} />
+            <CSRFTokenProvider children={
+              <SocketStatusProvider children={
+                <SSEProvider children={content} />
+              } />
             } />
           }
         />

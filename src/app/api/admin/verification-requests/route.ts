@@ -18,11 +18,11 @@ export async function GET() {
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
       select: {
-        isAdmin: true,
+        isadmin: true,
       },
     });
 
-    if (!user?.isAdmin) {
+    if (!user?.isadmin) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -34,12 +34,13 @@ export async function GET() {
             id: true,
             name: true,
             email: true,
-            idVerificationStatus: true,
+            isadmin: true,
+            idverificationstatus: true,
           },
         },
       },
       orderBy: {
-        createdAt: 'desc',
+        submittedat: 'desc',
       },
     });
 
@@ -67,11 +68,11 @@ export async function POST(request: Request) {
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
       select: {
-        isAdmin: true,
+        isadmin: true,
       },
     });
 
-    if (!user?.isAdmin) {
+    if (!user?.isadmin) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -87,19 +88,19 @@ export async function POST(request: Request) {
     // Update user's verification status if request is approved
     if (status === "APPROVED") {
       await prisma.user.update({
-        where: { id: verificationRequest.userId },
+        where: { id: verificationRequest.userid },
         data: {
-          idVerified: true,
-          idVerificationStatus: "VERIFIED",
-          idVerificationDate: new Date(),
+          idverified: true,
+          idverificationstatus: 'VERIFIED',
+          idverificationdate: new Date(),
         },
       });
     } else if (status === "REJECTED") {
       await prisma.user.update({
-        where: { id: verificationRequest.userId },
+        where: { id: verificationRequest.userid },
         data: {
-          idVerified: false,
-          idVerificationStatus: "REJECTED",
+          idverified: false,
+          idverificationstatus: "REJECTED",
         },
       });
     }

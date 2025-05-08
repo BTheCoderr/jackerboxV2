@@ -1,15 +1,26 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getCurrentUser } from "@/lib/auth/session";
+import { getCurrentUser } from "@/lib/auth/auth-utils";
 import { db } from "@/lib/db";
+import { rateLimit } from "@/lib/upstash-rate-limit";
 
 // Schema for phone verification request
 const phoneVerificationSchema = z.object({
-  phone: z.string().min(10, "Phone number is required"),
+  phone: z.string().regex(/^\+?[0-9]{10,15}$/, "Please enter a valid phone number"),
+  verificationId: z.string().min(1, "Verification ID is required"),
+  code: z.string().min(6, "Verification code is required"),
 });
 
 export async function POST(req: Request) {
   try {
+    // Apply rate limiting
+    const ip = req.headers.get("x-forwarded-for") || "127.0.0.1";
+    const rateLimitResult = await rateLimit(`verify_phone_${ip}`);
+    
+    if (rateLimitResult) {
+      return rateLimitResult;
+    }
+    
     const user = await getCurrentUser();
     
     if (!user) {
@@ -20,7 +31,11 @@ export async function POST(req: Request) {
     }
     
     const body = await req.json();
-    const { phone } = phoneVerificationSchema.parse(body);
+    const { phone, verificationId, code } = phoneVerificationSchema.parse(body);
+    
+    // In a real implementation, we would verify the code with Firebase Admin SDK
+    // For this MVP, we'll simulate verification success
+    // TODO: Implement actual Firebase verification
     
     // Check if the phone number matches the one in the user's record
     const currentUser = await db.user.findUnique({
@@ -31,10 +46,10 @@ export async function POST(req: Request) {
       },
     });
     
-    if (!currentUser || currentUser.phone !== phone) {
+    if (!currentUser) {
       return NextResponse.json(
-        { message: "Phone number does not match the one on record" },
-        { status: 400 }
+        { message: "User not found" },
+        { status: 404 }
       );
     }
     
@@ -42,7 +57,9 @@ export async function POST(req: Request) {
     await db.user.update({
       where: { id: user.id },
       data: {
+        phone: phone,
         phoneVerified: true,
+        updatedAt: new Date(),
       },
     });
     
@@ -51,17 +68,18 @@ export async function POST(req: Request) {
       message: "Phone number verified successfully",
     });
   } catch (error) {
+    console.error("Error verifying phone:", error);
+    
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { message: "Invalid input data", errors: error.errors },
+        { message: "Invalid data", errors: error.errors },
         { status: 400 }
       );
     }
     
-    console.error("Phone verification error:", error);
     return NextResponse.json(
-      { message: "Something went wrong. Please try again." },
+      { message: "Failed to verify phone number" },
       { status: 500 }
     );
   }
-} 
+}

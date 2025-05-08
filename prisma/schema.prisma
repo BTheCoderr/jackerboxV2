@@ -22,21 +22,20 @@ model User {
   verificationtoken                     String?
   twofactorenabled                      Boolean?           @default(false)
   idverified                            Boolean?           @default(false)
-  idverificationstatus                  String?            @default("PENDING")
+  idverificationstatus                  String?
   iddocumenttype                        String?
   iddocumenturl                         String?
   idverificationdate                    DateTime?          @db.Timestamp(6)
-  role                                  String?            @default("USER")
   isadmin                               Boolean?           @default(false)
   stripeconnectaccountid                String?
   usertype                              String?            @default("both")
   Account                               Account[]
   CalendarSync                          CalendarSync[]
-  Equipment_Equipment_moderatedbyToUser  Equipment[]        @relation("Equipment_moderatedbyToUser")
-  Equipment_Equipment_owneridToUser      Equipment[]        @relation("Equipment_owneridToUser")
+  Equipment_Equipment_moderatedbyToUser Equipment[]        @relation("Equipment_moderatedbyToUser")
+  Equipment_Equipment_owneridToUser     Equipment[]        @relation("Equipment_owneridToUser")
   FraudDetection                        FraudDetection[]
-  Message_Message_receiveridToUser       Message[]          @relation("Message_receiveridToUser")
-  Message_Message_senderidToUser         Message[]          @relation("Message_senderidToUser")
+  Message_Message_receiveridToUser      Message[]          @relation("Message_receiveridToUser")
+  Message_Message_senderidToUser        Message[]          @relation("Message_senderidToUser")
   Notification                          Notification[]
   Payment                               Payment[]
   PushSubscription                      PushSubscription[]
@@ -45,7 +44,6 @@ model User {
   Review_Review_receiveridToUser        Review[]           @relation("Review_receiveridToUser")
   ReviewVote                            ReviewVote[]
   Session                               Session[]
-  VerificationRequest                   VerificationRequest[]  @relation("UserVerificationRequests")
 }
 
 model Account {
@@ -136,7 +134,7 @@ model Availability {
 model Payment {
   id                    String        @id @default(cuid())
   createdat             DateTime?     @default(now()) @db.Timestamp(6)
-  updatedat             DateTime?     @default(now()) @db.Timestamp(6)
+  updatedat             DateTime?     @db.Timestamp(6)
   amount                Float
   currency              String
   status                PaymentStatus
@@ -202,7 +200,7 @@ model Rental {
   equipmentid String
   renterid    String
   createdat   DateTime?    @default(now()) @db.Timestamp(6)
-  updatedat   DateTime?    @default(now()) @db.Timestamp(6)
+  updatedat   DateTime?    @db.Timestamp(6)
   Payment     Payment?
   Equipment   Equipment    @relation(fields: [equipmentid], references: [id], onDelete: NoAction, onUpdate: NoAction)
   User        User         @relation(fields: [renterid], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -214,7 +212,7 @@ model Review {
   rating                       Int
   comment                      String?
   createdat                    DateTime?    @default(now()) @db.Timestamp(6)
-  updatedat                    DateTime?    @default(now()) @db.Timestamp(6)
+  updatedat                    DateTime?    @db.Timestamp(6)
   authorid                     String
   receiverid                   String
   equipmentid                  String?
@@ -280,22 +278,6 @@ model PushSubscription {
   userid    String
   createdat DateTime? @default(now()) @db.Timestamp(6)
   User      User      @relation(fields: [userid], references: [id], onDelete: NoAction, onUpdate: NoAction)
-}
-
-model VerificationRequest {
-  id                String    @id @default(cuid())
-  userid            String
-  status            String    @default("PENDING")
-  documenttype      String
-  documenturl       String
-  notes             String?
-  submittedat       DateTime  @default(now()) @db.Timestamp(6)
-  processedat       DateTime? @db.Timestamp(6)
-  processedby       String?
-  user              User      @relation("UserVerificationRequests", fields: [userid], references: [id], onDelete: Cascade)
-
-  @@index([status])
-  @@index([userid])
 }
 
 enum PaymentStatus {

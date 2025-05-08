@@ -38,7 +38,7 @@ export default function AdminVerificationsPage() {
     }
 
     // Check if user is admin
-    if (session?.user?.role !== "ADMIN") {
+    if (!session?.user?.isAdmin) {
       router.push("/");
       return;
     }
@@ -57,10 +57,10 @@ export default function AdminVerificationsPage() {
       }
     };
 
-    if (session?.user?.role === "ADMIN") {
+    if (session?.user?.isAdmin) {
       fetchVerifications();
     }
-  }, [session?.user?.role]);
+  }, [session?.user?.isAdmin]);
 
   const handleVerification = async (requestId: string, userId: string, approved: boolean, notes?: string) => {
     try {

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 import { apiRateLimiter, authRateLimiter, messageRateLimiter, rateLimitRequest } from './lib/rate-limiter';
+import { rateLimit } from '@/lib/upstash-rate-limit';
 
 // Cache commonly used URLs
 const PROTECTED_ROUTES = new Set([
@@ -33,6 +34,15 @@ const CACHE_STRATEGIES = {
 // Function to determine if a path is static
 const isStaticAsset = (path: string) => /\.(jpg|jpeg|png|gif|ico|svg|css|js)$/.test(path);
 
+// Paths that should be rate limited
+const RATE_LIMITED_PATHS = [
+  '/api/auth',
+  '/api/equipment',
+  '/api/rentals',
+  '/api/messages',
+  '/api/payments',
+];
+
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
   
@@ -47,39 +57,21 @@ export async function middleware(request: NextRequest) {
 
   // Apply rate limiting for API routes
   if (path.startsWith('/api')) {
-    // Choose the appropriate rate limiter based on the path
-    let limiter = apiRateLimiter;
-    if (path.startsWith('/api/auth')) {
-      limiter = authRateLimiter;
-    } else if (path.startsWith('/api/messages')) {
-      limiter = messageRateLimiter;
+    // Get IP for rate limiting
+    const ip = request.ip || 
+               request.headers.get('x-real-ip') || 
+               request.headers.get('x-forwarded-for') || 
+               '127.0.0.1';
+               
+    const identifier = `${path}:${ip}`;
+    const rateLimitResult = await rateLimit(identifier);
+    
+    if (rateLimitResult) {
+      return rateLimitResult;
     }
     
-    // Check rate limit
-    const rateLimit = await rateLimitRequest(request, limiter);
-    
-    // If rate limited, return 429 Too Many Requests
-    if (rateLimit.isLimited) {
-      return new NextResponse(
-        JSON.stringify({
-          error: 'Too many requests',
-          message: 'Rate limit exceeded. Please try again later.',
-          resetIn: rateLimit.reset
-        }),
-        {
-          status: 429,
-          headers: rateLimit.headers
-        }
-      );
-    }
-    
-    // Continue with the request but include rate limit headers
+    // Continue with the request
     const response = NextResponse.next();
-    
-    // Apply rate limit headers
-    Object.entries(rateLimit.headers).forEach(([key, value]) => {
-      response.headers.set(key, value);
-    });
     
     // Add security headers
     Object.entries(SECURITY_HEADERS).forEach(([key, value]) => {
@@ -141,6 +133,22 @@ export async function middleware(request: NextRequest) {
     response.headers.set('Cache-Control', CACHE_STRATEGIES.dynamic);
     response.headers.set('CDN-Cache-Control', CACHE_STRATEGIES.dynamic);
     response.headers.set('Vercel-CDN-Cache-Control', CACHE_STRATEGIES.dynamic);
+  }
+
+  // Check if path should be rate limited
+  if (RATE_LIMITED_PATHS.some(limitedPath => path.startsWith(limitedPath))) {
+    // Get IP for rate limiting
+    const ip = request.ip || 
+               request.headers.get('x-real-ip') || 
+               request.headers.get('x-forwarded-for') || 
+               '127.0.0.1';
+
+    const identifier = `${path}:${ip}`;
+    const rateLimitResult = await rateLimit(identifier);
+    
+    if (rateLimitResult) {
+      return rateLimitResult;
+    }
   }
 
   return response;

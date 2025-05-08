@@ -232,4 +232,13 @@ export function setCacheControl(res: NextApiResponse, type: 'public' | 'private'
 
     res.setHeader('Cache-Control', headers[type]);
   });
+}
+
+// Update the response type
+export function sendResponse<T>(
+  res: NextApiResponse,
+  data: T,
+  status = 200
+): void {
+  res.status(status).json(data);
 } 
