@@ -201,27 +201,27 @@ export function expandWithCategoryKeywords(category: string): string[] {
 }
 
 /**
- * Calculate distance between two coordinates in kilometers using the Haversine formula
+ * Calculate distance between two points using Haversine formula
  */
 export function calculateDistance(
-  lat1: number, 
-  lon1: number, 
-  lat2: number, 
+  lat1: number,
+  lon1: number,
+  lat2: number,
   lon2: number
 ): number {
-  const R = 6371; // Radius of the Earth in km
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  
-  const a = 
-    Math.sin(dLat/2) * Math.sin(dLat/2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-    Math.sin(dLon/2) * Math.sin(dLon/2);
-  
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  const distance = R * c; // Distance in km
-  
-  return distance;
+  const R = 6371; // Earth's radius in kilometers
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function toRad(degrees: number): number {
+  return degrees * (Math.PI / 180);
 }
 
 /**
@@ -229,210 +229,116 @@ export function calculateDistance(
  * Now with support for phrases, categories, and operators
  */
 export function generateEnhancedSearchQuery(
-  query: string, 
-  fields: string[],
-  options?: {
-    userLocation?: { latitude: number, longitude: number },
-    maxDistance?: number,
-    categories?: string[],
-    priceRange?: { min?: number, max?: number }
+  searchTerm: string,
+  searchFields: string[],
+  options: SearchOptions = {}
+) {
+  const query: any = {};
+  const { userLocation, maxDistance, priceRange, categories } = options;
+
+  // Add basic search conditions
+  if (searchTerm) {
+    query.OR = searchFields.map(field => ({
+      [field]: {
+        contains: searchTerm,
+        mode: 'insensitive'
+      }
+    }));
   }
-): any {
-  if (!query && !options) return {};
-  
-  const conditions: any[] = [];
-  
-  // Process the text query if provided
-  if (query) {
-    // Tokenize the query
-    const { terms, phrases, operators } = tokenizeQuery(query);
-    
-    // Process regular terms with synonyms
-    if (terms.length > 0) {
-      const expandedTerms = terms.flatMap(expandWithSynonyms);
-      
-      // Create OR conditions for each field and term
-      const termConditions = expandedTerms.flatMap(term => 
-        fields.map(field => ({
-          [field]: {
-            contains: term,
-            mode: "insensitive",
-          },
-        }))
-      );
-      
-      if (termConditions.length > 0) {
-        conditions.push({ OR: termConditions });
-      }
+
+  // Add category filter
+  if (categories?.length) {
+    query.category = {
+      in: categories
+    };
+  }
+
+  // Add price range filter
+  if (priceRange) {
+    if (priceRange.min !== undefined) {
+      query.dailyrate = {
+        ...query.dailyrate,
+        gte: priceRange.min
+      };
     }
-    
-    // Process quoted phrases (exact matches)
-    if (phrases.length > 0) {
-      const phraseConditions = phrases.flatMap(phrase => 
-        fields.map(field => ({
-          [field]: {
-            contains: phrase,
-            mode: "insensitive",
-          },
-        }))
-      );
-      
-      if (phraseConditions.length > 0) {
-        conditions.push({ OR: phraseConditions });
-      }
+    if (priceRange.max !== undefined) {
+      query.dailyrate = {
+        ...query.dailyrate,
+        lte: priceRange.max
+      };
     }
-    
-    // Process operators (e.g., category:tools)
-    for (const operator of operators) {
-      const [key, value] = operator.split(':');
-      
-      if (key === 'category') {
-        conditions.push({
-          category: {
-            equals: value,
-            mode: "insensitive",
-          },
-        });
-        
-        // Also add category keywords to improve results
-        const categoryKeywords = expandWithCategoryKeywords(value);
-        if (categoryKeywords.length > 0) {
-          const keywordConditions = categoryKeywords.flatMap(keyword => 
-            fields.map(field => ({
-              [field]: {
-                contains: keyword,
-                mode: "insensitive",
-              },
-            }))
-          );
-          
-          conditions.push({ OR: keywordConditions });
+  }
+
+  // Add location-based filtering if coordinates are provided
+  if (userLocation && maxDistance) {
+    const { latitude, longitude } = userLocation;
+    const latDelta = (maxDistance / 111.32); // Rough approximation: 1 degree = 111.32 km
+    const lonDelta = maxDistance / (111.32 * Math.cos(latitude * Math.PI / 180));
+
+    query.AND = [
+      {
+        latitude: {
+          gte: latitude - latDelta,
+          lte: latitude + latDelta
+        }
+      },
+      {
+        longitude: {
+          gte: longitude - lonDelta,
+          lte: longitude + lonDelta
         }
       }
-    }
+    ];
   }
-  
-  // Add category filter if provided in options
-  if (options?.categories && options.categories.length > 0) {
-    conditions.push({
-      category: {
-        in: options.categories,
-        mode: "insensitive",
-      },
-    });
-  }
-  
-  // Add price range filter if provided
-  if (options?.priceRange) {
-    const priceConditions: any[] = [];
-    
-    if (options.priceRange.min !== undefined) {
-      priceConditions.push({
-        OR: [
-          { hourlyRate: { gte: options.priceRange.min } },
-          { dailyRate: { gte: options.priceRange.min } },
-          { weeklyRate: { gte: options.priceRange.min } },
-        ],
-      });
-    }
-    
-    if (options.priceRange.max !== undefined) {
-      priceConditions.push({
-        OR: [
-          { hourlyRate: { lte: options.priceRange.max } },
-          { dailyRate: { lte: options.priceRange.max } },
-          { weeklyRate: { lte: options.priceRange.max } },
-        ],
-      });
-    }
-    
-    if (priceConditions.length > 0) {
-      conditions.push({ AND: priceConditions });
-    }
-  }
-  
-  // Return the combined query
-  return conditions.length > 0 ? { AND: conditions } : {};
+
+  return query;
 }
 
 /**
  * Post-process search results to add distance and relevance scoring
  */
-export function enhanceSearchResults<T extends { id: string; latitude?: number | null; longitude?: number | null }>(
-  results: T[],
-  query: string,
-  options?: {
-    userLocation?: { latitude: number, longitude: number },
-    searchFields?: string[],
-    sortByDistance?: boolean
-  }
-): (T & { distance?: number, relevanceScore?: number })[] {
-  if (!results.length) return [];
+export function enhanceSearchResults(
+  results: any[],
+  searchTerm: string,
+  options: {
+    userLocation?: { latitude: number; longitude: number };
+    searchFields?: string[];
+    sortByDistance?: boolean;
+  } = {}
+) {
+  const { userLocation, searchFields = [], sortByDistance } = options;
   
-  const enhancedResults = results.map(result => {
-    const enhancedResult = { ...result } as T & { distance?: number, relevanceScore?: number };
+  let enhancedResults = results.map(item => {
+    const result = { ...item };
     
-    // Calculate distance if user location and item location are available
-    if (options?.userLocation && result.latitude && result.longitude) {
-      enhancedResult.distance = calculateDistance(
-        options.userLocation.latitude,
-        options.userLocation.longitude,
-        result.latitude,
-        result.longitude
+    // Calculate distance if user location is provided
+    if (userLocation && item.latitude && item.longitude) {
+      result.distance = calculateDistance(
+        userLocation.latitude,
+        userLocation.longitude,
+        item.latitude,
+        item.longitude
       );
     }
     
-    // Calculate relevance score based on text matching
-    if (query && options?.searchFields) {
-      const { terms, phrases } = tokenizeQuery(query);
-      let score = 0;
-      
-      // Check each search field for matches
-      for (const field of options.searchFields) {
-        const fieldValue = (result as any)[field];
-        if (!fieldValue) continue;
-        
-        const fieldValueLower = String(fieldValue).toLowerCase();
-        
-        // Score exact matches highest
-        if (fieldValueLower === query.toLowerCase()) {
-          score += 10;
+    // Calculate relevance score based on search term matches
+    if (searchTerm && searchFields.length > 0) {
+      let relevanceScore = 0;
+      searchFields.forEach(field => {
+        const value = item[field];
+        if (typeof value === 'string' && value.toLowerCase().includes(searchTerm.toLowerCase())) {
+          relevanceScore += 1;
         }
-        
-        // Score phrase matches
-        for (const phrase of phrases) {
-          if (fieldValueLower.includes(phrase)) {
-            score += 5;
-          }
-        }
-        
-        // Score term matches
-        for (const term of terms) {
-          if (fieldValueLower.includes(term)) {
-            score += 2;
-          }
-          
-          // Check synonyms
-          const synonyms = expandWithSynonyms(term);
-          for (const synonym of synonyms) {
-            if (fieldValueLower.includes(synonym)) {
-              score += 1;
-            }
-          }
-        }
-      }
-      
-      enhancedResult.relevanceScore = score;
+      });
+      result.relevanceScore = relevanceScore;
     }
     
-    return enhancedResult;
+    return result;
   });
   
-  // Sort by distance or relevance
-  if (options?.sortByDistance && options.userLocation) {
-    return enhancedResults.sort((a, b) => (a.distance || Infinity) - (b.distance || Infinity));
-  } else if (query) {
-    return enhancedResults.sort((a, b) => (b.relevanceScore || 0) - (a.relevanceScore || 0));
+  // Sort by distance if requested
+  if (sortByDistance && userLocation) {
+    enhancedResults.sort((a, b) => (a.distance || Infinity) - (b.distance || Infinity));
   }
   
   return enhancedResults;

@@ -25,7 +25,7 @@ export function EquipmentCard({ equipment, priority = false }: EquipmentCardProp
   
   // Process image URL to ensure it works correctly
   const processImageUrl = (url: string): string => {
-    if (!url || url === '') return '/images/placeholder.svg';
+    if (!url || url === '') return getFallbackImageUrl();
     
     // If it's an Unsplash URL, ensure it has the right parameters
     if (url.includes('unsplash.com')) {
@@ -43,12 +43,10 @@ export function EquipmentCard({ equipment, priority = false }: EquipmentCardProp
     return url;
   };
   
-  // Generate a fallback image URL based on the equipment title and category
+  // Generate a fallback image URL based on the equipment category
   const getFallbackImageUrl = () => {
     const category = equipment.category.toLowerCase().replace(/\s+/g, '-');
-    const title = equipment.title.toLowerCase().replace(/\s+/g, '-');
-    const uniqueParam = `random=${Date.now()}-${equipment.id.substring(0, 8)}`;
-    return `https://source.unsplash.com/featured/800x600?${category},${title}&${uniqueParam}`;
+    return `/images/equipment-placeholders/${category}.svg`;
   };
   
   useEffect(() => {

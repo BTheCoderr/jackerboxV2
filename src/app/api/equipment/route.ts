@@ -13,6 +13,203 @@ const CACHE_CONTROL_HEADERS = {
   'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300'
 };
 
+// Mock data for development
+const MOCK_EQUIPMENT = [
+  {
+    id: "clrkl6a9700016rhl7p0k7o6x",
+    title: "Professional DSLR Camera Kit",
+    description: "Complete professional photography kit with Canon EOS 5D Mark IV, 3 lenses, tripod, and accessories.",
+    condition: "EXCELLENT",
+    category: "CAMERAS",
+    subcategory: "DSLR",
+    tagsJson: JSON.stringify(["photography", "professional", "canon", "dslr", "complete kit"]),
+    location: "New York, NY",
+    latitude: 40.7128,
+    longitude: -74.0060,
+    hourlyRate: 25,
+    dailyRate: 120,
+    weeklyRate: 550,
+    securityDeposit: 500,
+    imagesJson: JSON.stringify([
+      "https://images.unsplash.com/photo-1516035069371-29a1b244cc32",
+      "https://images.unsplash.com/photo-1502982720700-bfff97f2ecac",
+      "https://images.unsplash.com/photo-1510127034890-ba27508e9f1c",
+      "https://images.unsplash.com/photo-1489819608039-4765d3227809",
+      "https://images.unsplash.com/photo-1584038877674-e5862eec4a59",
+      "https://images.unsplash.com/photo-1493863175544-cea37e40cf23",
+      "https://images.unsplash.com/photo-1432928533458-2bfcc9120d1b",
+      "https://images.unsplash.com/photo-1516724562728-afc824a36e84"
+    ]),
+    isVerified: true,
+    isAvailable: true,
+    createdAt: new Date("2023-08-01T12:00:00.000Z"),
+    updatedAt: new Date("2023-08-01T12:00:00.000Z"),
+    moderationStatus: "APPROVED",
+    ownerId: "cl8g7l5kw0000hchl7p0k7o6x"
+  },
+  {
+    id: "clrkl6a9700026rhl7p0k7o6y",
+    title: "DJ Equipment Package",
+    description: "Complete DJ setup including Pioneer CDJ-3000s, DJM-900NXS2 mixer, monitors, and accessories.",
+    condition: "GOOD",
+    category: "AUDIO",
+    subcategory: "DJ EQUIPMENT",
+    tagsJson: JSON.stringify(["dj", "pioneer", "cdj", "mixer", "professional", "complete"]),
+    location: "Los Angeles, CA",
+    latitude: 34.0522,
+    longitude: -118.2437,
+    hourlyRate: 50,
+    dailyRate: 250,
+    weeklyRate: 1200,
+    securityDeposit: 1000,
+    imagesJson: JSON.stringify([
+      "https://images.unsplash.com/photo-1611425125524-b15a19feb9f7",
+      "https://images.unsplash.com/photo-1557728335-4033a4665f5c",
+      "https://images.unsplash.com/photo-1604599838491-5283a6e8b6c5",
+      "https://images.unsplash.com/photo-1593698054932-5183a8df35f3",
+      "https://images.unsplash.com/photo-1613055445505-abe37ace6843",
+      "https://images.unsplash.com/photo-1598488035139-bdbb2231ce04",
+      "https://images.unsplash.com/photo-1599655345979-ca159e9a1212",
+      "https://images.unsplash.com/photo-1630838020925-23ffed5401ff",
+      "https://images.unsplash.com/photo-1591728442050-4510ee966069"
+    ]),
+    isVerified: true,
+    isAvailable: true,
+    createdAt: new Date("2023-07-15T12:00:00.000Z"),
+    updatedAt: new Date("2023-07-15T12:00:00.000Z"),
+    moderationStatus: "APPROVED",
+    ownerId: "cl8g7l5kw0001hchl7p0k7o6z"
+  },
+  {
+    id: "clrkl6a9700036rhl7p0k7o6z",
+    title: "4K Video Production Kit",
+    description: "Complete 4K video production kit with Sony FX6, lenses, tripod, gimbal, lighting, and audio equipment.",
+    condition: "LIKE_NEW",
+    category: "VIDEO",
+    subcategory: "CINEMA CAMERAS",
+    tagsJson: JSON.stringify(["video", "4k", "cinema", "production", "sony", "professional"]),
+    location: "Austin, TX",
+    latitude: 30.2672,
+    longitude: -97.7431,
+    hourlyRate: 75,
+    dailyRate: 350,
+    weeklyRate: 1500,
+    securityDeposit: 2000,
+    imagesJson: JSON.stringify([
+      "https://images.unsplash.com/photo-1616228011161-9da57ea5d95b",
+      "https://images.unsplash.com/photo-1590602847861-f357a9332bbc",
+      "https://images.unsplash.com/photo-1608036606284-e7f23f07f2e0",
+      "https://images.unsplash.com/photo-1605128559047-b371d3c2d459",
+      "https://images.unsplash.com/photo-1634157703702-3c124b455499",
+      "https://images.unsplash.com/photo-1617788931512-9fbe3dce558b",
+      "https://images.unsplash.com/photo-1648830292195-3e875ff983a6",
+      "https://images.unsplash.com/photo-1633059388670-2bc68b83906a"
+    ]),
+    isVerified: true,
+    isAvailable: true,
+    createdAt: new Date("2023-06-20T12:00:00.000Z"),
+    updatedAt: new Date("2023-06-20T12:00:00.000Z"),
+    moderationStatus: "APPROVED",
+    ownerId: "cl8g7l5kw0002hchl7p0k7o7a"
+  },
+  {
+    id: "clrkl6a9700046rhl7p0k7o7a",
+    title: "Professional Drone Package",
+    description: "DJI Mavic 3 Pro drone with extra batteries, ND filters, carrying case, and accessories.",
+    condition: "EXCELLENT",
+    category: "DRONES",
+    subcategory: "PROFESSIONAL",
+    tagsJson: JSON.stringify(["drone", "dji", "mavic", "aerial", "photography", "4k"]),
+    location: "Miami, FL",
+    latitude: 25.7617,
+    longitude: -80.1918,
+    hourlyRate: 35,
+    dailyRate: 150,
+    weeklyRate: 700,
+    securityDeposit: 800,
+    imagesJson: JSON.stringify([
+      "https://images.unsplash.com/photo-1507582020474-9a35b7d455d9",
+      "https://images.unsplash.com/photo-1527977966376-1c8408f9f108",
+      "https://images.unsplash.com/photo-1524143986875-3b098d911b9f",
+      "https://images.unsplash.com/photo-1579829366248-204fe8413f31",
+      "https://images.unsplash.com/photo-1473968512647-3e447244af8f",
+      "https://images.unsplash.com/photo-1593108408993-58ee9c7825c6",
+      "https://images.unsplash.com/photo-1517263904808-5dc91e3e7044",
+      "https://images.unsplash.com/photo-1560807707-8cc77767d783"
+    ]),
+    isVerified: true,
+    isAvailable: true,
+    createdAt: new Date("2023-05-10T12:00:00.000Z"),
+    updatedAt: new Date("2023-05-10T12:00:00.000Z"),
+    moderationStatus: "APPROVED",
+    ownerId: "cl8g7l5kw0003hchl7p0k7o7b"
+  },
+  {
+    id: "clrkl6a9700056rhl7p0k7o7b",
+    title: "Gaming PC Setup",
+    description: "High-end gaming PC with RTX 4090, i9 processor, 64GB RAM, dual monitors, and gaming peripherals.",
+    condition: "LIKE_NEW",
+    category: "COMPUTERS",
+    subcategory: "GAMING",
+    tagsJson: JSON.stringify(["gaming", "pc", "rtx", "computer", "high-end", "setup"]),
+    location: "Seattle, WA",
+    latitude: 47.6062,
+    longitude: -122.3321,
+    hourlyRate: 20,
+    dailyRate: 100,
+    weeklyRate: 500,
+    securityDeposit: 1000,
+    imagesJson: JSON.stringify([
+      "https://images.unsplash.com/photo-1593640408182-31c70c8268f5",
+      "https://images.unsplash.com/photo-1603481588273-2f908a9a7a1b",
+      "https://images.unsplash.com/photo-1598550476439-6847785fcea6",
+      "https://images.unsplash.com/photo-1547082299-de196ea013d6",
+      "https://images.unsplash.com/photo-1616588589676-62b3bd4ff6d2",
+      "https://images.unsplash.com/photo-1593152167544-085d3b9c4938",
+      "https://images.unsplash.com/photo-1625842268584-8f3296236761",
+      "https://images.unsplash.com/photo-1591489378430-ef2f4c626b15"
+    ]),
+    isVerified: true,
+    isAvailable: true,
+    createdAt: new Date("2023-04-05T12:00:00.000Z"),
+    updatedAt: new Date("2023-04-05T12:00:00.000Z"),
+    moderationStatus: "APPROVED",
+    ownerId: "cl8g7l5kw0004hchl7p0k7o7c"
+  },
+  {
+    id: "clrkl6a9700066rhl7p0k7o7c",
+    title: "Mobile Recording Studio",
+    description: "Portable recording studio with Focusrite interface, microphones, stands, headphones, and accessories.",
+    condition: "GOOD",
+    category: "AUDIO",
+    subcategory: "RECORDING",
+    tagsJson: JSON.stringify(["recording", "audio", "studio", "portable", "focusrite", "microphones"]),
+    location: "Nashville, TN",
+    latitude: 36.1627,
+    longitude: -86.7816,
+    hourlyRate: 30,
+    dailyRate: 125,
+    weeklyRate: 600,
+    securityDeposit: 500,
+    imagesJson: JSON.stringify([
+      "https://images.unsplash.com/photo-1598488035139-bdbb2231ce04",
+      "https://images.unsplash.com/photo-1589903308904-1010c2294adc",
+      "https://images.unsplash.com/photo-1520170350707-b2da59970118",
+      "https://images.unsplash.com/photo-1598653222000-6b7b7a552625",
+      "https://images.unsplash.com/photo-1563330232-57114bb0823c",
+      "https://images.unsplash.com/photo-1570717173024-ec8081c8f8e9",
+      "https://images.unsplash.com/photo-1512053459797-38c3a066cabd",
+      "https://images.unsplash.com/photo-1527490435365-40d33ae8b17c"
+    ]),
+    isVerified: true,
+    isAvailable: true,
+    createdAt: new Date("2023-03-15T12:00:00.000Z"),
+    updatedAt: new Date("2023-03-15T12:00:00.000Z"),
+    moderationStatus: "APPROVED",
+    ownerId: "cl8g7l5kw0005hchl7p0k7o7d"
+  }
+];
+
 const equipmentSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters"),
   description: z.string().min(10, "Description must be at least 10 characters"),
@@ -47,8 +244,55 @@ const equipmentSchema = z.object({
   }
 );
 
+// Add type for processed data
+interface ProcessedData {
+  images: string[];
+  tags: string[];
+  [key: string]: any;
+}
+
+// Add type for comparison function parameters
+interface SortableItem {
+  relevanceScore?: number;
+  pricePerDay: number;
+  createdAt: Date;
+}
+
+function processData(data: ProcessedData) {
+  return {
+    ...data,
+    images: JSON.parse(data.imagesJson || '[]'),
+    tags: JSON.parse(data.tagsJson || '[]')
+  };
+}
+
 export async function POST(req: Request) {
   try {
+    // For development, we'll just mock the response
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Using mock equipment creation response');
+      // Mock a small delay to simulate database operation
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      const body = await req.json();
+      const mockEquipment = {
+        id: `mock_${Date.now()}`,
+        ...body,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        isVerified: false,
+        isAvailable: true,
+        moderationStatus: "PENDING",
+        ownerId: "mock_user_id",
+      };
+      
+      return NextResponse.json(
+        { equipment: mockEquipment, message: "Equipment created successfully" },
+        { status: 201 }
+      );
+    }
+    
+    // Real implementation for production
     const user = await getCurrentUser();
     
     if (!user) {
@@ -61,7 +305,7 @@ export async function POST(req: Request) {
     // Check if user is a renter (has rental history)
     const userRentals = await db.rental.count({
       where: {
-        renterId: user.id
+        renterid: user.id
       }
     });
     
@@ -83,14 +327,14 @@ export async function POST(req: Request) {
         category: validatedData.category,
         subcategory: validatedData.subcategory,
         location: validatedData.location,
-        hourlyRate: validatedData.hourlyRate,
-        dailyRate: validatedData.dailyRate,
-        weeklyRate: validatedData.weeklyRate,
-        securityDeposit: validatedData.securityDeposit,
-        tagsJson: validatedData.tagsJson,
-        imagesJson: validatedData.imagesJson,
-        isVerified: false,
-        isAvailable: true,
+        hourlyrate: validatedData.hourlyRate,
+        dailyrate: validatedData.dailyRate,
+        weeklyrate: validatedData.weeklyRate,
+        securitydeposit: validatedData.securityDeposit,
+        tagsjson: validatedData.tagsJson,
+        imagesjson: validatedData.imagesJson,
+        isverified: validatedData.isVerified,
+        isavailable: validatedData.isAvailable,
         ownerId: user.id,
       },
     });
@@ -117,6 +361,62 @@ export async function POST(req: Request) {
 
 export async function GET(req: Request) {
   try {
+    // For development, return mock data
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Using mock equipment data');
+      
+      const url = new URL(req.url);
+      const limit = Math.min(parseInt(url.searchParams.get("limit") || "10"), 50);
+      const page = Math.max(parseInt(url.searchParams.get("page") || "1"), 1);
+      const category = url.searchParams.get("category");
+      const search = url.searchParams.get("search")?.toLowerCase();
+      
+      // Simple filtering of mock data
+      let filteredEquipment = [...MOCK_EQUIPMENT];
+      
+      if (category) {
+        filteredEquipment = filteredEquipment.filter(item => item.category === category);
+      }
+      
+      if (search) {
+        filteredEquipment = filteredEquipment.filter(item => 
+          item.title.toLowerCase().includes(search) || 
+          item.description.toLowerCase().includes(search) ||
+          JSON.parse(item.tagsJson).some((tag: string) => tag.toLowerCase().includes(search))
+        );
+      }
+      
+      // Apply pagination
+      const start = (page - 1) * limit;
+      const end = start + limit;
+      const paginatedEquipment = filteredEquipment.slice(start, end);
+      
+      // Process equipment data
+      const processedEquipment = paginatedEquipment.map(item => ({
+        ...item,
+        images: JSON.parse(item.imagesJson),
+        tags: JSON.parse(item.tagsJson),
+        pricePerDay: item.dailyRate || 0
+      }));
+      
+      // Add a small delay to simulate database query
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      return NextResponse.json(
+        {
+          equipment: processedEquipment,
+          total: filteredEquipment.length,
+          page,
+          limit,
+          totalPages: Math.ceil(filteredEquipment.length / limit)
+        },
+        { 
+          status: 200,
+          headers: CACHE_CONTROL_HEADERS
+        }
+      );
+    }
+    
     const url = new URL(req.url);
     
     // Parse query parameters with defaults and validation
@@ -142,7 +442,7 @@ export async function GET(req: Request) {
     
     // Build the where clause
     const where: any = {
-      isAvailable: true,
+      isavailable: true,
     };
     
     if (category) {
@@ -196,7 +496,7 @@ export async function GET(req: Request) {
       // Generate enhanced search query for title, description, and tags
       const enhancedSearchQuery = generateEnhancedSearchQuery(
         search || '', 
-        ['title', 'description', 'tagsJson'],
+        ['title', 'description', 'tagsjson'],
         searchOptions
       );
       
@@ -232,13 +532,13 @@ export async function GET(req: Request) {
     }
     
     // Determine sort order
-    let orderBy: any = { createdAt: "desc" };
+    let orderBy: any = { createdat: "desc" };
     if (sortBy === "price_low") {
-      orderBy = { dailyRate: "asc" };
+      orderBy = { dailyrate: "asc" };
     } else if (sortBy === "price_high") {
-      orderBy = { dailyRate: "desc" };
+      orderBy = { dailyrate: "desc" };
     } else if (sortBy === "newest") {
-      orderBy = { createdAt: "desc" };
+      orderBy = { createdat: "desc" };
     }
     // For "relevance" and "distance", we'll sort in post-processing
     
@@ -253,18 +553,17 @@ export async function GET(req: Request) {
           id: true,
           title: true,
           description: true,
+          dailyrate: true,
+          createdat: true,
           category: true,
           subcategory: true,
           condition: true,
           location: true,
-          hourlyRate: true,
-          dailyRate: true,
-          weeklyRate: true,
-          imagesJson: true,
-          tagsJson: true,
+          hourlyrate: true,
+          imagesjson: true,
+          tagsjson: true,
           latitude: true,
           longitude: true,
-          createdAt: true,
           updatedAt: true,
           owner: {
             select: {
@@ -294,9 +593,9 @@ export async function GET(req: Request) {
       try {
         // Parse images JSON if it exists
         let images: string[] = [];
-        if (item.imagesJson) {
+        if (item.imagesjson) {
           try {
-            images = JSON.parse(item.imagesJson);
+            images = JSON.parse(item.imagesjson);
           } catch (e) {
             console.error("Error parsing images JSON:", e);
           }
@@ -304,9 +603,9 @@ export async function GET(req: Request) {
         
         // Parse tags JSON if it exists
         let tags: string[] = [];
-        if (item.tagsJson) {
+        if (item.tagsjson) {
           try {
-            tags = JSON.parse(item.tagsJson);
+            tags = JSON.parse(item.tagsjson);
           } catch (e) {
             console.error("Error parsing tags JSON:", e);
           }
@@ -316,7 +615,7 @@ export async function GET(req: Request) {
           ...item,
           images,
           tags,
-          pricePerDay: item.dailyRate || 0, // Add pricePerDay for EquipmentCard compatibility
+          pricePerDay: item.dailyrate || 0, // Add pricePerDay for EquipmentCard compatibility
         } as ProcessedEquipment;
       } catch (error) {
         console.error("Error processing equipment item:", error);
@@ -324,7 +623,7 @@ export async function GET(req: Request) {
           ...item,
           images: [],
           tags: [],
-          pricePerDay: item.dailyRate || 0,
+          pricePerDay: item.dailyrate || 0,
         } as ProcessedEquipment;
       }
     });
@@ -386,11 +685,17 @@ export async function GET(req: Request) {
         headers: noCache ? undefined : CACHE_CONTROL_HEADERS 
       }
     );
-  } catch (error) {
-    console.error("Error fetching equipment:", error);
-    return NextResponse.json(
-      { message: "Failed to fetch equipment" },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    console.error('Error processing request:', error instanceof Error ? error.message : String(error));
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
+}
+
+// Add types to comparison functions
+function compareByRelevance(a: SortableItem, b: SortableItem): number {
+  return (b.relevanceScore || 0) - (a.relevanceScore || 0);
+}
+
+function compareByPrice(a: SortableItem, b: SortableItem): number {
+  return a.pricePerDay - b.pricePerDay;
 } 

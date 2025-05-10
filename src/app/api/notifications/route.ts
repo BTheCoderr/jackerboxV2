@@ -3,7 +3,7 @@ import { getCurrentUser } from '@/lib/auth/session';
 import { db } from '@/lib/db';
 
 // GET /api/notifications - Get all notifications for the current user
-export async function GET() {
+export async function GET(request: Request) {
   const currentUser = await getCurrentUser();
   
   if (!currentUser) {
@@ -11,6 +11,20 @@ export async function GET() {
   }
   
   try {
+    // Get pagination parameters from URL
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '10');
+    const skip = (page - 1) * limit;
+
+    // Get total count for pagination
+    const total = await db.notification.count({
+      where: {
+        userId: currentUser.id,
+      },
+    });
+
+    // Get paginated notifications
     const notifications = await db.notification.findMany({
       where: {
         userId: currentUser.id,
@@ -18,9 +32,26 @@ export async function GET() {
       orderBy: {
         createdAt: "desc",
       },
+      skip,
+      take: limit,
+      select: {
+        id: true,
+        type: true,
+        data: true,
+        read: true,
+        createdAt: true,
+      },
     });
     
-    return NextResponse.json({ notifications });
+    return NextResponse.json({ 
+      notifications,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      }
+    });
   } catch (error) {
     console.error("Error fetching notifications:", error);
     return NextResponse.json(

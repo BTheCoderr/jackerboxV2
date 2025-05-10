@@ -249,3 +249,53 @@ The S3 service provides the following functions:
 - `copyObject(sourceKey, destinationKey)` - Copy an object within S3
 - `deleteFromS3(key)` - Delete an object from S3
 - `invalidateCloudFrontCache(paths)` - Invalidate CloudFront cache for specific paths
+
+## Payment System
+
+### Overview
+
+The application includes a complete payment system built on Stripe. Key features include:
+
+- Processing payments with Stripe PaymentIntent
+- Handling success, failure, and refund scenarios
+- Security deposit management
+- Webhook processing for real-time payment updates
+
+### Payment Service
+
+The `PaymentService` class (`src/lib/services/payment.ts`) provides the core functionality:
+
+- `createPaymentIntent` - Creates a new payment intent with Stripe
+- `handlePaymentSuccess` - Updates payment and rental records when payment succeeds
+- `handlePaymentFailure` - Handles failed payments
+- `refundPayment` - Processes refunds
+- `blockPayment` - Blocks problematic payments
+- `scheduleRetry` - Schedules payment retries
+
+### Webhook Handling
+
+The system includes a robust webhook handling system:
+
+- Production endpoint: `/api/webhooks/stripe`
+- Development testing endpoint: `/api/webhooks/stripe/dev`
+- Shared webhook handler logic in `src/lib/webhooks/stripe-webhook-handler.ts`
+
+### Testing
+
+To test the payment system:
+
+1. Visit `/admin/payment-test` (admin only) to create and process test payments
+2. Use the Stripe CLI to send test webhook events to the dev endpoint
+3. Run the test suite with `npm test` to verify payment functionality
+
+### Stripe Configuration
+
+Required environment variables:
+
+```
+STRIPE_SECRET_KEY=sk_test_your_key
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_your_key
+STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret
+```
+
+For production, use live keys instead of test keys.

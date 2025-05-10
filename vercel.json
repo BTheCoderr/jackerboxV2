@@ -42,5 +42,12 @@
         }
       ]
     }
-  ]
+  ],
+  "build": {
+    "env": {
+      "NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME": "@cloudinary_cloud_name",
+      "NEXT_PUBLIC_CLOUDINARY_API_KEY": "@cloudinary_api_key",
+      "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY": "@stripe_publishable_key"
+    }
+  }
 } 

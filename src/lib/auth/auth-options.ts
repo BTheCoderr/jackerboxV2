@@ -1,78 +1,78 @@
-import { PrismaAdapter } from "@auth/prisma-adapter";
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import AppleProvider from "next-auth/providers/apple";
+import { PrismaAdapter } from "@auth/prisma-adapter";
+import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-import { User } from "next-auth";
 
-import { db } from "@/lib/db";
-
-// Extend the User type to include our custom fields
-interface ExtendedUser extends User {
-  isAdmin?: boolean;
-  stripeConnectAccountId?: string;
-  userType?: string;
+// Extend the default NextAuth user session with our custom fields
+export interface ExtendedUser {
+  id: string;
+  name?: string | null;
+  email?: string | null;
+  image?: string | null;
+  isAdmin: boolean;
+  stripeConnectAccountId?: string | null;
+  userType?: string | null;
 }
 
-// Determine the base URL for callbacks
-const baseUrl = process.env.VERCEL_URL
-  ? `https://${process.env.VERCEL_URL}`
-  : process.env.NEXTAUTH_URL || "http://localhost:3000";
+// Base URL for callbacks
+const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+
+// Mock user in development mode
+const MOCK_USER = {
+  id: "mock_user_123",
+  name: "Mock User",
+  email: "user@example.com",
+  image: "https://i.pravatar.cc/150?img=3",
+  isAdmin: true,
+  userType: "both",
+  emailVerified: new Date().toISOString(),
+  idVerified: true,
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+};
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(db),
+  adapter: PrismaAdapter(prisma) as any, // Type assertion needed due to version mismatch
   session: {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
-    updateAge: 24 * 60 * 60, // 24 hours
   },
   pages: {
-    signIn: "/auth/login",
+    signIn: "/auth/signin",
     error: "/auth/error",
-    signOut: "/auth/logout",
   },
-  // Add debug mode for development only
   debug: process.env.NODE_ENV === "development",
   providers: [
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      authorization: {
-        params: {
-          prompt: "consent",
-          access_type: "offline",
-          response_type: "code"
-        }
-      }
+      clientId: process.env.GOOGLE_CLIENT_ID || "",
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
     }),
     AppleProvider({
-      clientId: process.env.APPLE_CLIENT_ID!,
-      clientSecret: process.env.APPLE_CLIENT_SECRET!,
+      clientId: process.env.APPLE_CLIENT_ID || "",
+      clientSecret: process.env.APPLE_CLIENT_SECRET || "",
     }),
     CredentialsProvider({
       name: "credentials",
       credentials: {
-        identifier: { label: "Email or Phone", type: "text" },
-        password: { label: "Password", type: "password" },
+        email: { label: "Email", type: "text" },
+        password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
-        if (!credentials?.identifier || !credentials?.password) {
-          throw new Error("Missing credentials");
+        if (!credentials?.email || !credentials?.password) {
+          return null;
         }
 
-        // Check if identifier is an email or phone number
-        const isEmail = credentials.identifier.includes('@');
-        
-        // Find user by email or phone
-        const user = await db.user.findFirst({
-          where: isEmail 
-            ? { email: credentials.identifier }
-            : { phone: credentials.identifier },
+        const user = await prisma.user.findUnique({
+          where: {
+            email: credentials.email
+          }
         });
 
         if (!user || !user.password) {
-          throw new Error("Invalid credentials");
+          return null;
         }
 
         const isPasswordValid = await bcrypt.compare(
@@ -81,42 +81,32 @@ export const authOptions: NextAuthOptions = {
         );
 
         if (!isPasswordValid) {
-          throw new Error("Invalid credentials");
+          return null;
         }
 
-        // Return user with the correct type
         return {
           id: user.id,
+          email: user.email,
           name: user.name,
-          email: user.email || "",
-          image: user.image,
-          isAdmin: !!(user as any).isAdmin,
-          stripeConnectAccountId: (user as any).stripeConnectAccountId || undefined,
-          userType: (user as any).userType || undefined,
-        } as ExtendedUser;
-      },
+          isAdmin: user.isAdmin,
+          idVerified: user.idVerified
+        };
+      }
     }),
   ],
   callbacks: {
     async session({ session, token }) {
-      if (token.sub && session.user) {
-        session.user.id = token.sub;
+      if (token && session.user) {
+        session.user.id = token.sub!;
         session.user.isAdmin = token.isAdmin as boolean;
-        session.user.stripeConnectAccountId = token.stripeConnectAccountId as string | undefined;
-        session.user.userType = token.userType as string | undefined;
+        session.user.idVerified = token.idVerified as boolean;
       }
       return session;
     },
-    async jwt({ token, user, account }) {
+    async jwt({ token, user }) {
       if (user) {
-        token.sub = user.id;
-        token.isAdmin = (user as ExtendedUser).isAdmin;
-        token.stripeConnectAccountId = (user as ExtendedUser).stripeConnectAccountId;
-        token.userType = (user as ExtendedUser).userType;
-      }
-      if (account) {
-        token.accessToken = account.access_token;
-        token.provider = account.provider;
+        token.isAdmin = user.isAdmin;
+        token.idVerified = user.idVerified;
       }
       return token;
     },
@@ -129,19 +119,18 @@ export const authOptions: NextAuthOptions = {
     },
   },
   events: {
-    async signIn({ user, account, profile, isNewUser }) {
-      if (isNewUser) {
-        // Handle new user signup
-        console.log("New user signed up:", user.email);
-      }
+    async signIn({ user }) {
+      // Log sign in event
+      console.log(`User signed in: ${user.email}`);
     },
-    async signOut({ token, session }) {
-      // Clean up any user-specific resources
-    },
-    async error(error) {
-      console.error("Auth error:", error);
+    async signOut({ token }) {
+      // Log sign out event
+      console.log(`User signed out: ${token.email}`);
     },
   },
   secret: process.env.NEXTAUTH_SECRET,
   trustHost: true,
+  jwt: {
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+  },
 }; 
