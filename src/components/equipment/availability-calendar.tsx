@@ -139,7 +139,7 @@ export function AvailabilityCalendar({
         : 'hover:bg-gray-100'
     }`;
   };
-  
+
   return (
     <div className="space-y-4">
       <Calendar
@@ -166,7 +166,7 @@ export function AvailabilityCalendar({
           {' to '}
           <span className="font-medium">
             {format(selectedRange.to, 'MMM d, yyyy')}
-          </span>
+                  </span>
         </div>
       )}
       

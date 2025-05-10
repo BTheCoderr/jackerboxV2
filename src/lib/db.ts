@@ -21,7 +21,7 @@ const QUERY_CACHE_ENABLED = process.env.NODE_ENV === 'production';
 function getDatabaseUrl() {
   // In development, override with local connection
   if (process.env.NODE_ENV === 'development') {
-    return 'postgresql://postgres:password@localhost:5432/jackerbox';
+    return 'postgresql://postgres:monkey2123@localhost:5432/jackerbox';
   }
   
   // If we have a direct database URL and need to use it for some reason, return it

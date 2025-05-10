@@ -7,7 +7,7 @@ import { RentalStatus } from '@prisma/client';
 
 // Initialize Stripe
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-02-24.acacia',
+  apiVersion: '2023-10-16',
 });
 
 // Helper to verify Stripe webhook signatures
@@ -216,35 +216,57 @@ async function handleChargeRefunded(charge: Stripe.Charge) {
 async function handleSetupIntentSucceeded(setupIntent: Stripe.SetupIntent) {
   logger.info(`Setup intent succeeded: ${setupIntent.id}`);
   
-  // Save the payment method to the user's account for future use
-  if (setupIntent.metadata.userId) {
-    try {
-      // Get the payment method
-      const paymentMethod = setupIntent.payment_method;
-      
-      if (paymentMethod && typeof paymentMethod === 'string') {
-        // Update user with the payment method ID
-        await db.user.update({
-          where: { id: setupIntent.metadata.userId },
-          data: { 
-            stripepaymentmethodid: paymentMethod,
-            updatedat: new Date()
-          }
-        });
-        
-        logger.info(`Saved payment method ${paymentMethod} for user ${setupIntent.metadata.userId}`);
-      }
-    } catch (err) {
-      logger.error(`Failed to save payment method: ${err}`);
-      // Continue processing even if payment method save fails
+  try {
+    // Skip processing if metadata is null
+    if (!setupIntent.metadata) {
+      logger.warn(`Setup intent ${setupIntent.id} has no metadata, skipping processing`);
+      return { success: true, message: 'Setup intent processed (no metadata)' };
     }
+    
+    // Check if this setup intent is for a rental
+    if (setupIntent.metadata.rentalId) {
+      // Get the rental details
+      const rental = await db.rental.findUnique({
+        where: { id: setupIntent.metadata.rentalId },
+        include: { 
+          renter: true,
+          equipment: true
+        }
+      });
+      
+      if (!rental) {
+        logger.error(`Rental not found for setup intent: ${setupIntent.id}`);
+        return { success: false, message: 'Rental not found' };
+      }
+      
+      // Update rental to indicate payment method is set up
+      await db.rental.update({
+        where: { id: setupIntent.metadata.rentalId },
+        data: {
+          paymentmethodsetup: true,
+          updatedat: new Date()
+        }
+      });
+      
+      // Create a notification for the equipment owner
+      await db.notification.create({
+        data: {
+          userid: rental.equipment.ownerid,
+          title: 'New Rental Payment Method Setup',
+          message: `A renter has set up their payment method for ${rental.equipment.title}`,
+          type: 'RENTAL_PAYMENT_METHOD',
+          data: { rentalId: setupIntent.metadata.rentalId },
+          read: false,
+          createdat: new Date()
+        }
+      });
+    }
+    
+    return { success: true, message: 'Setup intent processed successfully' };
+  } catch (error: any) {
+    logger.error(`Error processing setup intent: ${error.message}`, error);
+    throw error;
   }
-  
-  return { 
-    success: true, 
-    message: 'Setup intent processed successfully',
-    setupIntentId: setupIntent.id 
-  };
 }
 
 async function handlePaymentIntentCanceled(paymentIntent: Stripe.PaymentIntent) {

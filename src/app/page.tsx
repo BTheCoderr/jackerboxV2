@@ -136,7 +136,7 @@ export default function HomePage() {
     : (typeof EQUIPMENT_CATEGORIES === 'object' 
         ? Object.values(EQUIPMENT_CATEGORIES).slice(0, 6) as string[]
         : ["Construction Tools", "Power Tools", "Hand Tools", "Gardening & Landscaping", "Photography & Video", "Audio Equipment"]);
-
+  
   const fetchEquipment = async () => {
     try {
       const response = await fetch('/api/equipment');
@@ -174,8 +174,8 @@ export default function HomePage() {
               <Skeleton className="h-4 w-1/2 mt-2" />
             </Card>
           ))}
-        </div>
-      </div>
+                    </div>
+                      </div>
     );
   }
 
@@ -253,11 +253,11 @@ export default function HomePage() {
               
               <Link href={`/routes/equipment/${item.id}`}>
                 <Button variant="outline">View Details</Button>
-              </Link>
+                  </Link>
             </div>
           </Card>
         ))}
-      </div>
+          </div>
 
       {filteredEquipment.length === 0 && (
         <div className="text-center py-8">

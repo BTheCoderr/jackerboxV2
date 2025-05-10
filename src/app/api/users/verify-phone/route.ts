@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/auth-utils";
 import { db } from "@/lib/db";
 import { rateLimit } from "@/lib/upstash-rate-limit";
+import { verifyCode } from "@/lib/firebase-auth";
 
 // Schema for phone verification request
 const phoneVerificationSchema = z.object({
@@ -33,9 +34,18 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { phone, verificationId, code } = phoneVerificationSchema.parse(body);
     
-    // In a real implementation, we would verify the code with Firebase Admin SDK
-    // For this MVP, we'll simulate verification success
-    // TODO: Implement actual Firebase verification
+    // Implement actual Firebase verification
+    const verificationResult = await verifyCode(
+      { confirm: async (code: string) => ({ verificationId }) }, 
+      code
+    );
+    
+    if (!verificationResult.success) {
+      return NextResponse.json(
+        { message: "Invalid verification code" },
+        { status: 400 }
+      );
+    }
     
     // Check if the phone number matches the one in the user's record
     const currentUser = await db.user.findUnique({

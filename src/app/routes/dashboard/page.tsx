@@ -73,7 +73,7 @@ export default function DashboardPage() {
             <Skeleton key={i} className="h-48" />
           ))}
         </div>
-      </div>
+            </div>
     );
   }
 
@@ -111,11 +111,11 @@ export default function DashboardPage() {
                   <Badge className={getStatusColor(rental.status)}>
                     {rental.status}
                   </Badge>
-                </div>
-                
+          </div>
+
                 <p className="text-sm text-gray-600 mb-4">
-                  {new Date(rental.startDate).toLocaleDateString()} - {new Date(rental.endDate).toLocaleDateString()}
-                </p>
+                          {new Date(rental.startDate).toLocaleDateString()} - {new Date(rental.endDate).toLocaleDateString()}
+                        </p>
 
                 <Link href={`/routes/rentals/${rental.id}`}>
                   <Button variant="outline" className="w-full">
@@ -130,9 +130,9 @@ export default function DashboardPage() {
                 <p className="text-gray-500 mb-4">You haven't rented any equipment yet.</p>
                 <Link href="/routes/equipment">
                   <Button>Browse Equipment</Button>
-                </Link>
-              </div>
-            )}
+                  </Link>
+                </div>
+              )}
           </div>
         </TabsContent>
 
@@ -145,8 +145,8 @@ export default function DashboardPage() {
                   <Badge className={getStatusColor(equipment.status)}>
                     {equipment.status}
                   </Badge>
-                </div>
-                
+            </div>
+            
                 <p className="text-sm text-gray-600 mb-4 line-clamp-2">
                   {equipment.description}
                 </p>
@@ -177,6 +177,6 @@ export default function DashboardPage() {
           </div>
         </TabsContent>
       </Tabs>
-    </div>
-  );
+      </div>
+    );
 } 

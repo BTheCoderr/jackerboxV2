@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth-options';
 import { log, trackApiRequest, recordError } from '@/lib/monitoring';
-import { createWorker, PSM } from 'tesseract.js';
-import { prisma } from "@/lib/prisma";
+import type { Worker } from 'tesseract.js';
+import { createWorker } from 'tesseract.js';
+import { db } from "@/lib/db";
 
 /**
  * Enhanced ID verification API with secure document storage and OCR validation
@@ -29,32 +30,30 @@ export async function POST(request: Request) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // Initialize Tesseract worker
-    const worker = await createWorker('eng');
-    await worker.setParameters({
-      tessedit_char_whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
-      tessedit_pageseg_mode: PSM.SINGLE_BLOCK,
-    });
-
-    // Perform OCR
-    const { data: { text } } = await worker.recognize(buffer);
+    // Initialize Tesseract worker with proper typing
+    const worker = await createWorker();
+    
+    // Perform OCR - use the simplified API
+    const { data } = await worker.recognize(buffer);
+    const text = data.text;
     await worker.terminate();
 
     // Create verification request
-    const verificationRequest = await prisma.verificationRequest.create({
+    const verificationRequest = await db.verificationRequest.create({
       data: {
-        userid: session.user.id,
-        documenttype: "ID",
-        documenturl: "", // You would typically upload to secure storage and store URL
+        userId: session.user.id,
+        documentType: "ID",
+        documentUrl: "", // You would typically upload to secure storage and store URL
         notes: `OCR Text: ${text}`,
+        status: "PENDING"
       },
     });
 
     // Update user status
-    await prisma.user.update({
+    await db.user.update({
       where: { id: session.user.id },
       data: {
-        idverificationstatus: "PENDING",
+        idVerificationStatus: "PENDING",
       },
     });
 
@@ -100,12 +99,12 @@ export async function PUT(request: Request) {
     }
     
     // Check if the user is an admin
-    const adminUser = await prisma.user.findUnique({
+    const adminUser = await db.user.findUnique({
       where: { id: session.user.id },
-      select: { isadmin: true },
+      select: { isAdmin: true },
     });
     
-    if (!adminUser?.isadmin) {
+    if (!adminUser?.isAdmin) {
       return NextResponse.json(
         { error: 'Admin privileges required' },
         { status: 403 }
@@ -124,25 +123,25 @@ export async function PUT(request: Request) {
     }
     
     // Update user verification status
-    await prisma.user.update({
+    await db.user.update({
       where: { id: userId },
       data: {
-        idverificationstatus: approved ? 'VERIFIED' : 'REJECTED',
-        idverified: approved,
-        updatedat: new Date(),
+        idVerificationStatus: approved ? 'VERIFIED' : 'REJECTED',
+        idVerified: approved,
+        updatedAt: new Date(),
       },
     });
     
     // Update the verification request
-    await prisma.verificationRequest.updateMany({
+    await db.verificationRequest.updateMany({
       where: { 
-        userid: userId,
+        userId: userId,
         status: 'PENDING'
       },
       data: {
         status: approved ? 'APPROVED' : 'REJECTED',
-        processedat: new Date(),
-        processedby: session.user.id,
+        processedAt: new Date(),
+        processedBy: session.user.id,
         notes: notes || undefined,
       },
     });

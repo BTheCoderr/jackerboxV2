@@ -232,8 +232,8 @@ export default function EquipmentDetailPage() {
               fill
               className="object-cover"
             />
-          </div>
-
+      </div>
+      
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h1 className="text-2xl font-bold">{equipment.title}</h1>
@@ -246,14 +246,14 @@ export default function EquipmentDetailPage() {
 
             <div className="flex items-center space-x-4">
               <Avatar>
-                <Image
+                    <Image
                   src={equipment.owner.imageUrl || '/placeholder-avatar.png'}
                   alt={equipment.owner.name || 'Owner'}
                   width={40}
                   height={40}
                 />
               </Avatar>
-              <div>
+                <div>
                 <p className="font-medium">{equipment.owner.name}</p>
                 <p className="text-sm text-gray-500">Owner</p>
               </div>
@@ -273,7 +273,7 @@ export default function EquipmentDetailPage() {
             <h2 className="text-xl font-semibold mb-4">Book this equipment</h2>
             
             <AvailabilityCalendar
-              equipmentId={equipment.id}
+              equipmentId={equipment.id} 
               existingBookings={bookings}
               onDateSelect={handleDateSelect}
               minRentalDays={1}
@@ -293,24 +293,24 @@ export default function EquipmentDetailPage() {
                 <div className="flex justify-between font-semibold">
                   <span>Total</span>
                   <span>{formatPrice(totalPrice)}</span>
-                </div>
-
+        </div>
+        
                 <Button
                   onClick={handleBooking}
                   className="w-full"
                 >
                   Book Now
                 </Button>
-              </div>
-            )}
+                  </div>
+                )}
           </Card>
 
           {error && (
             <p className="text-sm text-red-600 mt-2">{error}</p>
-          )}
-        </div>
-      </div>
-
+                )}
+              </div>
+            </div>
+            
       <div className="mt-8">
         <Suspense fallback={<div>Loading actions...</div>}>
           <EquipmentActions 
@@ -318,16 +318,16 @@ export default function EquipmentDetailPage() {
             isOwner={currentUser?.id === equipment.owner.id} 
           />
         </Suspense>
-      </div>
+              </div>
 
       <div className="mt-8">
         <Suspense fallback={<div>Loading contact button...</div>}>
           <ContactOwnerButton 
             ownerId={equipment.owner.id}
-            equipmentId={equipment.id}
+                  equipmentId={equipment.id}
             equipmentTitle={equipment.title}
-          />
-        </Suspense>
+                />
+            </Suspense>
       </div>
     </div>
   );
