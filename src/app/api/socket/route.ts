@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSocketServerPort, initServer, getSocketServerStatus } from '@/lib/socket/server-init';
+import { Server } from "socket.io";
+import { redis } from "@/lib/redis";
 
 export const dynamic = 'force-dynamic';
 
@@ -19,218 +21,125 @@ setInterval(() => {
   });
 }, 30000); // Run every 30 seconds
 
+// This is a global instance to ensure we reuse the same socket.io server
+let io: Server;
+
 /**
  * This route acts as a proxy for the socket.io server.
  * In development, it redirects requests to the actual socket server running on a different port.
  * When the socket server is not available, it provides a fallback implementation.
  */
-export async function GET(request: NextRequest) {
+export async function GET(req: Request) {
+  // If socket.io server is already initialized, return early
+  if (io) {
+    return new NextResponse("Socket.io server is already running", {
+      status: 200,
+    });
+  }
+
   try {
-    // Try to initialize the socket server if it's not already running
-    try {
-      await initServer();
-    } catch (initError) {
-      console.error('Failed to initialize socket server:', initError);
-    }
+    // Get the Socket.io adapter for Redis
+    const createAdapter = (await import("@socket.io/redis-adapter")).createAdapter;
     
-    // Get the socket server port
-    const port = getSocketServerPort();
-    const status = getSocketServerStatus();
+    // Create Redis pub/sub clients
+    const pubClient = redis;
+    const subClient = redis.duplicate();
     
-    // Get request details
-    const searchParams = request.nextUrl.searchParams;
-    const sid = searchParams.get('sid');
-    const transport = searchParams.get('transport');
-    const eio = searchParams.get('EIO') || '4';
+    // Create a new Socket.io server
+    io = new Server({
+      path: "/api/socket",
+      addTrailingSlash: false,
+      cors: {
+        origin: "*",
+        methods: ["GET", "POST"],
+      },
+    });
     
-    // If socket server is not available, use fallback mode
-    if (!port || !status.initialized) {
-      console.log('Socket server not available, using fallback mode');
+    // Use Redis adapter for multi-instance support
+    io.adapter(createAdapter(pubClient, subClient));
+    
+    // Set up connection event
+    io.on("connection", (socket) => {
+      console.log("Client connected:", socket.id);
       
-      // Handle polling requests
-      if (transport === 'polling') {
-        // Initial handshake request (no sid)
-        if (!sid) {
-          // Generate a unique session ID for the client
-          const sessionId = `fallback-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
-          
-          // Create a new session
-          fallbackSessions[sessionId] = {
-            lastPing: Date.now(),
-            messages: [{ 
-              event: 'welcome', 
-              data: { message: 'Connected to fallback socket server' } 
-            }]
-          };
-          
-          // Return a Socket.IO handshake response
-          const response = `0{"sid":"${sessionId}","upgrades":[],"pingInterval":25000,"pingTimeout":20000,"maxPayload":1000000}`;
-          
-          return new NextResponse(response, { 
-            status: 200,
-            headers: {
-              'Content-Type': 'text/plain',
-              'Access-Control-Allow-Origin': '*',
-              'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-              'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-              'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-            }
-          });
-        } 
-        // Subsequent polling requests with an existing sid
-        else if (fallbackSessions[sid]) {
-          // Update last ping time
-          fallbackSessions[sid].lastPing = Date.now();
-          
-          // For GET requests, check if there are any messages to send
-          if (request.method === 'GET') {
-            const session = fallbackSessions[sid];
-            
-            if (session.messages.length > 0) {
-              // Format messages according to Socket.IO protocol
-              const messages = session.messages.map(msg => {
-                return `42["${msg.event}",${JSON.stringify(msg.data)}]`;
-              }).join('');
-              
-              // Clear the messages queue
-              session.messages = [];
-              
-              return new NextResponse(messages, { 
-                status: 200,
-                headers: {
-                  'Content-Type': 'text/plain',
-                  'Access-Control-Allow-Origin': '*',
-                  'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-                }
-              });
-            }
-            
-            // If no messages, send a NOOP packet (ping)
-            return new NextResponse('2', { 
-              status: 200,
-              headers: {
-                'Content-Type': 'text/plain',
-                'Access-Control-Allow-Origin': '*',
-                'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-              }
-            });
-          }
-        } 
-        // Unknown session
-        else {
-          return new NextResponse('Invalid session', { 
-            status: 400,
-            headers: {
-              'Access-Control-Allow-Origin': '*',
-              'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-              'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-            }
-          });
-        }
-      }
+      // Store the connection in Redis for tracking
+      redis.set(`socket:${socket.id}`, JSON.stringify({
+        id: socket.id,
+        connected: true,
+        timestamp: new Date().toISOString()
+      }));
       
-      // For non-polling requests in fallback mode
-      return new NextResponse('Socket server not available, use polling transport', { 
-        status: 503,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        }
+      // Handle events
+      socket.on("message", async (data) => {
+        console.log("Message received:", data);
+        
+        // Store message in Redis
+        await redis.lpush("messages", JSON.stringify({
+          ...data,
+          timestamp: new Date().toISOString(),
+          socketId: socket.id
+        }));
+        
+        // Broadcast to all clients
+        io.emit("message", data);
       });
-    }
+      
+      // Handle disconnection
+      socket.on("disconnect", () => {
+        console.log("Client disconnected:", socket.id);
+        redis.del(`socket:${socket.id}`);
+      });
+    });
     
-    // If socket server is available, proxy to it
-    // Get the hostname from the request
-    const hostname = request.headers.get('host')?.split(':')[0] || 'localhost';
+    // Start the Socket.io server
+    const httpServer = await import("http").then((module) => {
+      const server = module.createServer();
+      io.attach(server);
+      return server;
+    });
     
-    // Create the target URL for the socket server
-    const targetUrl = `http://${hostname}:${port}${request.nextUrl.pathname}${request.nextUrl.search}`;
+    // Start listening on a port
+    httpServer.listen(process.env.SOCKET_PORT || 3002);
     
-    console.log(`Socket proxy: Redirecting to ${targetUrl}`);
-    
-    // Return a redirect response
-    return NextResponse.redirect(targetUrl, 307);
+    return new NextResponse("Socket.io server started", {
+      status: 200,
+    });
   } catch (error) {
-    console.error('Error in socket proxy route:', error);
-    return new NextResponse('Internal Server Error', { 
+    console.error("Error starting Socket.io server:", error);
+    return new NextResponse(`Failed to start Socket.io server: ${error instanceof Error ? error.message : String(error)}`, {
       status: 500,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      }
     });
   }
 }
 
 // Handle POST requests (client sending data)
-export async function POST(request: NextRequest) {
+export async function POST(req: Request) {
   try {
-    // Get the socket server status
-    const port = getSocketServerPort();
-    const status = getSocketServerStatus();
+    const body = await req.json();
+    const { event, data } = body;
     
-    // Get request details
-    const searchParams = request.nextUrl.searchParams;
-    const sid = searchParams.get('sid');
-    const transport = searchParams.get('transport');
-    
-    // If socket server is not available and this is a polling request with a valid session
-    if ((!port || !status.initialized) && transport === 'polling' && sid && fallbackSessions[sid]) {
-      // Update last ping time
-      fallbackSessions[sid].lastPing = Date.now();
-      
-      try {
-        // Try to parse the message from the client
-        const body = await request.text();
-        
-        // Socket.IO message format: 42["event_name",{"data":"value"}]
-        const messageMatch = body.match(/^42\["([^"]+)",(.+)\]$/);
-        if (messageMatch) {
-          const event = messageMatch[1];
-          const data = JSON.parse(messageMatch[2]);
-          
-          console.log(`Fallback received message: ${event}`, data);
-          
-          // Handle test_message event
-          if (event === 'test_message') {
-            // Add a response message to the session
-            fallbackSessions[sid].messages.push({
-              event: 'test_response',
-              data: {
-                message: `Fallback server received: ${data.text}`,
-                timestamp: new Date().toISOString()
-              }
-            });
-          }
-        }
-      } catch (parseError) {
-        console.error('Error parsing client message:', parseError);
-      }
-      
-      // Acknowledge the message
-      return new NextResponse('40', { 
-        status: 200,
-        headers: {
-          'Content-Type': 'text/plain',
-          'Access-Control-Allow-Origin': '*',
-          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-        }
-      });
+    if (!event) {
+      return new NextResponse("Missing event name", { status: 400 });
     }
     
-    // If socket server is available, proxy to it
-    return GET(request);
+    // Store the event in Redis
+    await redis.lpush("events", JSON.stringify({
+      event,
+      data,
+      timestamp: new Date().toISOString()
+    }));
+    
+    // Emit the event to all connected clients
+    if (io) {
+      io.emit(event, data);
+      return new NextResponse(`Event ${event} emitted successfully`, { status: 200 });
+    } else {
+      return new NextResponse("Socket.io server not initialized", { status: 500 });
+    }
   } catch (error) {
-    console.error('Error in socket proxy route (POST):', error);
-    return new NextResponse('Internal Server Error', { 
+    console.error("Error processing socket event:", error);
+    return new NextResponse(`Failed to process socket event: ${error instanceof Error ? error.message : String(error)}`, {
       status: 500,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      }
     });
   }
 }

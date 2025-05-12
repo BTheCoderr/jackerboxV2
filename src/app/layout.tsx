@@ -14,7 +14,6 @@ import { InstallPrompt } from '@/components/pwa/InstallPrompt';
 import { SessionStateManager } from '@/lib/auth/session-fix';
 import { cn } from '@/lib/utils';
 import { ClientStatusIndicators } from '@/components/ClientStatusIndicators';
-import { MobileBottomNav } from "@/components/mobile/mobile-bottom-nav";
 import { ClientOnly } from "@/lib/utils/hydration-safe";
 
 export const metadata: Metadata = {

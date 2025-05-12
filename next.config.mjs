@@ -64,11 +64,27 @@ const config = {
         fs: false,
         net: false,
         tls: false,
-        crypto: false,
+        crypto: require.resolve('crypto-browserify'),
         os: false,
         path: false,
         child_process: false,
+        stream: require.resolve('stream-browserify'),
+        http: require.resolve('stream-http'),
+        https: require.resolve('https-browserify'),
+        zlib: require.resolve('browserify-zlib'),
+        util: require.resolve('util/'),
+        querystring: require.resolve('querystring-es3'),
+        url: require.resolve('url/'),
+        buffer: require.resolve('buffer/'),
       };
+      
+      // Add these plugins to handle Buffer and process references in client code
+      config.plugins.push(
+        new config.webpack.ProvidePlugin({
+          Buffer: ['buffer', 'Buffer'],
+          process: 'process/browser',
+        })
+      );
     }
 
     // Fix for chunk load errors: optimize chunks to avoid too many small chunks
@@ -134,12 +150,18 @@ const config = {
   },
   env: {
     // Only explicitly list allowed environment variables
-    NEXT_PUBLIC_DISABLE_SOCKET: 'true',
-    NEXTAUTH_URL: process.env.NEXTAUTH_URL,
+    NEXT_PUBLIC_DISABLE_SOCKET: 'false',
+    NEXTAUTH_URL: 'http://localhost:3001',
     NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
     GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
-    DATABASE_URL: process.env.DATABASE_URL
+    DATABASE_URL: process.env.DATABASE_URL,
+    // Upstash Redis configuration
+    KV_URL: process.env.KV_URL || 'rediss://default:AVL4AAIjcDExMjE2ZjY5ZTdmMmQ0NWI5OTg4YzNmYzU3NGEwNTdhYnAxMA@prime-ostrich-21240.upstash.io:6379',
+    KV_REST_API_TOKEN: process.env.KV_REST_API_TOKEN || 'AVL4AAIjcDExMjE2ZjY5ZTdmMmQ0NWI5OTg4YzNmYzU3NGEwNTdhYnAxMA',
+    KV_REST_API_READ_ONLY_TOKEN: process.env.KV_REST_API_READ_ONLY_TOKEN || 'AlL4AAIgcDG6Ii1i0y-BbpQgbe6Wwr6fZst5dlrMknb4_VXgvw9CGw',
+    KV_REST_API_URL: process.env.KV_REST_API_URL || 'https://prime-ostrich-21240.upstash.io',
+    REDIS_URL: process.env.REDIS_URL || 'rediss://default:AVL4AAIjcDExMjE2ZjY5ZTdmMmQ0NWI5OTg4YzNmYzU3NGEwNTdhYnAxMA@prime-ostrich-21240.upstash.io:6379',
   },
 };
 

@@ -38,7 +38,7 @@ export function LoginForm() {
     setError(null);
     
     try {
-      console.log("Signing in with:", data.identifier);
+      console.log("Attempting to sign in with:", data.identifier);
       const result = await signIn("credentials", {
         identifier: data.identifier,
         password: data.password,
@@ -47,9 +47,19 @@ export function LoginForm() {
       
       if (result?.error) {
         console.error("Login error:", result.error);
-        setError("Invalid email/phone or password");
+        
+        // Set a more specific error message based on the error
+        if (result.error.includes("Invalid credentials")) {
+          setError("Invalid email/phone or password. Please try again.");
+        } else if (result.error.includes("Missing credentials")) {
+          setError("Please enter both your email/phone and password.");
+        } else {
+          setError(`Authentication failed: ${result.error}`);
+        }
         return;
       }
+      
+      console.log("Login successful, redirecting...");
       
       // Add a small delay to ensure the session is updated
       setTimeout(() => {
@@ -58,7 +68,7 @@ export function LoginForm() {
       }, 500);
     } catch (error) {
       console.error("Login exception:", error);
-      setError("Something went wrong. Please try again.");
+      setError("Something went wrong. Please try again later.");
     } finally {
       setIsLoading(false);
     }

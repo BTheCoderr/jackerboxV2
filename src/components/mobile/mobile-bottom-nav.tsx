@@ -39,79 +39,59 @@ export function MobileBottomNav() {
     return null;
   }
 
+  // Create a function to determine if a link is active
+  const isActive = (path: string) => {
+    if (path === '/' && pathname === '/') {
+      return true;
+    }
+    if (path !== '/' && pathname?.startsWith(path)) {
+      return true;
+    }
+    return false;
+  };
+
   return (
     <div 
       className={cn(
-        "md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 z-40 transition-transform duration-300",
+        "md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 z-50 transition-transform duration-300 shadow-lg",
         isVisible ? "translate-y-0" : "translate-y-full"
       )}
     >
       <nav className="flex justify-around items-center h-16">
-        <Link 
-          href="/" 
-          className={cn(
-            "flex flex-col items-center justify-center w-full h-full text-xs",
-            pathname === '/' 
-              ? "text-blue-600 dark:text-blue-400" 
-              : "text-gray-500 dark:text-gray-400"
-          )}
-        >
-          <Home size={20} />
-          <span className="mt-1">Home</span>
-        </Link>
-        
-        <Link 
-          href="/routes/equipment" 
-          className={cn(
-            "flex flex-col items-center justify-center w-full h-full text-xs",
-            pathname?.startsWith('/routes/equipment') 
-              ? "text-blue-600 dark:text-blue-400" 
-              : "text-gray-500 dark:text-gray-400"
-          )}
-        >
-          <Search size={20} />
-          <span className="mt-1">Equipment</span>
-        </Link>
-        
-        <Link 
-          href="/routes/dashboard/rentals" 
-          className={cn(
-            "flex flex-col items-center justify-center w-full h-full text-xs",
-            pathname?.startsWith('/routes/dashboard/rentals') 
-              ? "text-blue-600 dark:text-blue-400" 
-              : "text-gray-500 dark:text-gray-400"
-          )}
-        >
-          <Calendar size={20} />
-          <span className="mt-1">Rentals</span>
-        </Link>
-        
-        <Link 
-          href="/routes/messages" 
-          className={cn(
-            "flex flex-col items-center justify-center w-full h-full text-xs",
-            pathname?.startsWith('/routes/messages') 
-              ? "text-blue-600 dark:text-blue-400" 
-              : "text-gray-500 dark:text-gray-400"
-          )}
-        >
-          <MessageSquare size={20} />
-          <span className="mt-1">Messages</span>
-        </Link>
-        
-        <Link 
+        <NavLink href="/" isActive={isActive('/')} label="Home" icon={<Home size={20} />} />
+        <NavLink href="/routes/equipment" isActive={isActive('/routes/equipment')} label="Equipment" icon={<Search size={20} />} />
+        <NavLink href="/routes/dashboard/rentals" isActive={isActive('/routes/dashboard/rentals')} label="Rentals" icon={<Calendar size={20} />} />
+        <NavLink href="/routes/messages" isActive={isActive('/routes/messages')} label="Messages" icon={<MessageSquare size={20} />} />
+        <NavLink 
           href={session ? "/routes/profile/settings" : "/auth/login"} 
-          className={cn(
-            "flex flex-col items-center justify-center w-full h-full text-xs",
-            pathname?.startsWith('/routes/profile/settings') 
-              ? "text-blue-600 dark:text-blue-400" 
-              : "text-gray-500 dark:text-gray-400"
-          )}
-        >
-          <Settings size={20} />
-          <span className="mt-1">Settings</span>
-        </Link>
+          isActive={isActive('/routes/profile/settings')}
+          label="Settings"
+          icon={<Settings size={20} />}
+        />
       </nav>
     </div>
+  );
+}
+
+// Helper component for nav links
+function NavLink({ href, isActive, label, icon }: { 
+  href: string; 
+  isActive: boolean; 
+  label: string; 
+  icon: React.ReactNode 
+}) {
+  return (
+    <Link 
+      href={href} 
+      className={cn(
+        "flex flex-col items-center justify-center w-full h-full text-xs transition-colors duration-200",
+        isActive
+          ? "text-blue-600 dark:text-blue-400" 
+          : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300"
+      )}
+    >
+      {icon}
+      <span className="mt-1">{label}</span>
+    </Link>
   );
 } 

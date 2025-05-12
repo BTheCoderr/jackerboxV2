@@ -7,8 +7,8 @@ import {
   PaymentElement,
   useStripe,
   useElements,
-  Elements,
 } from "@stripe/react-stripe-js";
+import { Elements } from "@stripe/react-stripe-js";
 import { getStripe } from "@/lib/stripe-client";
 import { formatAmountFromStripe } from "@/lib/stripe";
 import { Loader2 } from "lucide-react";

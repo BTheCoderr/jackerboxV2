@@ -18,7 +18,7 @@ interface ExtendedUser extends User {
 // Determine the base URL for callbacks
 const baseUrl = process.env.VERCEL_URL
   ? `https://${process.env.VERCEL_URL}`
-  : process.env.NEXTAUTH_URL || "http://localhost:3000";
+  : process.env.NEXTAUTH_URL || "http://localhost:3001";
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(db),
@@ -44,11 +44,13 @@ export const authOptions: NextAuthOptions = {
           access_type: "offline",
           response_type: "code"
         }
-      }
+      },
+      callbackUrl: `${baseUrl}/api/auth/callback/google`
     }),
     AppleProvider({
       clientId: process.env.APPLE_CLIENT_ID!,
       clientSecret: process.env.APPLE_CLIENT_SECRET!,
+      callbackUrl: `${baseUrl}/api/auth/callback/apple`
     }),
     CredentialsProvider({
       name: "credentials",
@@ -61,39 +63,48 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Missing credentials");
         }
 
-        // Check if identifier is an email or phone number
-        const isEmail = credentials.identifier.includes('@');
-        
-        // Find user by email or phone
-        const user = await db.user.findFirst({
-          where: isEmail 
-            ? { email: credentials.identifier }
-            : { phone: credentials.identifier },
-        });
+        try {
+          // Check if identifier is an email or phone number
+          const isEmail = credentials.identifier.includes('@');
+          
+          // Find user by email or phone
+          const user = await db.user.findFirst({
+            where: isEmail 
+              ? { email: credentials.identifier }
+              : { phone: credentials.identifier },
+          });
 
-        if (!user || !user.password) {
-          throw new Error("Invalid credentials");
+          if (!user || !user.password) {
+            console.log(`User not found for identifier: ${credentials.identifier}`);
+            throw new Error("Invalid credentials");
+          }
+
+          const isPasswordValid = await bcrypt.compare(
+            credentials.password,
+            user.password
+          );
+
+          if (!isPasswordValid) {
+            console.log(`Invalid password for user: ${user.email}`);
+            throw new Error("Invalid credentials");
+          }
+
+          console.log(`User authenticated successfully: ${user.email}`);
+          
+          // Return user with the correct type
+          return {
+            id: user.id,
+            name: user.name,
+            email: user.email || "",
+            image: user.image,
+            isAdmin: user.isAdmin || false,
+            stripeConnectAccountId: user.stripeConnectAccountId || undefined,
+            userType: user.userType || "both",
+          };
+        } catch (error) {
+          console.error("Authentication error:", error);
+          throw new Error("Authentication failed");
         }
-
-        const isPasswordValid = await bcrypt.compare(
-          credentials.password,
-          user.password
-        );
-
-        if (!isPasswordValid) {
-          throw new Error("Invalid credentials");
-        }
-
-        // Return user with the correct type
-        return {
-          id: user.id,
-          name: user.name,
-          email: user.email || "",
-          image: user.image,
-          isAdmin: !!(user as any).isAdmin,
-          stripeConnectAccountId: (user as any).stripeConnectAccountId || undefined,
-          userType: (user as any).userType || undefined,
-        } as ExtendedUser;
       },
     }),
   ],

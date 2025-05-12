@@ -94,220 +94,167 @@ export function useSocket(options: UseSocketOptions = {}): UseSocketReturn {
       return;
     }
 
-    // Check for development mode and socket server running
-    if (process.env.NODE_ENV === 'development') {
-      // For development environments, set dummy connection state
-      // to prevent WebSocket connection errors
-      setStatus('connected');
-      console.log('Socket connections in development mode - using mock connection');
-      return;
-    }
-
-    // Prevent multiple connection attempts
-    if (isConnectingRef.current || socketRef.current) {
-      return;
-    }
-    
-    isConnectingRef.current = true;
-    setStatus('connecting');
-    console.log('Connecting to socket server...');
-
-    try {
-      // Determine environment
-      const isDevelopment = process.env.NODE_ENV === 'development';
-      console.log('Environment detected:', isDevelopment ? 'development' : 'production');
-
-      // Configure socket connection
-      let socketUrl: string;
-      let socketPath: string | undefined;
-
-      if (isDevelopment) {
-        // In development, connect directly to the socket server
-        socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3002';
-        socketPath = '/socket.io';
-        console.log(`Development mode: Connecting directly to socket server at ${socketUrl} with path ${socketPath}`);
-      } else {
-        // In production, use the same domain with the /socket.io path
-        socketUrl = window.location.origin;
-        socketPath = '/socket.io';
-        console.log(`Production mode: Connecting to socket server at ${socketUrl} with path ${socketPath}`);
-      }
-
-      console.log(`Using base URL: ${socketUrl} with path: ${socketPath}`);
-
-      // Create socket instance with reconnection options
-      const socketInstance = io(socketUrl, {
-        path: socketPath,
-        reconnection: true,
-        reconnectionAttempts,
-        reconnectionDelay,
-        timeout: 10000,
-        autoConnect: true,
-        withCredentials: true,
-        auth: session ? { token: session.user?.id } : undefined,
-        transports: ['websocket', 'polling'],
-      });
-
-      // Set up event listeners
-      socketInstance.on('connect', () => {
-        console.log('Socket connected successfully');
-        console.log('Socket ID:', socketInstance.id);
-        console.log('Transport:', socketInstance.io.engine.transport.name);
-        
-        isConnectingRef.current = false;
-        reconnectAttemptsRef.current = 0;
-        setStatus('connected');
-        setError(null);
-        setIsReady(true);
-        
-        if (onConnect) {
-          onConnect();
+    // For production environment, use the real socket connection
+    // This uses the Upstash Redis connection
+    if (process.env.NODE_ENV === 'production') {
+      try {
+        // Skip connection attempts if already connecting or connected
+        if (isConnectingRef.current || socketRef.current) {
+          return;
         }
-      });
 
-      socketInstance.on('connect_error', (err) => {
-        console.error('Socket connection error:', err.message);
+        isConnectingRef.current = true;
+        setStatus('connecting');
         
-        if (status !== 'error') {
-          setStatus('error');
-          setError(new Error(`Connection error: ${err.message}`));
+        // Use upstash Redis URL from environment variables
+        const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || window.location.origin;
+        
+        const socket = io(socketUrl, {
+          path: '/api/socket',
+          reconnectionAttempts: 5,
+          reconnectionDelay: 1000,
+          timeout: 20000,
+        });
+        
+        // Set up event listeners
+        socket.on('connect', () => {
+          console.log('Socket connected successfully');
+          console.log('Socket ID:', socket.id);
+          console.log('Transport:', socket.io.engine.transport.name);
+          
+          isConnectingRef.current = false;
+          reconnectAttemptsRef.current = 0;
+          setStatus('connected');
+          setError(null);
+          setIsReady(true);
+          
+          if (onConnect) {
+            onConnect();
+          }
+        });
+
+        socket.on('connect_error', (err) => {
+          console.error('Socket connection error:', err.message);
+          
+          if (status !== 'error') {
+            setStatus('error');
+            setError(new Error(`Connection error: ${err.message}`));
+            
+            if (onError) {
+              onError(new Error(`Connection error: ${err.message}`));
+            }
+          }
+          
+          // Don't set isConnecting to false here to allow reconnection
+        });
+
+        socket.on('disconnect', (reason) => {
+          console.log('Socket disconnected:', reason);
+          
+          if (reason === 'io server disconnect' || reason === 'io client disconnect') {
+            // The server/client has forcefully disconnected the socket
+            isConnectingRef.current = false;
+            setStatus('disconnected');
+            setIsReady(false);
+          } else {
+            // Socket will automatically try to reconnect
+            setStatus('reconnecting');
+          }
+          
+          if (onDisconnect) {
+            onDisconnect(reason);
+          }
+        });
+
+        socket.on('reconnect', (attempt) => {
+          console.log(`Socket reconnected after ${attempt} attempts`);
+          setStatus('connected');
+          setError(null);
+          
+          if (onReconnect) {
+            onReconnect();
+          }
+        });
+
+        socket.on('reconnect_attempt', (attempt) => {
+          console.log(`Socket reconnection attempt ${attempt}/${reconnectionAttempts}`);
+          
+          if (onReconnectAttempt) {
+            onReconnectAttempt(attempt);
+          }
+        });
+
+        socket.on('reconnect_error', (err) => {
+          console.error('Socket reconnection error:', err);
           
           if (onError) {
-            onError(new Error(`Connection error: ${err.message}`));
+            onError(new Error(`Reconnection error: ${err.message}`));
           }
-        }
-        
-        // Don't set isConnecting to false here to allow reconnection
-      });
+        });
 
-      socketInstance.on('disconnect', (reason) => {
-        console.log('Socket disconnected:', reason);
-        
-        if (reason === 'io server disconnect' || reason === 'io client disconnect') {
-          // The server/client has forcefully disconnected the socket
+        socket.on('reconnect_failed', () => {
+          console.error('Socket reconnection failed after all attempts');
           isConnectingRef.current = false;
-          setStatus('disconnected');
-          setIsReady(false);
-        } else {
-          // Socket will automatically try to reconnect
-          setStatus('reconnecting');
-        }
-        
-        if (onDisconnect) {
-          onDisconnect(reason);
-        }
-      });
-
-      socketInstance.on('reconnect', (attempt) => {
-        console.log(`Socket reconnected after ${attempt} attempts`);
-        setStatus('connected');
-        setError(null);
-        
-        if (onReconnect) {
-          onReconnect();
-        }
-      });
-
-      socketInstance.on('reconnect_attempt', (attempt) => {
-        console.log(`Socket reconnection attempt ${attempt}/${reconnectionAttempts}`);
-        
-        if (onReconnectAttempt) {
-          onReconnectAttempt(attempt);
-        }
-      });
-
-      socketInstance.on('reconnect_error', (err) => {
-        console.error('Socket reconnection error:', err);
-        
-        if (onError) {
-          onError(new Error(`Reconnection error: ${err.message}`));
-        }
-      });
-
-      socketInstance.on('reconnect_failed', () => {
-        console.error('Socket reconnection failed after all attempts');
-        isConnectingRef.current = false;
-        setStatus('error');
-        setError(new Error('Failed to reconnect after multiple attempts'));
-        
-        if (onReconnectFailed) {
-          onReconnectFailed();
-        }
-      });
-
-      socketInstance.on('error', (err) => {
-        console.error('Socket error:', err);
-        setError(new Error(`Socket error: ${err.message}`));
-        
-        if (onError) {
-          onError(new Error(`Socket error: ${err.message}`));
-        }
-      });
-
-      // Handle transport upgrade
-      socketInstance.io.engine.on('upgrade', (transport) => {
-        console.log('Transport upgraded to:', transport);
-      });
-
-      // Store socket instance
-      socketRef.current = socketInstance;
-      setSocket(socketInstance);
-      
-      // Return cleanup function
-      return () => {
-        if (socketRef.current) {
-          console.log('Cleaning up socket connection');
-          
-          // Unsubscribe from all events
-          eventsRef.current.forEach((event) => {
-            socketRef.current?.off(event);
-          });
-          
-          // Disconnect socket
-          socketRef.current.disconnect();
-          socketRef.current = null;
-          setSocket(null);
-          setStatus('disconnected');
-          setIsReady(false);
-          isConnectingRef.current = false;
-        }
-        
-        // Clear any pending reconnect timers
-        if (reconnectTimerRef.current) {
-          clearTimeout(reconnectTimerRef.current);
-          reconnectTimerRef.current = null;
-        }
-      };
-    } catch (err) {
-      console.error('Error initializing socket:', err);
-      isConnectingRef.current = false;
-      setStatus('error');
-      setError(err instanceof Error ? err : new Error('Failed to initialize socket'));
-      
-      if (onError) {
-        onError(err instanceof Error ? err : new Error('Failed to initialize socket'));
-      }
-      
-      // Try to reconnect after a delay
-      reconnectTimerRef.current = setTimeout(() => {
-        if (reconnectAttemptsRef.current < reconnectionAttempts) {
-          reconnectAttemptsRef.current++;
-          console.log(`Attempting to reconnect (${reconnectAttemptsRef.current}/${reconnectionAttempts})...`);
-          initSocket();
-        } else {
-          console.error('Failed to connect after multiple attempts');
+          setStatus('error');
+          setError(new Error('Failed to reconnect after multiple attempts'));
           
           if (onReconnectFailed) {
             onReconnectFailed();
           }
-        }
-      }, reconnectionDelay);
-      
-      return () => {
-        if (reconnectTimerRef.current) {
-          clearTimeout(reconnectTimerRef.current);
-        }
-      };
+        });
+
+        socket.on('error', (err) => {
+          console.error('Socket error:', err);
+          setError(new Error(`Socket error: ${err.message}`));
+          
+          if (onError) {
+            onError(new Error(`Socket error: ${err.message}`));
+          }
+        });
+
+        // Handle transport upgrade
+        socket.io.engine.on('upgrade', (transport) => {
+          console.log('Transport upgraded to:', transport);
+        });
+
+        // Store socket instance
+        socketRef.current = socket;
+        setSocket(socket);
+        
+        // Return cleanup function
+        return () => {
+          if (socketRef.current) {
+            console.log('Cleaning up socket connection');
+            
+            // Unsubscribe from all events
+            eventsRef.current.forEach((event) => {
+              socketRef.current?.off(event);
+            });
+            
+            // Disconnect socket
+            socketRef.current.disconnect();
+            socketRef.current = null;
+            setSocket(null);
+            setStatus('disconnected');
+            setIsReady(false);
+            isConnectingRef.current = false;
+          }
+          
+          // Clear any pending reconnect timers
+          if (reconnectTimerRef.current) {
+            clearTimeout(reconnectTimerRef.current);
+            reconnectTimerRef.current = null;
+          }
+        };
+      } catch (error) {
+        console.error('Socket connection error:', error);
+        setStatus('error');
+        isConnectingRef.current = false;
+      }
+    } else {
+      // For development, use a simulated connection to avoid console warnings
+      setStatus('connected');
+      setIsReady(true);
     }
   }, [
     session,
