@@ -105,3 +105,9 @@ public/worker-*.js.map
 *.gz
 *.rar
 *.7z
+
+# Env files
+.env
+.env.local
+.env.production
+.env.neon
