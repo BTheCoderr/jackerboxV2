@@ -1,52 +1,69 @@
-import dotenv from 'dotenv';
-import { v2 as cloudinary } from 'cloudinary';
+#!/usr/bin/env node
+/**
+ * Cloudinary Test Script for JackerBox
+ * 
+ * This script tests the Cloudinary connection and upload capabilities
+ * 
+ * Run with: node scripts/test-cloudinary.js
+ */
 
-// Load environment variables
-dotenv.config();
+const { v2: cloudinary } = require('cloudinary');
+const fs = require('fs');
+const path = require('path');
+require('dotenv').config();
 
-// Configure Cloudinary
-cloudinary.config({
-  cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-  secure: true,
-});
+const BRIGHT_GREEN = '\x1b[32m';
+const BRIGHT_RED = '\x1b[31m';
+const BRIGHT_YELLOW = '\x1b[33m';
+const RESET = '\x1b[0m';
+
+// Helper function to log with color
+function log(message, type = 'info') {
+  const color = type === 'success' ? BRIGHT_GREEN : type === 'error' ? BRIGHT_RED : BRIGHT_YELLOW;
+  console.log(`${color}${message}${RESET}`);
+}
 
 async function testCloudinaryConnection() {
-  console.log('Testing Cloudinary connection...');
-  console.log('Environment variables:');
-  console.log('- NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME:', process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ? '✓ Set' : '✗ Not set');
-  console.log('- CLOUDINARY_API_KEY:', process.env.CLOUDINARY_API_KEY ? '✓ Set' : '✗ Not set');
-  console.log('- CLOUDINARY_API_SECRET:', process.env.CLOUDINARY_API_SECRET ? '✓ Set' : '✗ Not set');
+  log('🧪 CLOUDINARY CONNECTION TEST 🧪', 'info');
+  log('===============================', 'info');
   
   try {
-    // Test the connection by getting account info
-    const result = await cloudinary.api.ping();
-    console.log('\n✅ Cloudinary connection successful!');
-    console.log('Response:', result);
+    log('Initializing Cloudinary client...', 'info');
     
-    // Get account usage info
-    const usage = await cloudinary.api.usage();
-    console.log('\nAccount Usage:');
-    console.log('- Plan:', usage.plan);
-    console.log('- Credits used:', usage.credits.used);
-    console.log('- Resources:', usage.resources);
-    console.log('- Transformations:', usage.transformations);
-    console.log('- Objects:', usage.objects);
+    // Configure Cloudinary with the provided credentials
+    cloudinary.config({
+      cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'jackerbox',
+      api_key: process.env.CLOUDINARY_API_KEY || '646841252992477',
+      api_secret: process.env.CLOUDINARY_API_SECRET || 'Zxu873QWGlD6cYq2gB9cqFO6wG0',
+      secure: true
+    });
     
-    return true;
+    log('Cloudinary configured!', 'info');
+    
+    // Ping Cloudinary to verify the connection
+    log('Pinging Cloudinary API...', 'info');
+    const pingResult = await cloudinary.api.ping();
+    
+    if (pingResult.status !== 'ok') {
+      throw new Error(`Ping failed with status: ${pingResult.status}`);
+    }
+    
+    log('Ping successful! Cloudinary API is accessible.', 'success');
+    
+    // Get account information
+    log('Fetching account info...', 'info');
+    const accountInfo = await cloudinary.api.usage();
+    log('Account info retrieved successfully:', 'success');
+    log(`- Plan: ${accountInfo.plan}`, 'info');
+    log(`- Last updated: ${accountInfo.last_updated}`, 'info');
+    
+    log('\n✅ Cloudinary connection test passed successfully!', 'success');
   } catch (error) {
-    console.error('\n❌ Cloudinary connection failed:');
-    console.error(error.message);
-    
-    console.log('\nTroubleshooting tips:');
-    console.log('1. Check that your Cloudinary credentials are correct in your .env file');
-    console.log('2. Verify that your Cloudinary account is active');
-    console.log('3. Make sure you have internet connectivity');
-    console.log('4. Check if your Cloudinary plan has any restrictions');
-    
-    return false;
+    log(`\n❌ Cloudinary connection test failed: ${error.message}`, 'error');
+    console.error(error);
+    process.exit(1);
   }
 }
 
+// Run the main function
 testCloudinaryConnection(); 
