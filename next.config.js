@@ -45,7 +45,7 @@ const config = {
   // This prevents "Dynamic server usage" errors during build
   staticPageGenerationTimeout: 1000,
   // External packages configuration
-  serverExternalPackages: ['bcrypt'],
+  serverExternalPackages: ['bcrypt', 'cloudinary'],
   // Add this to handle dynamic server usage errors
   serverRuntimeConfig: {
     // Will only be available on the server side
@@ -55,7 +55,7 @@ const config = {
     // Will be available on both server and client
     staticFolder: '/static',
   },
-  // Minimal webpack configuration for Vercel deployment
+  // Enhanced webpack configuration for Vercel deployment
   webpack: (config, { isServer }) => {
     // Only add fallbacks for client-side bundles
     if (!isServer) {
@@ -67,11 +67,37 @@ const config = {
         crypto: false,
         stream: false,
         buffer: false,
+        http: false,
+        https: false,
+        zlib: false,
+        path: false,
+        os: false,
+        child_process: false,
       };
     }
     
     // Add external modules that should not be bundled
-    config.externals = [...config.externals, 'bcrypt'];
+    config.externals = [
+      ...(config.externals || []),
+      'bcrypt',
+      ...(isServer ? ['cloudinary'] : []),
+    ];
+    
+    // Ensure Next.js doesn't attempt to bundle native Node.js modules on the client
+    if (!isServer) {
+      // Mark certain packages as external when they're imported in client components
+      config.module = {
+        ...config.module,
+        rules: [
+          ...(config.module?.rules || []),
+          {
+            test: /node_modules\/cloudinary/,
+            use: 'null-loader',
+          },
+        ],
+      };
+    }
+    
     return config;
   },
   env: {
