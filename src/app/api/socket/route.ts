@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSocketServerPort, initServer, getSocketServerStatus } from '@/lib/socket/server-init';
 import { Server } from "socket.io";
 import { redis } from "@/lib/redis";
+import { Redis } from '@upstash/redis';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,7 +29,7 @@ let io: Server;
  * In development, it redirects requests to the actual socket server running on a different port.
  * When the socket server is not available, it provides a fallback implementation.
  */
-export async function GET(req: Request) {
+export async function GET(_req: Request) {
   // If socket.io server is already initialized, return early
   if (io) {
     return new NextResponse("Socket.io server is already running", {
@@ -43,7 +43,11 @@ export async function GET(req: Request) {
     
     // Create Redis pub/sub clients
     const pubClient = redis;
-    const subClient = redis.duplicate();
+    // Create a new Redis client for the sub client instead of using duplicate
+    const subClient = new Redis({
+      url: process.env.KV_REST_API_URL || 'https://prime-ostrich-21240.upstash.io',
+      token: process.env.KV_REST_API_TOKEN || 'AVL4AAIjcDExMjE2ZjY5ZTdmMmQ0NWI5OTg4YzNmYzU3NGEwNTdhYnAxMA',
+    });
     
     // Create a new Socket.io server
     io = new Server({
@@ -144,7 +148,7 @@ export async function POST(req: Request) {
   }
 }
 
-export async function OPTIONS(request: NextRequest) {
+export async function OPTIONS(_request: NextRequest) {
   return new NextResponse(null, {
     status: 204,
     headers: {

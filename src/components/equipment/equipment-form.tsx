@@ -10,7 +10,7 @@ import { EQUIPMENT_CATEGORIES, EQUIPMENT_CONDITIONS } from "@/lib/constants";
 import { useCloudinaryUpload } from "@/hooks/use-cloudinary-upload";
 
 // Minimum number of required images
-const MIN_REQUIRED_IMAGES = 7;
+const MIN_REQUIRED_IMAGES = 5;
 
 const equipmentSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters"),
@@ -58,13 +58,13 @@ export function EquipmentForm({
   });
   const router = useRouter();
   const [uploadProgress, setUploadProgress] = useState<number[]>([]);
-  const { upload, uploading } = useCloudinaryUpload();
+  const { upload } = useCloudinaryUpload();
 
   const {
     register,
     handleSubmit,
     formState: { errors },
-    setValue,
+    setValue: _setValue,
   } = useForm<EquipmentFormValues>({
     resolver: zodResolver(equipmentSchema),
     defaultValues: initialData
