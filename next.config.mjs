@@ -55,9 +55,9 @@ const config = {
     // Will be available on both server and client
     staticFolder: '/static',
   },
-  // Add webpack configuration to handle Node.js modules
-  webpack: (config, { isServer, dev }) => {
-    // If it's a client-side bundle, add fallbacks for Node.js modules
+  // Simplified webpack configuration for Vercel deployment
+  webpack: (config, { isServer }) => {
+    // Only add fallbacks for client-side bundles
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
@@ -65,20 +65,10 @@ const config = {
         net: false,
         tls: false,
         crypto: require.resolve('crypto-browserify'),
-        os: false,
-        path: false,
-        child_process: false,
         stream: require.resolve('stream-browserify'),
-        http: require.resolve('stream-http'),
-        https: require.resolve('https-browserify'),
-        zlib: require.resolve('browserify-zlib'),
-        util: require.resolve('util/'),
-        querystring: require.resolve('querystring-es3'),
-        url: require.resolve('url/'),
         buffer: require.resolve('buffer/'),
       };
       
-      // Add these plugins to handle Buffer and process references in client code
       config.plugins.push(
         new config.webpack.ProvidePlugin({
           Buffer: ['buffer', 'Buffer'],
@@ -86,65 +76,8 @@ const config = {
         })
       );
     }
-
-    // Fix for chunk load errors: optimize chunks to avoid too many small chunks
-    if (!isServer) {
-      // Modify chunking strategy
-      config.optimization.splitChunks = {
-        chunks: 'all',
-        cacheGroups: {
-          default: false, // Disable default cache groups
-          defaultVendors: false, // Disable default vendor groups
-          framework: {
-            name: 'framework',
-            chunks: 'all',
-            // Include React, Next.js, and other framework code
-            test: /[\\/]node_modules[\\/](react|react-dom|scheduler|next|@next)[\\/]/,
-            priority: 40,
-            // Don't create too many chunks
-            enforce: true,
-          },
-          commons: {
-            name: 'commons',
-            chunks: 'all',
-            // Match any file from node_modules
-            test: /[\\/]node_modules[\\/]/,
-            // Set a minimum size (in bytes) to avoid too many small chunks
-            minSize: 20000,
-            priority: 30,
-          },
-        },
-      };
-
-      // Increase max initial chunk size to avoid creating too many chunks
-      config.optimization.runtimeChunk = { name: 'runtime' };
-    }
     
-    // Add plugin to suppress hot-reloader console messages in development
-    if (dev && !isServer) {
-      // Add a custom plugin to suppress hot-reloader console messages
-      config.plugins.push({
-        apply: (compiler) => {
-          compiler.hooks.afterEmit.tap('SuppressHotReloaderLogs', () => {
-            // This is a hack to suppress hot-reloader console messages
-            if (typeof window !== 'undefined') {
-              const originalConsoleError = console.error;
-              console.error = (...args) => {
-                if (
-                  typeof args[0] === 'string' && 
-                  (args[0].includes('hot-reloader') || 
-                   args[0].includes('[Fast Refresh]'))
-                ) {
-                  return;
-                }
-                originalConsoleError(...args);
-              };
-            }
-          });
-        }
-      });
-    }
-    
+    // Add external modules that should not be bundled
     config.externals = [...config.externals, 'bcrypt'];
     return config;
   },
