@@ -6,7 +6,7 @@ import { authOptions } from '@/lib/auth/auth-options';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 export const preferredRegion = 'auto';
-export const maxDuration = 300; // 5 minutes
+export const maxDuration = 60; // Maximum allowed duration for Vercel Hobby plan (60 seconds)
 
 /**
  * Handle SSE connection requests
