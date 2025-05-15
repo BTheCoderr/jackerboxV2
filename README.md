@@ -1,6 +1,113 @@
-# JackerBox - Peer-to-Peer Equipment Rental Platform
+# JackerBox
 
-JackerBox is a modern web application for renting and lending equipment between individuals.
+JackerBox is a modern equipment rental platform built with Next.js, Prisma, and TypeScript. It features secure authentication with multiple providers, including Apple Sign In, and robust webhook handling.
+
+## Features
+
+- 🔐 Secure authentication with multiple providers (Apple, Google)
+- 📱 Responsive design for all devices
+- 🔍 Advanced equipment search functionality
+- 💳 Stripe integration for payments
+- 📸 Image handling with Cloudinary
+- 🗄️ PostgreSQL database with Prisma ORM
+- 🚀 Deployed on Netlify
+
+## Prerequisites
+
+- Node.js 20 or later
+- PostgreSQL
+- Redis (for rate limiting)
+- Stripe account
+- Apple Developer account
+- Cloudinary account
+
+## Getting Started
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/jackerbox.git
+   cd jackerbox
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Set up environment variables:
+   ```bash
+   cp .env.example .env
+   # Edit .env with your configuration
+   ```
+
+4. Set up the database:
+   ```bash
+   npx prisma migrate dev
+   npx prisma generate
+   npx prisma db seed
+   ```
+
+5. Run the development server:
+   ```bash
+   npm run dev
+   ```
+
+## Webhook Configuration
+
+### Apple Sign In Webhook
+
+1. Configure your Apple Developer account:
+   - Add webhook URL: `https://[your-domain]/api/webhooks/apple`
+   - Generate webhook public key
+   - Add the public key to your environment variables
+
+2. The webhook handles:
+   - Email disabled events
+   - Consent revoked events
+   - Account deletion requests
+
+### Rate Limiting
+
+The webhook endpoints are protected by rate limiting:
+- 10 requests per minute per IP
+- Uses Upstash Redis for storage
+- Configurable limits in the code
+
+## Deployment
+
+1. Set up Netlify:
+   ```bash
+   npm install -g netlify-cli
+   netlify login
+   netlify init
+   ```
+
+2. Configure build settings:
+   - Build command: `npm run build`
+   - Publish directory: `.next`
+   - Environment variables: Copy from `.env`
+
+3. Deploy:
+   ```bash
+   git push
+   # Netlify will automatically deploy
+   ```
+
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Support
+
+For support, email support@jackerbox.com or open an issue on GitHub.
 
 ## Features
 
@@ -86,14 +193,6 @@ The application is configured for easy local development:
 - Payments use a mock system that automatically succeeds
 - Image uploads fallback to local storage when Cloudinary is not configured
 - Real-time features use a fallback polling mechanism
-
-## Getting Started
-
-1. Clone the repository
-2. Install dependencies: `npm install`
-3. Set up your .env file (see .env.example)
-4. Start the development server: `npm run dev -- -p 3001`
-5. Visit http://localhost:3001
 
 ## Environment Variables
 

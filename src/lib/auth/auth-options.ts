@@ -15,30 +15,44 @@ interface ExtendedUser extends User {
   userType?: string;
 }
 
+// Function to format private key
+const formatPrivateKey = (key: string): string => {
+  if (!key) return '';
+  // If key already has the correct format, return as is
+  if (key.includes('-----BEGIN PRIVATE KEY-----')) return key;
+  // Add headers and format if they're missing
+  return `-----BEGIN PRIVATE KEY-----\n${key}\n-----END PRIVATE KEY-----`;
+};
+
 // Function to generate Apple client secret
 const generateAppleClientSecret = () => {
   const clientId = process.env.APPLE_CLIENT_ID!;
   const teamId = process.env.APPLE_TEAM_ID!;
   const keyId = process.env.APPLE_KEY_ID!;
-  const privateKey = process.env.APPLE_PRIVATE_KEY!;
+  const privateKey = formatPrivateKey(process.env.APPLE_PRIVATE_KEY!);
 
   if (!clientId || !teamId || !keyId || !privateKey) {
     throw new Error('Missing Apple Sign In configuration');
   }
 
-  return jwt.sign({
-    iss: teamId,
-    iat: Math.floor(Date.now() / 1000),
-    exp: Math.floor(Date.now() / 1000) + (86400 * 180), // 180 days
-    aud: 'https://appleid.apple.com',
-    sub: clientId,
-  }, privateKey, {
-    algorithm: 'ES256',
-    header: {
-      alg: 'ES256',
-      kid: keyId,
-    },
-  });
+  try {
+    return jwt.sign({
+      iss: teamId,
+      iat: Math.floor(Date.now() / 1000),
+      exp: Math.floor(Date.now() / 1000) + (86400 * 180), // 180 days
+      aud: 'https://appleid.apple.com',
+      sub: clientId,
+    }, privateKey, {
+      algorithm: 'ES256',
+      header: {
+        alg: 'ES256',
+        kid: keyId,
+      },
+    });
+  } catch (error) {
+    console.error('Error generating Apple client secret:', error);
+    throw error;
+  }
 };
 
 // Determine the base URL for callbacks
