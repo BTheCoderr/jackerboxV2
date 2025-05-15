@@ -1,11 +1,17 @@
 {
   "buildCommand": "npm run build",
+  "outputDirectory": ".next",
   "devCommand": "npm run dev",
   "installCommand": "npm install",
   "framework": "nextjs",
   "regions": [
     "sfo1"
   ],
+  "git": {
+    "deploymentEnabled": {
+      "main": true
+    }
+  },
   "headers": [
     {
       "source": "/(.*)",
