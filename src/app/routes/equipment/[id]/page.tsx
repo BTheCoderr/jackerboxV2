@@ -30,8 +30,8 @@ export async function generateMetadata(
   { params }: EquipmentDetailPageProps,
   parent: ResolvingMetadata
 ): Promise<Metadata> {
-  // Get the id from params
-  const equipmentId = params.id;
+  // Get the id from params - safely
+  const equipmentId = String(params.id);
   
   // Fetch the equipment with owner details
   const equipment = await db.equipment.findUnique({
@@ -83,8 +83,8 @@ export async function generateMetadata(
 export default async function EquipmentDetailPage({
   params,
 }: EquipmentDetailPageProps) {
-  // Get the id from params - properly awaited
-  const equipmentId = await Promise.resolve(params.id);
+  // Get the id from params safely - without using await on params
+  const equipmentId = String(params.id);
   
   const user = await getCurrentUser();
   

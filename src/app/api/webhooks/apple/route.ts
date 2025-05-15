@@ -1,15 +1,24 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
-import { Ratelimit } from '@upstash/ratelimit';
-import { Redis } from '@upstash/redis';
 import crypto from 'crypto';
 
-// Initialize rate limiter
-const ratelimit = new Ratelimit({
-  redis: Redis.fromEnv(),
-  limiter: Ratelimit.slidingWindow(10, '1 m'), // 10 requests per minute
-  analytics: true,
-});
+// Initialize rate limiter (with fallback if Upstash is not available)
+let ratelimit: any = null;
+try {
+  const { Ratelimit } = require('@upstash/ratelimit');
+  const { Redis } = require('@upstash/redis');
+  
+  // Only initialize if both packages are available and Redis URL is configured
+  if (process.env.UPSTASH_REDIS_REST_URL) {
+    ratelimit = new Ratelimit({
+      redis: Redis.fromEnv(),
+      limiter: Ratelimit.slidingWindow(10, '1 m'), // 10 requests per minute
+      analytics: true,
+    });
+  }
+} catch (error) {
+  console.warn('Upstash rate limiting not available:', error.message);
+}
 
 // Verify Apple webhook signature
 const verifyAppleSignature = (payload: string, signature: string): boolean => {
@@ -37,15 +46,17 @@ const validatePayload = (payload: any): boolean => {
 
 export async function POST(req: Request) {
   try {
-    // Rate limiting check
-    const ip = req.headers.get('x-forwarded-for') || 'anonymous';
-    const rateLimitResult = await ratelimit.limit(ip);
-    
-    if (!rateLimitResult.success) {
-      return NextResponse.json(
-        { error: 'Too many requests' },
-        { status: 429 }
-      );
+    // Rate limiting check (only if ratelimit is configured)
+    if (ratelimit) {
+      const ip = req.headers.get('x-forwarded-for') || 'anonymous';
+      const rateLimitResult = await ratelimit.limit(ip);
+      
+      if (!rateLimitResult.success) {
+        return NextResponse.json(
+          { error: 'Too many requests' },
+          { status: 429 }
+        );
+      }
     }
 
     // Get the raw body for signature verification
