@@ -57,13 +57,38 @@ export async function GET(req: Request) {
       }
     });
     
-    // For now, return without vote counts until we fix the Prisma client
+    // Get helpfulness votes for these reviews
+    const reviewIds = reviews.map(review => review.id);
+    const helpfulnessVotes = await db.reviewVote.groupBy({
+      by: ['isHelpful'],
+      where: {
+        reviewId: {
+          in: reviewIds
+        }
+      },
+      _count: {
+        reviewId: true
+      }
+    });
+    
+    // Calculate helpful and unhelpful vote counts
+    let helpfulVotes = 0;
+    let unhelpfulVotes = 0;
+    
+    helpfulnessVotes.forEach(vote => {
+      if (vote.isHelpful) {
+        helpfulVotes = vote._count.reviewId;
+      } else {
+        unhelpfulVotes = vote._count.reviewId;
+      }
+    });
+    
     return NextResponse.json({
       averageRating,
       totalReviews,
       ratingCounts,
-      helpfulVotes: 0,
-      unhelpfulVotes: 0
+      helpfulVotes,
+      unhelpfulVotes
     });
   } catch (error) {
     console.error("Error fetching review statistics:", error);

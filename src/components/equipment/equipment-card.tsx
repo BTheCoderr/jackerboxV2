@@ -7,8 +7,14 @@ import { formatCurrency } from "@/lib/utils/format";
 import { useState, useEffect } from "react";
 import { StarIcon } from 'lucide-react';
 
+// Extended equipment type with optional rating fields
+interface ExtendedEquipment extends Equipment {
+  rating?: number;
+  reviewCount?: number;
+}
+
 interface EquipmentCardProps {
-  equipment: Equipment & {
+  equipment: ExtendedEquipment & {
     owner: {
       id: string;
       name: string | null;
@@ -27,6 +33,11 @@ export function EquipmentCard({ equipment, priority = false }: EquipmentCardProp
   const processImageUrl = (url: string): string => {
     if (!url || url === '') return '/images/placeholder.svg';
     
+    // If it's already a local URL, use it as is
+    if (url.startsWith('/')) {
+      return url;
+    }
+    
     // If it's an Unsplash URL, ensure it has the right parameters
     if (url.includes('unsplash.com')) {
       // Add direct access parameters for Unsplash
@@ -43,12 +54,58 @@ export function EquipmentCard({ equipment, priority = false }: EquipmentCardProp
     return url;
   };
   
-  // Generate a fallback image URL based on the equipment title and category
+  // Generate a fallback image URL based on the equipment category
   const getFallbackImageUrl = () => {
-    const category = equipment.category.toLowerCase().replace(/\s+/g, '-');
-    const title = equipment.title.toLowerCase().replace(/\s+/g, '-');
-    const uniqueParam = `random=${Date.now()}-${equipment.id.substring(0, 8)}`;
-    return `https://source.unsplash.com/featured/800x600?${category},${title}&${uniqueParam}`;
+    const category = equipment.category.toLowerCase();
+    
+    // Map categories to local images
+    const categoryImageMap: Record<string, string> = {
+      'camera': '/images/equipment/camera.jpg',
+      'photography': '/images/equipment/camera.jpg',
+      'photo': '/images/equipment/camera.jpg',
+      'video': '/images/equipment/camera.jpg',
+      
+      'tools': '/images/equipment/drill.jpg',
+      'power tools': '/images/equipment/drill.jpg',
+      'construction': '/images/equipment/drill.jpg',
+      
+      'drone': '/images/equipment/drone.jpg',
+      'drones': '/images/equipment/drone.jpg',
+      'aerial': '/images/equipment/drone.jpg',
+      
+      'music': '/images/equipment/guitar.jpg',
+      'instrument': '/images/equipment/guitar.jpg',
+      'instruments': '/images/equipment/guitar.jpg',
+      'guitar': '/images/equipment/guitar.jpg',
+      
+      'audio': '/images/equipment/mixer.jpg',
+      'sound': '/images/equipment/mixer.jpg',
+      'dj': '/images/equipment/mixer.jpg',
+      'mixer': '/images/equipment/mixer.jpg',
+    };
+    
+    // Find a matching category or use a generic fallback
+    for (const key in categoryImageMap) {
+      if (category.includes(key)) {
+        return categoryImageMap[key];
+      }
+    }
+    
+    // Default fallback images based on remainder from equipment id
+    const fallbackImages = [
+      '/images/equipment/camera.jpg',
+      '/images/equipment/drill.jpg',
+      '/images/equipment/drone.jpg',
+      '/images/equipment/guitar.jpg',
+      '/images/equipment/mixer.jpg'
+    ];
+    
+    // Use last character of ID as a consistent selector
+    const id = equipment.id;
+    const lastChar = id.charAt(id.length - 1);
+    const index = parseInt(lastChar, 16) % fallbackImages.length;
+    
+    return fallbackImages[index];
   };
   
   useEffect(() => {
@@ -156,17 +213,18 @@ export function EquipmentCard({ equipment, priority = false }: EquipmentCardProp
           </div>
         </div>
         
-        {(equipment.rating > 0 || equipment.reviewCount > 0) && (
+        {(equipment.rating !== undefined && equipment.rating > 0 || 
+          equipment.reviewCount !== undefined && equipment.reviewCount > 0) && (
           <div className="mt-2 flex items-center">
             <div className="flex items-center">
               <StarIcon className="h-4 w-4 text-yellow-400 fill-current" />
               <span className="ml-1 text-sm text-gray-600">
-                {equipment.rating.toFixed(1)}
+                {equipment.rating !== undefined ? equipment.rating.toFixed(1) : "0.0"}
               </span>
             </div>
             <span className="mx-1 text-gray-400">·</span>
             <span className="text-sm text-gray-500">
-              {equipment.reviewCount} {equipment.reviewCount === 1 ? 'review' : 'reviews'}
+              {equipment.reviewCount || 0} {(equipment.reviewCount === 1 || equipment.reviewCount === undefined) ? 'review' : 'reviews'}
             </span>
           </div>
         )}

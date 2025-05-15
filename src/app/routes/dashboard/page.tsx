@@ -35,9 +35,9 @@ export default async function DashboardPage({
     redirect("/auth/login?callbackUrl=/routes/dashboard");
   }
 
-  // In Next.js 14+, searchParams is a dynamic API that should be properly handled
-  // We'll extract the error parameter safely
-  const errorParam = await Promise.resolve(searchParams?.error);
+  // In Next.js 14+, searchParams is a read-only value from the route segment config
+  // We can safely read values directly since searchParams is passed as a prop
+  const errorParam: string | undefined = typeof searchParams.error === 'string' ? searchParams.error : undefined;
 
   try {
     // Fetch user's rentals (as a renter)

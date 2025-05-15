@@ -2,8 +2,8 @@ import { Suspense } from 'react';
 import { Metadata } from 'next';
 import { Skeleton } from '@/components/ui/skeleton';
 
-// Import EquipmentGrid from the index file
-import EquipmentGrid, { EquipmentGridSkeleton } from '@/components/equipment';
+// Fix the import to use named import
+import { EquipmentGrid, EquipmentGridSkeleton } from '@/components/equipment';
 
 // Import the client component wrapper for EquipmentSearch
 import ClientEquipmentSearch from '@/components/search/ClientEquipmentSearch';

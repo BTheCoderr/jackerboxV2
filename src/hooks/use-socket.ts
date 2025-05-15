@@ -7,32 +7,21 @@ import { useSession } from "next-auth/react";
 // Define the socket connection status
 export type SocketStatus = 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'error';
 
-// Define the socket hook return type
+// Socket hook return value
 export interface UseSocketReturn {
   socket: Socket | null;
   status: SocketStatus;
   error: Error | null;
-  connect: () => void;
-  disconnect: () => void;
   isConnected: boolean;
   isPollingFallback: boolean;
-  joinChat: (chatId: string) => void;
-  leaveChat: (chatId: string) => void;
-  sendMessage: (event: string, data: any) => void;
-  subscribe: <T>(event: string, callback: (data: T) => void) => () => void;
+  connect: () => void;
+  disconnect: () => void;
+  subscribe: (event: string, callback: (...args: any[]) => void) => () => void;
+  emit: (event: string, ...args: any[]) => boolean;
+  joinChat: (room: string) => boolean;
+  leaveChat: (room: string) => boolean;
+  sendMessage: (event: string, ...args: any[]) => boolean;
 }
-
-// Helper to determine if we're in production
-const isProduction = () => {
-  return process.env.NODE_ENV === 'production' || 
-         typeof window !== 'undefined' && window.location.hostname !== 'localhost';
-};
-
-// Helper to get the socket server port in development
-const getSocketServerPort = (): number => {
-  // In development, the socket server runs on port 3002 as shown in the logs
-  return 3002;
-};
 
 // Socket hook options
 export interface UseSocketOptions {
@@ -84,180 +73,233 @@ export function useSocket(options: UseSocketOptions = {}): UseSocketReturn {
     eventsRef.current = events;
   }, [events]);
 
+  const isDev = process.env.NODE_ENV === 'development';
+
   /**
    * Initialize socket connection
    */
   const initSocket = useCallback(() => {
+    // Skip connection in development mode
+    if (isDev) {
+      console.log('Socket connections are mocked in development mode');
+      setStatus('connected');
+      setIsReady(true);
+      return;
+    }
+
     // Skip connection if disabled
     if (process.env.NEXT_PUBLIC_DISABLE_SOCKET === 'true') {
       console.log('Socket connections are disabled in this environment');
       return;
     }
 
-    // For production environment, use the real socket connection
-    // This uses the Upstash Redis connection
-    if (process.env.NODE_ENV === 'production') {
-      try {
-        // Skip connection attempts if already connecting or connected
-        if (isConnectingRef.current || socketRef.current) {
-          return;
-        }
-
-        isConnectingRef.current = true;
-        setStatus('connecting');
-        
-        // Use upstash Redis URL from environment variables
-        const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || window.location.origin;
-        
-        const socket = io(socketUrl, {
-          path: '/api/socket',
-          reconnectionAttempts: 5,
-          reconnectionDelay: 1000,
-          timeout: 20000,
-        });
-        
-        // Set up event listeners
-        socket.on('connect', () => {
-          console.log('Socket connected successfully');
-          console.log('Socket ID:', socket.id);
-          console.log('Transport:', socket.io.engine.transport.name);
-          
-          isConnectingRef.current = false;
-          reconnectAttemptsRef.current = 0;
-          setStatus('connected');
-          setError(null);
-          setIsReady(true);
-          
-          if (onConnect) {
-            onConnect();
-          }
-        });
-
-        socket.on('connect_error', (err) => {
-          console.error('Socket connection error:', err.message);
-          
-          if (status !== 'error') {
-            setStatus('error');
-            setError(new Error(`Connection error: ${err.message}`));
-            
-            if (onError) {
-              onError(new Error(`Connection error: ${err.message}`));
-            }
-          }
-          
-          // Don't set isConnecting to false here to allow reconnection
-        });
-
-        socket.on('disconnect', (reason) => {
-          console.log('Socket disconnected:', reason);
-          
-          if (reason === 'io server disconnect' || reason === 'io client disconnect') {
-            // The server/client has forcefully disconnected the socket
-            isConnectingRef.current = false;
-            setStatus('disconnected');
-            setIsReady(false);
-          } else {
-            // Socket will automatically try to reconnect
-            setStatus('reconnecting');
-          }
-          
-          if (onDisconnect) {
-            onDisconnect(reason);
-          }
-        });
-
-        socket.on('reconnect', (attempt) => {
-          console.log(`Socket reconnected after ${attempt} attempts`);
-          setStatus('connected');
-          setError(null);
-          
-          if (onReconnect) {
-            onReconnect();
-          }
-        });
-
-        socket.on('reconnect_attempt', (attempt) => {
-          console.log(`Socket reconnection attempt ${attempt}/${reconnectionAttempts}`);
-          
-          if (onReconnectAttempt) {
-            onReconnectAttempt(attempt);
-          }
-        });
-
-        socket.on('reconnect_error', (err) => {
-          console.error('Socket reconnection error:', err);
-          
-          if (onError) {
-            onError(new Error(`Reconnection error: ${err.message}`));
-          }
-        });
-
-        socket.on('reconnect_failed', () => {
-          console.error('Socket reconnection failed after all attempts');
-          isConnectingRef.current = false;
-          setStatus('error');
-          setError(new Error('Failed to reconnect after multiple attempts'));
-          
-          if (onReconnectFailed) {
-            onReconnectFailed();
-          }
-        });
-
-        socket.on('error', (err) => {
-          console.error('Socket error:', err);
-          setError(new Error(`Socket error: ${err.message}`));
-          
-          if (onError) {
-            onError(new Error(`Socket error: ${err.message}`));
-          }
-        });
-
-        // Handle transport upgrade
-        socket.io.engine.on('upgrade', (transport) => {
-          console.log('Transport upgraded to:', transport);
-        });
-
-        // Store socket instance
-        socketRef.current = socket;
-        setSocket(socket);
-        
-        // Return cleanup function
-        return () => {
-          if (socketRef.current) {
-            console.log('Cleaning up socket connection');
-            
-            // Unsubscribe from all events
-            eventsRef.current.forEach((event) => {
-              socketRef.current?.off(event);
-            });
-            
-            // Disconnect socket
-            socketRef.current.disconnect();
-            socketRef.current = null;
-            setSocket(null);
-            setStatus('disconnected');
-            setIsReady(false);
-            isConnectingRef.current = false;
-          }
-          
-          // Clear any pending reconnect timers
-          if (reconnectTimerRef.current) {
-            clearTimeout(reconnectTimerRef.current);
-            reconnectTimerRef.current = null;
-          }
-        };
-      } catch (error) {
-        console.error('Socket connection error:', error);
-        setStatus('error');
-        isConnectingRef.current = false;
+    try {
+      if (isConnectingRef.current || socketRef.current) {
+        return;
       }
-    } else {
-      // For development, use a simulated connection to avoid console warnings
-      setStatus('connected');
-      setIsReady(true);
+
+      isConnectingRef.current = true;
+      setStatus('connecting');
+      
+      const socketUrl = isDev ? 'http://localhost:3002' : process.env.NEXT_PUBLIC_SOCKET_URL || window.location.origin;
+      
+      const socket = io(socketUrl, {
+        path: '/api/socket',
+        reconnectionAttempts: 10,
+        reconnectionDelay: 2000,
+        reconnectionDelayMax: 10000,
+        timeout: 30000,
+        transports: ['websocket', 'polling'],
+        autoConnect: true,
+        forceNew: true,
+        withCredentials: true,
+        extraHeaders: {
+          'x-client-version': '1.0.0',
+          'x-client-id': Math.random().toString(36).substring(7)
+        }
+      });
+
+      // Add heartbeat mechanism
+      const heartbeat = setInterval(() => {
+        if (socket.connected) {
+          socket.emit('ping');
+        }
+      }, 25000);
+
+      socket.on('pong', () => {
+        console.log('Heartbeat received from server');
+      });
+      
+      socket.on('connect', () => {
+        console.log('Socket connected successfully');
+        console.log('Socket ID:', socket.id);
+        console.log('Transport:', socket.io.engine.transport.name);
+        
+        // Check if using polling as a fallback
+        setIsPollingFallback(socket.io.engine.transport.name === 'polling');
+        
+        isConnectingRef.current = false;
+        reconnectAttemptsRef.current = 0;
+        setStatus('connected');
+        setError(null);
+        setIsReady(true);
+        
+        if (onConnect) {
+          onConnect();
+        }
+        
+        // Force upgrade to websocket if on polling
+        if (socket.io.engine.transport.name === 'polling') {
+          socket.io.engine.once('upgrade', () => {
+            console.log('Transport upgraded from polling to websocket');
+            setIsPollingFallback(false);
+          });
+        }
+      });
+
+      socket.on('connect_error', (err) => {
+        console.error('Socket connection error:', err.message);
+        
+        if (status !== 'error') {
+          setStatus('error');
+          setError(new Error(`Connection error: ${err.message}`));
+          
+          if (onError) {
+            onError(new Error(`Connection error: ${err.message}`));
+          }
+        }
+        
+        // Don't set isConnecting to false here to allow reconnection
+      });
+
+      socket.on('disconnect', (reason) => {
+        console.log('Socket disconnected:', reason);
+        
+        if (reason === 'io server disconnect' || reason === 'io client disconnect') {
+          clearInterval(heartbeat);
+          isConnectingRef.current = false;
+          setStatus('disconnected');
+          setIsReady(false);
+        } else {
+          const backoffDelay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 10000);
+          setTimeout(() => {
+            if (socket.disconnected) {
+              socket.connect();
+            }
+          }, backoffDelay);
+          setStatus('reconnecting');
+        }
+        
+        if (onDisconnect) {
+          onDisconnect(reason);
+        }
+      });
+
+      socket.on('reconnect', (attempt) => {
+        console.log(`Socket reconnected after ${attempt} attempts`);
+        setStatus('connected');
+        setError(null);
+        
+        if (onReconnect) {
+          onReconnect();
+        }
+      });
+
+      socket.on('reconnect_attempt', (attempt) => {
+        console.log(`Socket reconnection attempt ${attempt}/${reconnectionAttempts}`);
+        setStatus('reconnecting');
+        
+        if (onReconnectAttempt) {
+          onReconnectAttempt(attempt);
+        }
+      });
+
+      socket.on('reconnect_error', (err) => {
+        console.error('Socket reconnection error:', err);
+        
+        if (onError) {
+          onError(new Error(`Reconnection error: ${err.message}`));
+        }
+      });
+
+      socket.on('reconnect_failed', () => {
+        console.error('Socket reconnection failed after all attempts');
+        isConnectingRef.current = false;
+        setStatus('error');
+        setError(new Error('Failed to reconnect after multiple attempts'));
+        
+        if (onReconnectFailed) {
+          onReconnectFailed();
+        }
+        
+        // Try manual reconnect after a longer delay
+        if (reconnectTimerRef.current) {
+          clearTimeout(reconnectTimerRef.current);
+        }
+        
+        reconnectTimerRef.current = setTimeout(() => {
+          console.log('Attempting manual reconnect after reconnection failure');
+          disconnect();
+          setTimeout(connect, 1000);
+        }, 5000);
+      });
+
+      socket.on('error', (err) => {
+        console.error('Socket error:', err);
+        setError(new Error(`Socket error: ${err.message}`));
+        
+        if (onError) {
+          onError(new Error(`Socket error: ${err.message}`));
+        }
+      });
+      
+      // Handle welcome message
+      socket.on('welcome', (data) => {
+        console.log('Received welcome message:', data);
+      });
+
+      // Handle transport upgrade
+      socket.io.engine.on('upgrade', (transport) => {
+        console.log('Transport upgraded to:', transport);
+        setIsPollingFallback(false);
+      });
+
+      // Store socket instance
+      socketRef.current = socket;
+      setSocket(socket);
+      
+      // Return cleanup function
+      return () => {
+        if (socketRef.current) {
+          console.log('Cleaning up socket connection');
+          
+          // Unsubscribe from all events
+          eventsRef.current.forEach((event) => {
+            socketRef.current?.off(event);
+          });
+          
+          // Disconnect socket
+          socketRef.current.disconnect();
+          socketRef.current = null;
+          setSocket(null);
+          setStatus('disconnected');
+          setIsReady(false);
+          isConnectingRef.current = false;
+        }
+        
+        // Clear any pending reconnect timers
+        if (reconnectTimerRef.current) {
+          clearTimeout(reconnectTimerRef.current);
+          reconnectTimerRef.current = null;
+        }
+      };
+    } catch (error) {
+      console.error('Socket connection error:', error);
+      setStatus('error');
+      isConnectingRef.current = false;
+      return () => {};
     }
   }, [
-    session,
     reconnectionAttempts,
     reconnectionDelay,
     onConnect,
@@ -267,6 +309,7 @@ export function useSocket(options: UseSocketOptions = {}): UseSocketReturn {
     onReconnectAttempt,
     onReconnectFailed,
     status,
+    isDev,
   ]);
 
   /**
@@ -352,7 +395,7 @@ export function useSocket(options: UseSocketOptions = {}): UseSocketReturn {
 
   // Initialize socket on mount if autoConnect is true
   useEffect(() => {
-    if (autoConnect) {
+    if (autoConnect && sessionStatus === 'authenticated') {
       initSocket();
     }
     
@@ -367,7 +410,7 @@ export function useSocket(options: UseSocketOptions = {}): UseSocketReturn {
         reconnectTimerRef.current = null;
       }
     };
-  }, [autoConnect, initSocket]);
+  }, [autoConnect, initSocket, sessionStatus]);
 
   // Subscribe to events
   useEffect(() => {
@@ -407,5 +450,6 @@ export function useSocket(options: UseSocketOptions = {}): UseSocketReturn {
     leaveChat: leaveRoom,
     sendMessage: emit,
     subscribe,
+    emit,
   };
 } 

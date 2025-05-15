@@ -34,10 +34,10 @@ STRIPE_IDENTITY_WEBHOOK_SECRET=your-stripe-identity-webhook-secret
 STRIPE_ACCOUNT_COUNTRY=US
 
 # Cloudinary Configuration
-NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=your-cloudinary-cloud-name
-CLOUDINARY_API_KEY=your-cloudinary-api-key
-CLOUDINARY_API_SECRET=your-cloudinary-api-secret
-CLOUDINARY_URL=cloudinary://your-cloudinary-url
+NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=dgtqpyphg
+CLOUDINARY_API_KEY=646841252992477
+CLOUDINARY_API_SECRET=Zxu873QWGlD6cYq2gB9cqFO6wG0
+CLOUDINARY_URL=cloudinary://646841252992477:Zxu873QWGlD6cYq2gB9cqFO6wG0@dgtqpyphg
 
 # AWS Configuration
 AWS_REGION=your-aws-region

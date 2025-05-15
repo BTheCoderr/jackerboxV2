@@ -1,19 +1,125 @@
-# Jackerbox - Equipment Rental Platform
+# JackerBox - Peer-to-Peer Equipment Rental Platform
 
-Jackerbox is a modern platform for renting equipment, with features for secure payments, owner payouts, and security deposits.
+JackerBox is a modern web application for renting and lending equipment between individuals.
 
 ## Features
 
-- User authentication and profiles
-- Equipment listing and browsing
-- Rental booking and management
-- Secure payment processing with Stripe
-- Security deposit handling
-- Owner payouts
-- Admin dashboard
-- Notification system
-- ID verification with Stripe Identity
-- Phone number verification with Firebase Authentication
+- User authentication with email/password and social login
+- Equipment listings with detailed information and images
+- Search and filtering of equipment
+- Secure booking and payment processing
+- In-app messaging between users
+- Reviews and ratings system
+- Admin moderation tools
+
+## MVP Test Guide - From 70% to 100%
+
+Follow this guide to test the complete user journey and verify all MVP features are working correctly.
+
+### 1. Equipment Owner Flow
+
+1. **Create an Account**
+   - Register with email/password
+   - Complete your profile information
+   - Add a profile picture
+
+2. **Create Equipment Listings**
+   - Navigate to "Equipment" > "Add New Equipment"
+   - Upload equipment images (minimum 5 required)
+   - Fill in all required equipment details
+   - Set daily rates and security deposit
+   - Save the listing
+
+3. **Manage Equipment Listings**
+   - View your listings in the dashboard
+   - Edit equipment details
+   - Toggle availability status
+   - Review incoming rental requests
+
+4. **Approve and Complete Rentals**
+   - When rental requests come in, approve them
+   - Use the messaging system to coordinate with renters
+   - Mark rentals as completed when equipment is returned
+   - Respond to any reviews
+
+### 2. Equipment Renter Flow
+
+1. **Browse Equipment**
+   - Use search and filters to find equipment
+   - Review equipment details and images
+   - Check availability for your desired dates
+
+2. **Book Equipment**
+   - Select dates from the calendar
+   - Submit a booking request
+   - Complete the mock payment process
+
+3. **Manage Bookings**
+   - View your bookings in the dashboard
+   - Message equipment owners
+   - Cancel bookings if needed
+   - Mark rentals as completed
+   - Leave reviews for completed rentals
+
+### 3. Admin Flow
+
+1. **Content Moderation**
+   - Log in as an admin user
+   - Review equipment listings
+   - Approve, flag, or reject equipment
+
+2. **User Management**
+   - View and manage user accounts
+   - Handle verification requests
+   - Manage user roles
+
+3. **Rental Management**
+   - Monitor active rentals
+   - Handle dispute resolution
+   - Process refunds if necessary
+
+## Development Environment
+
+The application is configured for easy local development:
+
+- Authentication works in development mode
+- Payments use a mock system that automatically succeeds
+- Image uploads fallback to local storage when Cloudinary is not configured
+- Real-time features use a fallback polling mechanism
+
+## Getting Started
+
+1. Clone the repository
+2. Install dependencies: `npm install`
+3. Set up your .env file (see .env.example)
+4. Start the development server: `npm run dev -- -p 3001`
+5. Visit http://localhost:3001
+
+## Environment Variables
+
+The following environment variables are required:
+
+```
+# Database
+DATABASE_URL=
+
+# Auth
+NEXTAUTH_URL=http://localhost:3001
+NEXTAUTH_SECRET=
+
+# OAuth (optional)
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+
+# Cloudinary (optional - falls back to local storage)
+CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
+```
+
+## License
+
+MIT
 
 ## Tech Stack
 

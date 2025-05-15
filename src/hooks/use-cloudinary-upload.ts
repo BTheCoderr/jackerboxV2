@@ -32,12 +32,95 @@ export function useCloudinaryUpload(): UseCloudinaryUploadReturn {
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<Error | null>(null);
 
+  // Local file handling for development mode
+  const handleLocalFile = async (file: File, options: UploadOptions = {}): Promise<UploadResult> => {
+    // Simulate upload progress
+    const simulateProgress = () => {
+      let currentProgress = 0;
+      const interval = setInterval(() => {
+        currentProgress += 10;
+        if (currentProgress > 100) {
+          clearInterval(interval);
+          return;
+        }
+        setProgress(currentProgress);
+        options.onProgress?.(currentProgress);
+      }, 200);
+      
+      return () => clearInterval(interval);
+    };
+    
+    const clearProgressSimulator = simulateProgress();
+    
+    // Read file to get dimensions (for images)
+    let width = 800;
+    let height = 600;
+    
+    if (file.type.startsWith('image/')) {
+      try {
+        const dimensions = await new Promise<{width: number, height: number}>((resolve) => {
+          const img = new Image();
+          img.onload = () => {
+            resolve({ width: img.width, height: img.height });
+            URL.revokeObjectURL(img.src);
+          };
+          img.src = URL.createObjectURL(file);
+        });
+        
+        width = dimensions.width;
+        height = dimensions.height;
+      } catch (e) {
+        console.error('Error getting image dimensions:', e);
+      }
+    }
+    
+    // Use local fallback images based on the file type
+    const getLocalImagePath = (file: File): string => {
+      const fileType = file.type.split('/')[1]?.toLowerCase() || '';
+      
+      // Map of file extensions to local fallback images
+      const typeToImage: Record<string, string> = {
+        'jpeg': '/images/equipment/camera.jpg',
+        'jpg': '/images/equipment/camera.jpg',
+        'png': '/images/equipment/mixer.jpg',
+        'gif': '/images/equipment/drone.jpg',
+        'webp': '/images/equipment/drill.jpg',
+        'default': '/images/equipment/guitar.jpg'
+      };
+      
+      return typeToImage[fileType] || typeToImage.default;
+    };
+    
+    // Wait a bit to simulate network latency
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
+    // Clean up the progress simulator
+    clearProgressSimulator();
+    
+    // Return simulated result
+    const localUrl = getLocalImagePath(file);
+    return {
+      publicId: `local-${Date.now()}-${file.name.replace(/\s+/g, '-')}`,
+      url: localUrl,
+      secureUrl: localUrl,
+      format: file.type.split('/')[1] || 'jpg',
+      width,
+      height,
+      originalFilename: file.name,
+    };
+  };
+
   const upload = useCallback(async (file: File, options: UploadOptions = {}): Promise<UploadResult> => {
     setUploading(true);
     setProgress(0);
     setError(null);
 
     try {
+      // In development mode, use local file handling
+      if (process.env.NODE_ENV === 'development') {
+        return await handleLocalFile(file, options);
+      }
+      
       // Get a signature from the server
       const response = await fetch('/api/upload/cloudinary-signature', {
         method: 'POST',

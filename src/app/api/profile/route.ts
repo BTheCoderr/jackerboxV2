@@ -8,6 +8,9 @@ const profileUpdateSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Please enter a valid email"),
   image: z.string().optional(),
+  userType: z.enum(["renter", "owner", "both"], {
+    required_error: "Please select a user type",
+  }).optional(),
 });
 
 export async function PUT(req: Request) {
@@ -27,6 +30,47 @@ export async function PUT(req: Request) {
     
     // Validate the request body
     const validatedData = profileUpdateSchema.parse(body);
+
+    // Check if user is changing from owner/both to renter and has equipment
+    if (validatedData.userType === "renter" && (user.userType === "owner" || user.userType === "both")) {
+      // Check if user has equipment listings
+      const equipmentCount = await db.equipment.count({
+        where: {
+          ownerId: user.id,
+        },
+      });
+
+      if (equipmentCount > 0) {
+        return NextResponse.json(
+          { message: "You cannot switch to renter-only mode while you have active equipment listings. Please remove your listings first." },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Check if user is changing from owner/both to renter and has rentals (as an owner)
+    if (validatedData.userType === "renter" && (user.userType === "owner" || user.userType === "both")) {
+      // Check if user has active rentals as an owner
+      const activeRentalsCount = await db.rental.count({
+        where: {
+          equipment: {
+            ownerId: user.id,
+          },
+          status: {
+            not: {
+              in: ["Completed", "Cancelled"]
+            },
+          },
+        },
+      });
+
+      if (activeRentalsCount > 0) {
+        return NextResponse.json(
+          { message: "You cannot switch to renter-only mode while you have active rental requests. Please complete or cancel them first." },
+          { status: 400 }
+        );
+      }
+    }
     
     // Update the user in the database
     const updatedUser = await db.user.update({
@@ -37,6 +81,7 @@ export async function PUT(req: Request) {
         name: validatedData.name,
         email: validatedData.email,
         image: validatedData.image,
+        userType: validatedData.userType,
       },
     });
     
@@ -46,6 +91,7 @@ export async function PUT(req: Request) {
       name: updatedUser.name,
       email: updatedUser.email,
       image: updatedUser.image,
+      userType: updatedUser.userType,
     });
   } catch (error) {
     console.error("Error updating profile:", error);

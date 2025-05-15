@@ -9,39 +9,41 @@ datasource db {
 }
 
 model User {
-  id                     String         @id @default(cuid())
+  id                     String             @id @default(cuid())
   name                   String?
-  email                  String         @unique
+  email                  String             @unique
   emailVerified          DateTime?
   image                  String?
   password               String?
-  phone                  String?        @unique
-  phoneVerified          Boolean        @default(false)
+  phone                  String?            @unique
+  phoneVerified          Boolean            @default(false)
   bio                    String?
-  createdAt              DateTime       @default(now())
-  updatedAt              DateTime       @updatedAt
+  appleId                String?            @unique
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
   verificationToken      String?
-  twoFactorEnabled       Boolean        @default(false)
-  idVerified             Boolean        @default(false)
+  twoFactorEnabled       Boolean            @default(false)
+  idVerified             Boolean            @default(false)
   idVerificationStatus   String?
   idDocumentType         String?
   idDocumentUrl          String?
   idVerificationDate     DateTime?
-  isAdmin                Boolean        @default(false)
+  isAdmin                Boolean            @default(false)
   stripeConnectAccountId String?
-  userType               String?        @default("both")
+  userType               String?            @default("both")
   accounts               Account[]
   calendarSyncs          CalendarSync[]
-  moderatedEquipment     Equipment[]    @relation("ModeratedEquipment")
-  equipmentListings      Equipment[]    @relation("OwnerEquipment")
-  receivedMessages       Message[]      @relation("MessageReceiver")
-  messages               Message[]      @relation("MessageSender")
+  moderatedEquipment     Equipment[]        @relation("ModeratedEquipment")
+  equipmentListings      Equipment[]        @relation("OwnerEquipment")
+  FraudDetection         FraudDetection[]
+  receivedMessages       Message[]          @relation("MessageReceiver")
+  messages               Message[]          @relation("MessageSender")
   notifications          Notification[]
   payments               Payment[]
   pushSubscriptions      PushSubscription[]
-  rentals                Rental[]       @relation("RenterRentals")
-  reviews                Review[]       @relation("ReviewAuthor")
-  receivedReviews        Review[]       @relation("ReviewReceiver")
+  rentals                Rental[]           @relation("RenterRentals")
+  reviews                Review[]           @relation("ReviewAuthor")
+  receivedReviews        Review[]           @relation("ReviewReceiver")
   reviewVotes            ReviewVote[]
   sessions               Session[]
 }
@@ -81,13 +83,13 @@ model VerificationToken {
 }
 
 model Equipment {
-  id               String           @id @default(cuid())
+  id               String             @id @default(cuid())
   title            String
   description      String
   condition        String
   category         String
   subcategory      String?
-  tagsJson         String           @default("[]")
+  tagsJson         String             @default("[]")
   location         String
   latitude         Float?
   longitude        Float?
@@ -95,22 +97,23 @@ model Equipment {
   dailyRate        Float?
   weeklyRate       Float?
   securityDeposit  Float?
-  imagesJson       String           @default("[]")
-  isVerified       Boolean          @default(false)
-  isAvailable      Boolean          @default(true)
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
-  moderationStatus ModerationStatus @default(PENDING)
+  imagesJson       String             @default("[]")
+  isVerified       Boolean            @default(false)
+  isAvailable      Boolean            @default(true)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  moderationStatus ModerationStatus   @default(PENDING)
   moderatedAt      DateTime?
   moderatedBy      String?
   moderationNotes  String?
   ownerId          String
   availability     Availability[]
   calendarSync     CalendarSync?
-  moderator        User?            @relation("ModeratedEquipment", fields: [moderatedBy], references: [id])
-  owner            User             @relation("OwnerEquipment", fields: [ownerId], references: [id])
+  moderator        User?              @relation("ModeratedEquipment", fields: [moderatedBy], references: [id])
+  owner            User               @relation("OwnerEquipment", fields: [ownerId], references: [id])
+  PaymentAnalytics PaymentAnalytics[]
   rentals          Rental[]
-  reviews          Review[]         @relation("EquipmentReviews")
+  reviews          Review[]           @relation("EquipmentReviews")
 
   @@index([ownerId])
   @@index([moderationStatus])
@@ -131,20 +134,23 @@ model Availability {
 }
 
 model Rental {
-  id              String    @id @default(cuid())
+  id              String       @id @default(cuid())
   startDate       DateTime
   endDate         DateTime
   totalPrice      Float
   securityDeposit Float?
-  status          String
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
   equipmentId     String
   renterId        String
+  status          RentalStatus @default(PENDING)
   payment         Payment?
-  equipment       Equipment @relation(fields: [equipmentId], references: [id])
-  renter          User      @relation("RenterRentals", fields: [renterId], references: [id])
+  equipment       Equipment    @relation(fields: [equipmentId], references: [id])
+  renter          User         @relation("RenterRentals", fields: [renterId], references: [id])
   review          Review?
+
+  @@index([equipmentId])
+  @@index([renterId])
 }
 
 model Review {
@@ -183,27 +189,35 @@ model ReviewVote {
 }
 
 model Payment {
-  id                      String   @id @default(cuid())
-  amount                  Float
-  currency                String   @default("USD")
-  status                  String
-  paymentMethod           String?
-  stripeId                String?  @unique
-  stripePaymentIntentId   String?  @unique
-  stripeTransferId        String?  @unique
-  disputeId               String?  @unique
-  securityDepositAmount   Float?
-  rentalAmount            Float?
-  securityDepositReturned Boolean  @default(false)
-  ownerPaidOut            Boolean  @default(false)
-  ownerPaidOutAmount      Float?
-  platformFee             Float?
-  createdAt               DateTime @default(now())
-  updatedAt               DateTime @updatedAt
-  userId                  String
-  rentalId                String   @unique
-  rental                  Rental   @relation(fields: [rentalId], references: [id])
-  user                    User     @relation(fields: [userId], references: [id])
+  id                    String        @id @default(cuid())
+  amount                Float
+  currency              String
+  stripePaymentIntentId String?       @unique
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+  userId                String
+  rentalId              String?       @unique
+  blockReason           String?
+  failedAt              DateTime?
+  fraudScore            Float?        @default(0)
+  ipAddress             String?
+  isBlocked             Boolean       @default(false)
+  lastRetryAt           DateTime?
+  metadata              Json?
+  nextRetryAt           DateTime?
+  paidAt                DateTime?
+  refundedAt            DateTime?
+  retryCount            Int           @default(0)
+  stripeChargeId        String?       @unique
+  userAgent             String?
+  velocityScore         Float?        @default(0)
+  status                PaymentStatus
+  rental                Rental?       @relation(fields: [rentalId], references: [id])
+  user                  User          @relation(fields: [userId], references: [id])
+
+  @@index([createdAt])
+  @@index([ipAddress])
+  @@index([status])
 }
 
 model Message {
@@ -249,16 +263,50 @@ model CalendarSync {
 }
 
 model PushSubscription {
-  id        String    @id @default(cuid())
-  endpoint  String    @unique
+  id        String   @id @default(cuid())
+  endpoint  String   @unique
   auth      String?
   p256dh    String?
   userId    String?
-  user      User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User?    @relation(fields: [userId], references: [id])
 
   @@index([userId])
+}
+
+model FraudDetection {
+  id             String    @id
+  ipAddress      String    @unique
+  lastAttemptAt  DateTime  @default(now())
+  attemptCount   Int       @default(1)
+  isBlocked      Boolean   @default(false)
+  blockExpiresAt DateTime?
+  failureCount   Int       @default(0)
+  successCount   Int       @default(0)
+  riskScore      Float     @default(0)
+  userId         String?
+  User           User?     @relation(fields: [userId], references: [id])
+
+  @@index([lastAttemptAt])
+  @@index([userId])
+}
+
+model PaymentAnalytics {
+  id                String     @id
+  date              DateTime   @default(now())
+  totalTransactions Int        @default(0)
+  successCount      Int        @default(0)
+  failureCount      Int        @default(0)
+  totalAmount       Float      @default(0)
+  averageAmount     Float      @default(0)
+  peakHour          Int?
+  equipmentId       String?
+  Equipment         Equipment? @relation(fields: [equipmentId], references: [id])
+
+  @@unique([date, equipmentId])
+  @@index([date])
+  @@index([equipmentId])
 }
 
 enum ModerationStatus {
@@ -266,4 +314,23 @@ enum ModerationStatus {
   APPROVED
   REJECTED
   FLAGGED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+  BLOCKED
+  RETRY_SCHEDULED
+}
+
+enum RentalStatus {
+  PENDING
+  PAID
+  PAYMENT_FAILED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  REFUNDED
 }

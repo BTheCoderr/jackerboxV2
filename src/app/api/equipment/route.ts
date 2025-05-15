@@ -6,7 +6,7 @@ import { getCurrentUser } from "@/lib/auth/auth-utils";
 import { EQUIPMENT_CATEGORIES, EQUIPMENT_CONDITIONS } from "@/lib/constants";
 
 // Minimum number of required images
-const MIN_REQUIRED_IMAGES = 7;
+const MIN_REQUIRED_IMAGES = 3;
 
 // Cache control headers for GET requests
 const CACHE_CONTROL_HEADERS = {

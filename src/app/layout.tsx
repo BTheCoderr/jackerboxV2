@@ -15,6 +15,9 @@ import { SessionStateManager } from '@/lib/auth/session-fix';
 import { cn } from '@/lib/utils';
 import { ClientStatusIndicators } from '@/components/ClientStatusIndicators';
 import { ClientOnly } from "@/lib/utils/hydration-safe";
+import { Inter } from 'next/font/google';
+
+const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://jackerbox.app'),
@@ -100,26 +103,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="font-sans" suppressHydrationWarning>
+    <html lang="en" className="h-full bg-gray-50">
       <head>
         <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192x192.png" />
         
         {/* Add preconnect for external resources */}
-        <link rel="preconnect" href="https://res.cloudinary.com" />
+        <link rel="preconnect" href="https://res.cloudinary.com" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link rel="preconnect" href="https://vercel.com" />
         
         {/* Load Inter font from Google Fonts */}
         <link
           href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
           rel="stylesheet"
         />
-        
-        {/* DNS prefetch for third-party domains */}
-        <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
-        <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
-        <link rel="dns-prefetch" href="https://vercel.com" />
         
         {/* PWA meta tags */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -135,12 +132,24 @@ export default function RootLayout({
         {/* Move critical CSS to a safer implementation */}
         <style dangerouslySetInnerHTML={{ __html: criticalCSS }} />
         
-        {/* Prefetch critical routes instead of preload */}
-        <link rel="prefetch" href="/routes/equipment" as="document" />
-        <link rel="prefetch" href="/routes/dashboard" as="document" />
-        <link rel="prefetch" href="/auth/login" as="document" />
+        {/* Only prefetch critical routes */}
+        <link rel="prefetch" href="/routes/equipment" />
+        <link rel="prefetch" href="/routes/dashboard" />
+        <link rel="prefetch" href="/auth/login" />
+
+        {/* Preload critical images with proper attributes */}
+        {process.env.NODE_ENV === 'production' ? (
+          <link 
+            rel="preload" 
+            href="/images/hero-equipment.jpg" 
+            as="image"
+            type="image/jpeg"
+            fetchPriority="high"
+            media="(min-width: 768px)"
+          />
+        ) : null}
       </head>
-      <body className="min-h-screen bg-gray-50 font-sans antialiased" suppressHydrationWarning>
+      <body className={`${inter.className} h-full`} suppressHydrationWarning>
         <Providers>
           <SessionStateManager />
           <MobileOptimizedLayout>

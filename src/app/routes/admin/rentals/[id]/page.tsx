@@ -5,6 +5,9 @@ import { getCurrentUser } from "@/lib/auth/auth-utils";
 import { db } from "@/lib/db";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { DisputeResolutionForm } from "@/components/admin/dispute-resolution-form";
+import { RentalStatusChange } from "@/components/admin/rental-status-change";
+import { RefundSecurityDepositButton } from "@/components/admin/refund-security-deposit-button";
 
 // Helper function to format currency
 const formatCurrency = (amount: number) => {
@@ -42,26 +45,31 @@ export default async function AdminRentalDetailPage({ params }: AdminRentalDetai
       id: params.id,
     },
     include: {
-      equipment: true,
-      renter: true,
+      equipment: {
+        include: {
+          owner: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              image: true,
+            },
+          },
+        },
+      },
+      renter: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          image: true,
+        },
+      },
+      payment: true,
     },
   });
   
   if (!rental) {
-    notFound();
-  }
-  
-  // Get equipment owner
-  const equipment = await db.equipment.findUnique({
-    where: {
-      id: rental.equipmentId,
-    },
-    include: {
-      owner: true,
-    },
-  });
-  
-  if (!equipment) {
     notFound();
   }
   
@@ -70,6 +78,30 @@ export default async function AdminRentalDetailPage({ params }: AdminRentalDetai
   const endDate = new Date(rental.endDate);
   const durationInMs = endDate.getTime() - startDate.getTime();
   const durationInDays = Math.ceil(durationInMs / (1000 * 60 * 60 * 24));
+  
+  // Fetch any disputes related to this rental
+  const disputes = await db.dispute.findMany({
+    where: {
+      rentalId: rental.id,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+    include: {
+      createdBy: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+      resolvedBy: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+  });
   
   return (
     <div className="container py-8">
@@ -155,16 +187,16 @@ export default async function AdminRentalDetailPage({ params }: AdminRentalDetai
                 </div>
                 <div className="ml-4 flex-1">
                   <h3 className="text-lg font-medium">
-                    <Link href={`/routes/admin/equipment/${equipment.id}`} className="text-jacker-blue hover:underline">
-                      {equipment.title}
+                    <Link href={`/routes/admin/equipment/${rental.equipmentId}`} className="text-jacker-blue hover:underline">
+                      {rental.equipment.title}
                     </Link>
                   </h3>
                   <p className="mt-1 text-sm text-gray-500">
-                    Category: {equipment.category || 'Uncategorized'}
+                    Category: {rental.equipment.category || 'Uncategorized'}
                   </p>
                   <div className="mt-2">
-                    <Link href={`/routes/admin/users/${equipment.owner.id}`} className="text-jacker-blue hover:underline text-sm">
-                      Owner: {equipment.owner.name}
+                    <Link href={`/routes/admin/users/${rental.equipment.owner.id}`} className="text-jacker-blue hover:underline text-sm">
+                      Owner: {rental.equipment.owner.name}
                     </Link>
                   </div>
                 </div>
@@ -375,6 +407,135 @@ export default async function AdminRentalDetailPage({ params }: AdminRentalDetai
           </div>
         </div>
       </div>
+      
+      {/* Payment Information */}
+      {rental.payment && (
+        <div className="bg-white p-6 rounded-lg shadow mb-6">
+          <h2 className="text-xl font-semibold mb-4">Payment Information</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-3">
+              <div>
+                <span className="text-gray-500">Payment Status:</span>
+                <span className={`ml-2 inline-flex px-2 text-xs font-semibold rounded-full ${
+                  rental.payment.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
+                  rental.payment.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+                  rental.payment.status === 'FAILED' ? 'bg-red-100 text-red-800' :
+                  'bg-gray-100 text-gray-800'
+                }`}>
+                  {rental.payment.status}
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-500">Amount:</span>
+                <span className="ml-2">{formatCurrency(rental.payment.amount)}</span>
+              </div>
+              {rental.payment.rentalAmount && (
+                <div>
+                  <span className="text-gray-500">Rental Amount:</span>
+                  <span className="ml-2">{formatCurrency(rental.payment.rentalAmount)}</span>
+                </div>
+              )}
+              {rental.payment.securityDepositAmount && (
+                <div>
+                  <span className="text-gray-500">Security Deposit:</span>
+                  <span className="ml-2">{formatCurrency(rental.payment.securityDepositAmount)}</span>
+                  {rental.payment.securityDepositReturned ? (
+                    <span className="ml-2 text-xs text-green-600">(Refunded)</span>
+                  ) : (
+                    <RefundSecurityDepositButton 
+                      rentalId={rental.id} 
+                      securityDepositAmount={rental.payment.securityDepositAmount} 
+                    />
+                  )}
+                </div>
+              )}
+              {rental.payment.platformFee && (
+                <div>
+                  <span className="text-gray-500">Platform Fee:</span>
+                  <span className="ml-2">{formatCurrency(rental.payment.platformFee)}</span>
+                </div>
+              )}
+            </div>
+            <div className="space-y-3">
+              <div>
+                <span className="text-gray-500">Owner Payout Status:</span>
+                <span className={`ml-2 inline-flex px-2 text-xs font-semibold rounded-full ${
+                  rental.payment.ownerPaidOut ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                }`}>
+                  {rental.payment.ownerPaidOut ? 'Paid Out' : 'Pending'}
+                </span>
+              </div>
+              {rental.payment.ownerPaidOutAmount && (
+                <div>
+                  <span className="text-gray-500">Payout Amount:</span>
+                  <span className="ml-2">{formatCurrency(rental.payment.ownerPaidOutAmount)}</span>
+                </div>
+              )}
+              <div>
+                <span className="text-gray-500">Payment Method:</span>
+                <span className="ml-2">{rental.payment.paymentMethod || "Stripe"}</span>
+              </div>
+              <div>
+                <span className="text-gray-500">Payment Date:</span>
+                <span className="ml-2">{new Date(rental.payment.createdAt).toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Admin Actions */}
+      <div className="bg-white p-6 rounded-lg shadow mb-6">
+        <h2 className="text-xl font-semibold mb-4">Admin Actions</h2>
+        <div className="space-y-6">
+          <RentalStatusChange rentalId={rental.id} currentStatus={rental.status} />
+          
+          {rental.status === "DISPUTED" && (
+            <DisputeResolutionForm rentalId={rental.id} />
+          )}
+        </div>
+      </div>
+      
+      {/* Dispute History */}
+      {disputes.length > 0 && (
+        <div className="bg-white p-6 rounded-lg shadow">
+          <h2 className="text-xl font-semibold mb-4">Dispute History</h2>
+          <div className="divide-y divide-gray-200">
+            {disputes.map((dispute) => (
+              <div key={dispute.id} className="py-4 first:pt-0 last:pb-0">
+                <div className="flex justify-between mb-2">
+                  <h3 className="font-medium">
+                    Dispute #{dispute.id.substring(0, 8)}
+                  </h3>
+                  <span className={`inline-flex px-2 text-xs font-semibold rounded-full ${
+                    dispute.status === 'OPEN' ? 'bg-red-100 text-red-800' :
+                    dispute.status === 'RESOLVED' ? 'bg-green-100 text-green-800' :
+                    'bg-blue-100 text-blue-800'
+                  }`}>
+                    {dispute.status}
+                  </span>
+                </div>
+                <p className="text-sm text-gray-600 mb-2">
+                  Filed by: {dispute.createdBy.name} on {new Date(dispute.createdAt).toLocaleString()}
+                </p>
+                <p className="mb-2">{dispute.reason}</p>
+                
+                {dispute.resolution && (
+                  <div className="mt-3 pt-3 border-t border-gray-100">
+                    <h4 className="font-medium mb-1">Resolution</h4>
+                    <p className="text-sm">{dispute.resolution}</p>
+                    {dispute.resolvedBy && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Resolved by {dispute.resolvedBy.name} on {new Date(dispute.resolvedAt || "").toLocaleString()}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 } 

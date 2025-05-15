@@ -2,26 +2,32 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSSEConnection, subscribe, unsubscribe, getStats, toggleDebugMode } from '@/lib/sse/sse-manager';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth-options';
+import { headers } from 'next/headers';
+import { getCurrentUser } from '@/lib/auth/session';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 export const preferredRegion = 'auto';
 export const maxDuration = 60; // Maximum allowed duration for Vercel Hobby plan (60 seconds)
+export const fetchCache = 'force-no-store';
 
 /**
  * Handle SSE connection requests
  */
 export async function GET(req: NextRequest) {
-  // Create headers for SSE
-  const headers = new Headers({
+  const isDev = process.env.NODE_ENV === 'development';
+
+  // Set up SSE headers
+  const responseHeaders = new Headers({
     'Content-Type': 'text/event-stream',
-    'Cache-Control': 'no-cache, no-transform',
+    'Cache-Control': 'no-cache',
     'Connection': 'keep-alive',
-    'X-Accel-Buffering': 'no', // Disable nginx buffering
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
   });
+
+  // Allow CORS in development
+  if (isDev) {
+    responseHeaders.set('Access-Control-Allow-Origin', '*');
+  }
 
   try {
     // Get user session if available
@@ -38,7 +44,7 @@ export async function GET(req: NextRequest) {
     const stream = await Promise.resolve().then(() => createSSEConnection(userId));
 
     // Return the stream response - don't try to attach any abort listeners as they cause "stream locked" errors
-    return new Response(stream, { headers });
+    return new Response(stream, { headers: responseHeaders });
   } catch (error) {
     console.error('Error in SSE GET route:', error);
     
@@ -51,7 +57,7 @@ export async function GET(req: NextRequest) {
         timestamp: Date.now(),
         details: error instanceof Error ? error.message : 'Unknown error'
       })}\n\n`,
-      { headers, status: 500 }
+      { headers: responseHeaders, status: 500 }
     );
   }
 }

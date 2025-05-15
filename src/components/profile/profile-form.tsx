@@ -11,6 +11,9 @@ const profileSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Please enter a valid email"),
   image: z.string().optional(),
+  userType: z.enum(["renter", "owner", "both"], {
+    required_error: "Please select a user type",
+  }),
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -21,6 +24,7 @@ interface ProfileFormProps {
     name?: string | null;
     email?: string | null;
     image?: string | null;
+    userType?: string | null;
   };
 }
 
@@ -39,6 +43,7 @@ export function ProfileForm({ user }: ProfileFormProps) {
       name: user.name || "",
       email: user.email || "",
       image: user.image || "",
+      userType: (user.userType as "renter" | "owner" | "both") || "both",
     },
   });
   
@@ -112,6 +117,27 @@ export function ProfileForm({ user }: ProfileFormProps) {
           {errors.email && (
             <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
           )}
+        </div>
+        
+        <div>
+          <label htmlFor="userType" className="block text-sm font-medium text-gray-700 mb-1">
+            I want to use JackerBox as a:
+          </label>
+          <select
+            id="userType"
+            {...register("userType")}
+            className="w-full p-2 border rounded-md focus:ring-2 focus:ring-black focus:border-black"
+          >
+            <option value="renter">Renter Only</option>
+            <option value="owner">Equipment Owner Only</option>
+            <option value="both">Both Renter and Owner</option>
+          </select>
+          {errors.userType && (
+            <p className="mt-1 text-sm text-red-600">{errors.userType.message}</p>
+          )}
+          <p className="mt-1 text-sm text-gray-500">
+            This determines which features you can access. You can change this anytime.
+          </p>
         </div>
         
         <div>

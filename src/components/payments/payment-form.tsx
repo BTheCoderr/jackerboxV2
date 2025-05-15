@@ -128,6 +128,7 @@ export function PaymentFormWrapper({
           <PaymentForm
             clientSecret={clientSecret}
             amount={amount}
+            securityDeposit={securityDeposit}
             currency={currency}
             onSuccess={onSuccess}
             onCancel={onCancel}
@@ -141,6 +142,7 @@ export function PaymentFormWrapper({
 interface InnerPaymentFormProps {
   clientSecret: string;
   amount: number;
+  securityDeposit?: number;
   currency: string;
   onSuccess?: () => void;
   onCancel?: () => void;
@@ -149,6 +151,7 @@ interface InnerPaymentFormProps {
 function PaymentForm({
   clientSecret,
   amount,
+  securityDeposit,
   currency,
   onSuccess,
   onCancel,
@@ -158,6 +161,7 @@ function PaymentForm({
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isDevelopmentMode] = useState(() => process.env.NODE_ENV === 'development');
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -212,13 +216,62 @@ function PaymentForm({
     <div className="bg-white p-6 rounded-lg shadow-md">
       <div className="mb-6">
         <h2 className="text-xl font-semibold mb-2">Complete your payment</h2>
-        <p className="text-gray-600">
-          Total amount: {formatCurrency(amount, currency)}
-        </p>
+        <div className="flex flex-col space-y-2">
+          <p className="text-gray-600">
+            Rental amount: {formatCurrency(amount - (securityDeposit || 0), currency)}
+          </p>
+          {securityDeposit && securityDeposit > 0 && (
+            <p className="text-gray-600">
+              Security deposit: {formatCurrency(securityDeposit, currency)}
+              <span className="text-xs text-gray-500 ml-2">(Refundable after rental completion)</span>
+            </p>
+          )}
+          <p className="text-gray-800 font-medium mt-2">
+            Total amount: {formatCurrency(amount, currency)}
+          </p>
+        </div>
+        
+        {isDevelopmentMode && (
+          <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+            <p className="text-sm text-yellow-700 font-medium">Development Mode</p>
+            <p className="text-xs text-yellow-600">
+              This payment will be automatically processed after 5 seconds. No real payment will be made.
+            </p>
+          </div>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        <PaymentElement />
+        {/* If in development mode, show simplified form */}
+        {isDevelopmentMode ? (
+          <div className="p-4 border border-gray-200 rounded-md">
+            <p className="text-gray-700 mb-2">Development Mode: Mock Payment Form</p>
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-sm text-gray-600">Card Number</label>
+                <div className="p-2 bg-gray-100 border border-gray-300 rounded-md text-gray-500">
+                  4242 4242 4242 4242 (Simulated)
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-sm text-gray-600">Expiry</label>
+                  <div className="p-2 bg-gray-100 border border-gray-300 rounded-md text-gray-500">
+                    12/30
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm text-gray-600">CVC</label>
+                  <div className="p-2 bg-gray-100 border border-gray-300 rounded-md text-gray-500">
+                    123
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <PaymentElement />
+        )}
 
         {errorMessage && (
           <div className="p-3 bg-red-50 border border-red-200 rounded text-red-600 text-sm">
@@ -237,7 +290,7 @@ function PaymentForm({
           </button>
           <button
             type="submit"
-            disabled={isLoading || !stripe || !elements}
+            disabled={isLoading || (!isDevelopmentMode && (!stripe || !elements))}
             className="px-4 py-2 bg-jacker-blue text-white rounded-md hover:bg-opacity-90 disabled:opacity-50 flex-1 flex justify-center items-center"
           >
             {isLoading ? (

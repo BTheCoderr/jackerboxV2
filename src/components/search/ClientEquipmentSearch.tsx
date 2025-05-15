@@ -23,12 +23,14 @@ function EquipmentSearchSkeleton() {
   );
 }
 
-// Dynamically import the EquipmentSearch component
-// This is now valid since we're in a client component
-const EquipmentSearch = dynamic(() => import('./EquipmentSearch'), {
-  loading: () => <EquipmentSearchSkeleton />,
-  ssr: false
-});
+// Dynamically import the NEW EquipmentSearch component directly
+const DynamicEquipmentSearch = dynamic(
+  () => import('@/components/equipment/EquipmentSearch').then(mod => ({ default: mod.EquipmentSearch })),
+  {
+    loading: () => <EquipmentSearchSkeleton />,
+    ssr: false
+  }
+);
 
 // Define the props interface
 interface ClientEquipmentSearchProps {
@@ -37,9 +39,10 @@ interface ClientEquipmentSearchProps {
 
 // Export the client component wrapper
 export default function ClientEquipmentSearch({ defaultValues }: ClientEquipmentSearchProps) {
+  // Our new search component doesn't need defaultValues as it will read from URL
   return (
     <Suspense fallback={<EquipmentSearchSkeleton />}>
-      <EquipmentSearch defaultValues={defaultValues} />
+      <DynamicEquipmentSearch />
     </Suspense>
   );
 } 

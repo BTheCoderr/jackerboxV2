@@ -30,15 +30,26 @@ async function testCloudinaryConnection() {
   try {
     log('Initializing Cloudinary client...', 'info');
     
-    // Configure Cloudinary with the provided credentials
+    // Force reset of any existing configuration
+    log('Current cloud_name (before reset): ' + cloudinary.config().cloud_name, 'info');
+    
+    // Explicitly set all configuration values
+    const cloudName = 'dgtqpyphg';
+    const apiKey = '646841252992477';
+    const apiSecret = 'Zxu873QWGlD6cYq2gB9cqFO6wG0';
+    
+    // Reset configuration and set new values
+    cloudinary.config(true); // Reset to defaults
     cloudinary.config({
-      cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'jackerbox',
-      api_key: process.env.CLOUDINARY_API_KEY || '646841252992477',
-      api_secret: process.env.CLOUDINARY_API_SECRET || 'Zxu873QWGlD6cYq2gB9cqFO6wG0',
+      cloud_name: cloudName,
+      api_key: apiKey,
+      api_secret: apiSecret,
       secure: true
     });
     
-    log('Cloudinary configured!', 'info');
+    log('Cloudinary configuration forced!', 'info');
+    log(`Using cloud_name: ${cloudinary.config().cloud_name}`, 'info');
+    log(`Using api_key: ${cloudinary.config().api_key}`, 'info');
     
     // Ping Cloudinary to verify the connection
     log('Pinging Cloudinary API...', 'info');
@@ -56,6 +67,8 @@ async function testCloudinaryConnection() {
     log('Account info retrieved successfully:', 'success');
     log(`- Plan: ${accountInfo.plan}`, 'info');
     log(`- Last updated: ${accountInfo.last_updated}`, 'info');
+    log(`- Storage used: ${(accountInfo.storage.usage / 1024 / 1024).toFixed(2)} MB`, 'info');
+    log(`- Resources: ${accountInfo.resources}`, 'info');
     
     log('\n✅ Cloudinary connection test passed successfully!', 'success');
   } catch (error) {

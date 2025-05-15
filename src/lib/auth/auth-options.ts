@@ -3,10 +3,10 @@ import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import AppleProvider from "next-auth/providers/apple";
-import bcrypt from "bcryptjs";
+import { compare } from 'bcryptjs';
 import { User } from "next-auth";
-
-import { db } from "@/lib/db";
+import prisma from "@/lib/db";
+import jwt from 'jsonwebtoken';
 
 // Extend the User type to include our custom fields
 interface ExtendedUser extends User {
@@ -15,13 +15,39 @@ interface ExtendedUser extends User {
   userType?: string;
 }
 
+// Function to generate Apple client secret
+const generateAppleClientSecret = () => {
+  const clientId = process.env.APPLE_CLIENT_ID!;
+  const teamId = process.env.APPLE_TEAM_ID!;
+  const keyId = process.env.APPLE_KEY_ID!;
+  const privateKey = process.env.APPLE_PRIVATE_KEY!;
+
+  if (!clientId || !teamId || !keyId || !privateKey) {
+    throw new Error('Missing Apple Sign In configuration');
+  }
+
+  return jwt.sign({
+    iss: teamId,
+    iat: Math.floor(Date.now() / 1000),
+    exp: Math.floor(Date.now() / 1000) + (86400 * 180), // 180 days
+    aud: 'https://appleid.apple.com',
+    sub: clientId,
+  }, privateKey, {
+    algorithm: 'ES256',
+    header: {
+      alg: 'ES256',
+      kid: keyId,
+    },
+  });
+};
+
 // Determine the base URL for callbacks
 const baseUrl = process.env.VERCEL_URL
   ? `https://${process.env.VERCEL_URL}`
   : process.env.NEXTAUTH_URL || "http://localhost:3001";
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(db),
+  adapter: PrismaAdapter(prisma),
   session: {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
@@ -44,66 +70,73 @@ export const authOptions: NextAuthOptions = {
           access_type: "offline",
           response_type: "code"
         }
-      },
-      callbackUrl: `${baseUrl}/api/auth/callback/google`
+      }
     }),
-    AppleProvider({
-      clientId: process.env.APPLE_CLIENT_ID!,
-      clientSecret: process.env.APPLE_CLIENT_SECRET!,
-      callbackUrl: `${baseUrl}/api/auth/callback/apple`
-    }),
+    // Only include Apple provider if credentials are available
+    ...(process.env.APPLE_CLIENT_ID && process.env.APPLE_PRIVATE_KEY ? [
+      AppleProvider({
+        clientId: process.env.APPLE_CLIENT_ID,
+        clientSecret: generateAppleClientSecret(),
+        authorization: {
+          params: {
+            scope: 'name email',
+            response_mode: 'form_post',
+            response_type: 'code'
+          }
+        },
+        profile(profile) {
+          return {
+            id: profile.sub,
+            name: profile.name?.firstName 
+              ? `${profile.name.firstName} ${profile.name.lastName || ''}`
+              : profile.email?.split('@')[0],
+            email: profile.email,
+            image: null,
+            appleId: profile.sub
+          }
+        }
+      })
+    ] : []),
     CredentialsProvider({
       name: "credentials",
       credentials: {
-        identifier: { label: "Email or Phone", type: "text" },
+        email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.identifier || !credentials?.password) {
-          throw new Error("Missing credentials");
+        if (!credentials?.email || !credentials?.password) {
+          throw new Error("Invalid credentials");
         }
 
         try {
-          // Check if identifier is an email or phone number
-          const isEmail = credentials.identifier.includes('@');
-          
-          // Find user by email or phone
-          const user = await db.user.findFirst({
-            where: isEmail 
-              ? { email: credentials.identifier }
-              : { phone: credentials.identifier },
+          const user = await prisma.user.findUnique({
+            where: {
+              email: credentials.email
+            }
           });
 
           if (!user || !user.password) {
-            console.log(`User not found for identifier: ${credentials.identifier}`);
             throw new Error("Invalid credentials");
           }
 
-          const isPasswordValid = await bcrypt.compare(
-            credentials.password,
-            user.password
-          );
+          const isPasswordValid = await compare(credentials.password, user.password);
 
           if (!isPasswordValid) {
-            console.log(`Invalid password for user: ${user.email}`);
             throw new Error("Invalid credentials");
           }
 
-          console.log(`User authenticated successfully: ${user.email}`);
-          
-          // Return user with the correct type
           return {
             id: user.id,
+            email: user.email,
             name: user.name,
-            email: user.email || "",
             image: user.image,
             isAdmin: user.isAdmin || false,
             stripeConnectAccountId: user.stripeConnectAccountId || undefined,
             userType: user.userType || "both",
           };
         } catch (error) {
-          console.error("Authentication error:", error);
-          throw new Error("Authentication failed");
+          console.error("Auth error:", error);
+          return null;
         }
       },
     }),
@@ -142,17 +175,15 @@ export const authOptions: NextAuthOptions = {
   events: {
     async signIn({ user, account, profile, isNewUser }) {
       if (isNewUser) {
-        // Handle new user signup
         console.log("New user signed up:", user.email);
       }
     },
-    async signOut({ token, session }) {
+    async signOut() {
       // Clean up any user-specific resources
     },
-    async error(error) {
-      console.error("Auth error:", error);
-    },
+    async createUser({ user }) {
+      console.log("New user created:", user.email);
+    }
   },
   secret: process.env.NEXTAUTH_SECRET,
-  trustHost: true,
 }; 

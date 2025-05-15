@@ -14,6 +14,66 @@ const paymentIntentSchema = z.object({
   currency: z.string().default('USD'),
 });
 
+// Mock function for development environments
+async function createMockPaymentIntent(
+  rentalId: string,
+  amount: number,
+  currency: string
+) {
+  console.log('Creating mock payment intent for development', {
+    rentalId,
+    amount,
+    currency
+  });
+  
+  // Create a fake client secret that looks like a Stripe one
+  const timestamp = Date.now();
+  const mockClientSecret = `mock_pi_${timestamp}_secret_${Math.random().toString(36).substring(2, 15)}`;
+  
+  // In development mode, automatically mark the payment as successful after a delay
+  setTimeout(async () => {
+    try {
+      // Find the payment and update it to successful
+      const payment = await db.payment.findFirst({
+        where: {
+          rentalId: rentalId,
+        },
+      });
+      
+      if (payment) {
+        await db.payment.update({
+          where: {
+            id: payment.id,
+          },
+          data: {
+            status: "COMPLETED",
+            stripePaymentIntentId: `mock_pi_${timestamp}`,
+          },
+        });
+        
+        // Also update the rental status
+        await db.rental.update({
+          where: {
+            id: rentalId,
+          },
+          data: {
+            status: "ACTIVE",
+          },
+        });
+        
+        console.log(`Mock payment for rental ${rentalId} automatically marked as successful.`);
+      }
+    } catch (error) {
+      console.error('Error processing mock payment:', error);
+    }
+  }, 5000); // Simulate a 5 second processing time
+  
+  return {
+    clientSecret: mockClientSecret,
+    paymentIntentId: `mock_pi_${timestamp}`,
+  };
+}
+
 export async function POST(req: Request) {
   try {
     // Get the current user
@@ -64,7 +124,31 @@ export async function POST(req: Request) {
       ? amount + securityDeposit 
       : amount;
     
-    // Create a payment intent with Stripe
+    // In development mode, use mock payment processing
+    if (process.env.NODE_ENV === 'development') {
+      const mockResult = await createMockPaymentIntent(
+        rentalId,
+        amount + (securityDeposit || 0),
+        currency
+      );
+      
+      // Update the payment record with the mock payment intent ID
+      await db.payment.update({
+        where: {
+          id: payment.id,
+        },
+        data: {
+          stripePaymentIntentId: mockResult.paymentIntentId,
+        },
+      });
+      
+      return NextResponse.json({
+        clientSecret: mockResult.clientSecret,
+        paymentId: payment.id,
+      });
+    }
+
+    // Create a real Stripe payment intent
     const amountInCents = formatAmountForStripe(totalAmount, currency);
     
     const paymentIntent = await stripe.paymentIntents.create({
@@ -84,7 +168,7 @@ export async function POST(req: Request) {
     // Update the payment record with the Stripe payment intent ID and security deposit info
     await db.payment.update({
       where: {
-        id: paymentId,
+        id: payment.id,
       },
       data: {
         stripePaymentIntentId: paymentIntent.id,
@@ -95,6 +179,7 @@ export async function POST(req: Request) {
     // Return the client secret to the client
     return NextResponse.json({
       clientSecret: paymentIntent.client_secret,
+      paymentId: payment.id,
     });
   } catch (error) {
     console.error('Error creating payment intent:', error);
