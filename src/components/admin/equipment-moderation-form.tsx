@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ModerationStatus } from "@prisma/client";
+import { useRouter } from 'next/navigation';
+import { ModerationStatus } from '../../../prisma/generated/client';
 import { toast } from "sonner";
 
 interface EquipmentModerationFormProps {

@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth-utils";
 import { db } from "@/lib/db";
+import { ModerationStatus } from "../../../../../../prisma/generated/client";
 import { z } from "zod";
-import { ModerationStatus } from "@prisma/client";
 
 const bulkActionSchema = z.object({
   action: z.enum(["approve", "reject", "flag", "delete", "export"]),

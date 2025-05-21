@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth-utils";
 import { db } from "@/lib/db";
 import { z } from "zod";
-import { ModerationStatus } from "@prisma/client";
+import { ModerationStatus } from "../../../../../../../prisma/generated/client";
 
 // Schema for moderating equipment
 const moderateEquipmentSchema = z.object({
