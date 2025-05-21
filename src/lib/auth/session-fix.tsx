@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect } from 'react';
-import { useSession } from 'next-auth/react';
+import { useEffect, useState } from 'react';
+import { useSession, signOut } from 'next-auth/react';
+import { resetAuthCookies, isJWEDecryptionError } from './session-reset';
+import { toast } from 'sonner';
 
 /**
  * This component helps fix NextAuth session issues by extending the session
@@ -9,6 +11,7 @@ import { useSession } from 'next-auth/react';
  */
 export function SessionStateManager() {
   const { status, update } = useSession();
+  const [hasResetCookies, setHasResetCookies] = useState(false);
 
   useEffect(() => {
     // Handle online/offline events
@@ -25,9 +28,28 @@ export function SessionStateManager() {
       }
     };
 
+    // Handle JWT decryption errors from console
+    const handleConsoleError = (event: ErrorEvent) => {
+      if (isJWEDecryptionError(event.error) && !hasResetCookies) {
+        console.log('JWT decryption error detected, resetting auth cookies');
+        resetAuthCookies();
+        setHasResetCookies(true);
+        toast({
+          title: "Session error detected",
+          description: "Your session has been reset. Please refresh the page or sign in again.",
+          variant: "warning",
+          duration: 10000
+        });
+        
+        // Sign out the user to clear session state
+        signOut({ redirect: false });
+      }
+    };
+
     // Add event listeners
     window.addEventListener('online', handleOnline);
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('error', handleConsoleError);
 
     // If session is in error state, try to refresh it
     if (status === 'loading') {
@@ -43,8 +65,9 @@ export function SessionStateManager() {
     return () => {
       window.removeEventListener('online', handleOnline);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('error', handleConsoleError);
     };
-  }, [status, update]);
+  }, [status, update, hasResetCookies]);
 
   // No UI is rendered
   return null;

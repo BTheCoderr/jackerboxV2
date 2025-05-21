@@ -6,10 +6,23 @@ import { NotificationDropdownWrapper } from "../notifications/notification-dropd
 import { LogoutButton } from "../auth/logout-button";
 import { MessageCircle } from "lucide-react";
 import { useSession } from "next-auth/react";
+import { ThemeToggle } from "../theme/theme-toggle";
+import { resetAuthCookies } from "@/lib/auth/session-reset";
+import { toast } from 'sonner';
 
 export function Navbar() {
   const { data: session } = useSession();
   const user = session?.user;
+  
+  const handleResetSession = () => {
+    resetAuthCookies();
+    toast({
+      title: "Session reset",
+      description: "Auth cookies have been cleared. Please refresh the page.",
+      variant: "info",
+      duration: 5000
+    });
+  };
   
   return (
     <header className="border-b">
@@ -18,10 +31,10 @@ export function Navbar() {
           <Logo />
           
           <nav className="hidden md:flex items-center gap-6">
-            <Link href="/routes/equipment" className="text-gray-600 hover:text-jacker-blue">
+            <Link href="/routes/equipment" className="text-gray-600 hover:text-jacker-blue dark:text-gray-300">
               Browse Equipment
             </Link>
-            <Link href="/routes/how-it-works" className="text-gray-600 hover:text-jacker-blue">
+            <Link href="/routes/how-it-works" className="text-gray-600 hover:text-jacker-blue dark:text-gray-300">
               How It Works
             </Link>
           </nav>
@@ -32,7 +45,7 @@ export function Navbar() {
             <>
               <Link 
                 href="/routes/equipment/new"
-                className="px-4 py-2 border border-jacker-blue text-jacker-blue rounded-md hover:bg-jacker-blue hover:text-white transition-colors"
+                className="px-4 py-2 border border-jacker-blue text-jacker-blue rounded-md hover:bg-jacker-blue hover:text-white transition-colors dark:border-blue-400 dark:text-blue-400 dark:hover:bg-blue-400"
               >
                 List Equipment
               </Link>
@@ -59,7 +72,7 @@ export function Navbar() {
                     >
                       Debug
                     </button>
-                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg overflow-hidden z-50 border border-gray-200 hidden group-hover:block">
+                    <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg overflow-hidden z-50 border border-gray-200 dark:border-gray-700 hidden group-hover:block">
                       <Link
                         href="/routes/debug/navigation"
                         className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
@@ -78,6 +91,12 @@ export function Navbar() {
                       >
                         Socket Status
                       </Link>
+                      <button
+                        onClick={handleResetSession}
+                        className="w-full text-left block px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+                      >
+                        Reset Session
+                      </button>
                       <Link
                         href="/routes/reviews/sample"
                         className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
@@ -105,13 +124,15 @@ export function Navbar() {
                 onClick={() => {
                   window.location.href = "/routes/messages";
                 }}
-                className="p-2 text-gray-600 hover:text-jacker-blue rounded-full"
+                className="p-2 text-gray-600 hover:text-jacker-blue rounded-full dark:text-gray-300"
                 title="Messages"
               >
                 <MessageCircle size={20} />
               </button>
               
               <NotificationDropdownWrapper />
+              
+              <ThemeToggle />
               
               <div className="relative">
                 <Link href="/routes/profile" className="flex items-center gap-2">
@@ -126,9 +147,11 @@ export function Navbar() {
             </>
           ) : (
             <>
+              <ThemeToggle />
+              
               <Link 
                 href="/auth/login"
-                className="px-4 py-2 hover:text-jacker-blue rounded-md"
+                className="px-4 py-2 hover:text-jacker-blue rounded-md dark:text-gray-300"
               >
                 Log in
               </Link>
