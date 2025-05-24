@@ -58,10 +58,11 @@ export async function POST(req: Request) {
       return new NextResponse('Payout already processed', { status: 400 });
     }
 
+    // ---- TEMPORARILY DISABLED FOR SIMPLIFIED ONBOARDING ----
     // Check if the owner has a Stripe Connect account
-    if (!rental.equipment.owner.stripeConnectAccountId) {
-      return new NextResponse('Equipment owner does not have a Stripe Connect account', { status: 400 });
-    }
+    // if (!rental.equipment.owner.stripeConnectAccountId) {
+    //   return new NextResponse('Equipment owner does not have a Stripe Connect account', { status: 400 });
+    // }
 
     // Calculate platform fee (e.g., 10% of rental amount)
     const platformFeePercentage = 0.10; // 10%
@@ -69,57 +70,107 @@ export async function POST(req: Request) {
     const platformFee = rentalAmount * platformFeePercentage;
     const ownerAmount = rentalAmount - platformFee;
 
-    // Process the payout using Stripe Connect
-    const transfer = await stripe.transfers.create({
-      amount: formatAmountForStripe(ownerAmount, 'USD'),
-      currency: 'usd',
-      destination: rental.equipment.owner.stripeConnectAccountId,
-      transfer_group: rental.id,
-      metadata: {
+    // ---- SIMPLIFIED DEVELOPMENT MODE - MOCK PAYOUT ----
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🚀 MOCK PAYOUT PROCESSED:', {
         rentalId: rental.id,
-        paymentId: rental.payment.id,
-        equipmentId: rental.equipment.id,
+        ownerAmount,
+        platformFee,
         ownerId: rental.equipment.owner.id
-      },
-      description: `Payout for rental of ${rental.equipment.name} from ${new Date(rental.startDate).toLocaleDateString()} to ${new Date(rental.endDate).toLocaleDateString()}`
-    });
+      });
 
-    // Update the payment record
-    await db.payment.update({
-      where: {
-        id: rental.payment.id,
-      },
-      data: {
-        ownerPaidOut: true,
-        ownerPaidOutAmount: ownerAmount,
-        platformFee: platformFee,
-        stripeTransferId: transfer.id, // Store the transfer ID for reference
-      },
-    });
-
-    // Send notification to the owner
-    if (rental.equipment.owner.id) {
-      await sendNotification({
-        userId: rental.equipment.owner.id,
-        type: NotificationType.PAYOUT_PROCESSED,
-        data: {
-          amount: ownerAmount,
-          propertyName: rental.equipment.name,
-          checkIn: rental.startDate,
-          checkOut: rental.endDate,
-          transferId: transfer.id
+      // Update the payment record (mock payout)
+      await db.payment.update({
+        where: {
+          id: rental.payment.id,
         },
+        data: {
+          ownerPaidOut: true,
+          ownerPaidOutAmount: ownerAmount,
+          platformFee: platformFee,
+          stripeTransferId: 'mock_transfer_dev_' + Date.now(), // Mock transfer ID
+        },
+      });
+
+      // Send notification to the owner
+      if (rental.equipment.owner.id) {
+        await sendNotification({
+          userId: rental.equipment.owner.id,
+          type: NotificationType.PAYOUT_PROCESSED,
+          data: {
+            amount: ownerAmount,
+            propertyName: rental.equipment.name,
+            checkIn: rental.startDate,
+            checkOut: rental.endDate,
+            transferId: 'mock_transfer_dev'
+          },
+        });
+      }
+
+      // Return success response
+      return NextResponse.json({
+        success: true,
+        rentalId: rental.id,
+        ownerAmount,
+        platformFee,
+        transferId: 'mock_transfer_dev_' + Date.now(),
+        mode: 'development_mock'
       });
     }
 
-    // Return success response
-    return NextResponse.json({
-      success: true,
-      rentalId: rental.id,
-      ownerAmount,
-      platformFee,
-      transferId: transfer.id
-    });
+    // ---- PRODUCTION STRIPE CONNECT PAYOUT (COMMENTED OUT) ----
+    // Process the payout using Stripe Connect
+    // const transfer = await stripe.transfers.create({
+    //   amount: formatAmountForStripe(ownerAmount, 'USD'),
+    //   currency: 'usd',
+    //   destination: rental.equipment.owner.stripeConnectAccountId,
+    //   transfer_group: rental.id,
+    //   metadata: {
+    //     rentalId: rental.id,
+    //     paymentId: rental.payment.id,
+    //     equipmentId: rental.equipment.id,
+    //     ownerId: rental.equipment.owner.id
+    //   },
+    //   description: `Payout for rental of ${rental.equipment.name} from ${new Date(rental.startDate).toLocaleDateString()} to ${new Date(rental.endDate).toLocaleDateString()}`
+    // });
+
+    // // Update the payment record
+    // await db.payment.update({
+    //   where: {
+    //     id: rental.payment.id,
+    //   },
+    //   data: {
+    //     ownerPaidOut: true,
+    //     ownerPaidOutAmount: ownerAmount,
+    //     platformFee: platformFee,
+    //     stripeTransferId: transfer.id, // Store the transfer ID for reference
+    //   },
+    // });
+
+    // // Send notification to the owner
+    // if (rental.equipment.owner.id) {
+    //   await sendNotification({
+    //     userId: rental.equipment.owner.id,
+    //     type: NotificationType.PAYOUT_PROCESSED,
+    //     data: {
+    //       amount: ownerAmount,
+    //       propertyName: rental.equipment.name,
+    //       checkIn: rental.startDate,
+    //       checkOut: rental.endDate,
+    //       transferId: transfer.id
+    //     },
+    //   });
+    // }
+
+    // // Return success response
+    // return NextResponse.json({
+    //   success: true,
+    //   rentalId: rental.id,
+    //   ownerAmount,
+    //   platformFee,
+    //   transferId: transfer.id
+    // });
+
   } catch (error) {
     console.error('Error processing payout:', error);
     return new NextResponse('Error processing payout', { status: 500 });

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Search, Calendar, MessageSquare, User, Settings } from 'lucide-react';
+import { Home, Search, Plus, MessageSquare, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSession } from 'next-auth/react';
 
@@ -59,14 +59,20 @@ export function MobileBottomNav() {
     >
       <nav className="flex justify-around items-center h-16">
         <NavLink href="/" isActive={isActive('/')} label="Home" icon={<Home size={20} />} />
-        <NavLink href="/routes/equipment" isActive={isActive('/routes/equipment')} label="Equipment" icon={<Search size={20} />} />
-        <NavLink href="/routes/dashboard/rentals" isActive={isActive('/routes/dashboard/rentals')} label="Rentals" icon={<Calendar size={20} />} />
+        <NavLink href="/routes/equipment" isActive={isActive('/routes/equipment')} label="Browse" icon={<Search size={20} />} />
+        <NavLink 
+          href={session ? "/routes/equipment/new" : "/auth/login"} 
+          isActive={isActive('/routes/equipment/new')}
+          label="List"
+          icon={<Plus size={20} />}
+          highlight={true}
+        />
         <NavLink href="/routes/messages" isActive={isActive('/routes/messages')} label="Messages" icon={<MessageSquare size={20} />} />
         <NavLink 
-          href={session ? "/routes/profile/settings" : "/auth/login"} 
-          isActive={isActive('/routes/profile/settings')}
-          label="Settings"
-          icon={<Settings size={20} />}
+          href={session ? "/routes/dashboard" : "/auth/login"} 
+          isActive={isActive('/routes/dashboard') || isActive('/routes/profile')}
+          label="Profile"
+          icon={<User size={20} />}
         />
       </nav>
     </div>
@@ -74,17 +80,19 @@ export function MobileBottomNav() {
 }
 
 // Helper component for nav links
-function NavLink({ href, isActive, label, icon }: { 
+function NavLink({ href, isActive, label, icon, highlight = false }: { 
   href: string; 
   isActive: boolean; 
   label: string; 
-  icon: React.ReactNode 
+  icon: React.ReactNode;
+  highlight?: boolean;
 }) {
   return (
     <Link 
       href={href} 
       className={cn(
         "flex flex-col items-center justify-center w-full h-full text-xs transition-colors duration-200",
+        highlight && "bg-blue-50 dark:bg-blue-900/20 rounded-lg mx-1", // Highlight the "List" button
         isActive
           ? "text-blue-600 dark:text-blue-400" 
           : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300"

@@ -41,6 +41,11 @@ const config = {
     ppr: false,
     taint: false,
   },
+  // Disable Next.js tracing to fix api.createContextKey errors
+  productionBrowserSourceMaps: false,
+  compiler: {
+    removeConsole: false,
+  },
   // Force all pages to be server-side rendered by default
   // This prevents "Dynamic server usage" errors during build
   staticPageGenerationTimeout: 1000,
@@ -99,6 +104,31 @@ const config = {
     }
     
     return config;
+  },
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'X-DNS-Prefetch-Control',
+            value: 'on',
+          },
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY',
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'origin-when-cross-origin',
+          },
+        ],
+      },
+    ];
   },
   env: {
     // Only explicitly list allowed environment variables

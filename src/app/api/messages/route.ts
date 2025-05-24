@@ -1,184 +1,113 @@
-import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth/auth-utils";
-import { db } from "@/lib/db";
-import { z } from "zod";
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '../../../lib/auth/auth-options';
+import { PrismaClient } from '../../../../prisma/generated/client';
 
-export const dynamic = 'force-dynamic';
+const prisma = new PrismaClient();
 
-// Schema for creating a message
-const messageSchema = z.object({
-  content: z.string().min(1, "Message content is required"),
-  receiverId: z.string().min(1, "Receiver ID is required"),
-  equipmentId: z.string().optional(),
-  attachments: z.array(
-    z.object({
-      type: z.string(),
-      url: z.string().url(),
-      name: z.string(),
-      size: z.number().optional(),
-    })
-  ).optional(),
-});
-
-// POST endpoint to create a new message
-export async function POST(req: Request) {
+export async function GET(request: NextRequest) {
   try {
-    const user = await getCurrentUser();
+    const session = await getServerSession(authOptions);
     
-    if (!user) {
-      return NextResponse.json(
-        { message: "Unauthorized" },
-        { status: 401 }
-      );
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    
-    // Validate request body
-    const body = await req.json();
-    const validatedData = messageSchema.parse(body);
-    
-    // Check if receiver exists
-    const receiver = await db.user.findUnique({
-      where: { id: validatedData.receiverId },
+
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email }
     });
-    
-    if (!receiver) {
-      return NextResponse.json(
-        { message: "Receiver not found" },
-        { status: 404 }
-      );
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
-    
-    // Create the message
-    const message = await db.message.create({
-      data: {
-        content: validatedData.content,
-        senderId: user.id,
-        receiverId: validatedData.receiverId,
-        attachmentsJson: validatedData.attachments ? JSON.stringify(validatedData.attachments) : "[]",
+
+    // Get all messages for the user
+    const messages = await prisma.message.findMany({
+      where: {
+        OR: [
+          { senderId: user.id },
+          { receiverId: user.id }
+        ]
       },
       include: {
         sender: {
           select: {
             id: true,
             name: true,
-            image: true,
-          },
+            image: true
+          }
         },
+        receiver: {
+          select: {
+            id: true,
+            name: true,
+            image: true
+          }
+        }
       },
+      orderBy: { createdAt: 'desc' },
+      take: 50
     });
-    
-    // Create a notification for the receiver
-    await db.notification.create({
-      data: {
-        type: "NEW_MESSAGE",
-        userId: validatedData.receiverId,
-        data: {
-          messageId: message.id,
-          senderId: user.id,
-          senderName: user.name,
-          content: validatedData.content.substring(0, 50) + (validatedData.content.length > 50 ? "..." : ""),
-          equipmentId: validatedData.equipmentId,
-          hasAttachments: validatedData.attachments && validatedData.attachments.length > 0,
-        },
-      },
-    });
-    
-    // Parse attachments from JSON
-    const attachments = message.attachmentsJson ? JSON.parse(message.attachmentsJson) : [];
-    
-    // Return the message with parsed attachments
-    return NextResponse.json({
-      message: {
-        ...message,
-        attachments,
-        attachmentsJson: undefined, // Remove the JSON string from the response
-      },
-    });
+
+    return NextResponse.json(messages);
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { message: "Invalid input data", errors: error.errors },
-        { status: 400 }
-      );
-    }
-    
-    console.error("Error creating message:", error);
-    return NextResponse.json(
-      { message: "Something went wrong. Please try again." },
-      { status: 500 }
-    );
+    console.error('Messages API error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
-// GET endpoint to fetch messages
-export async function GET(req: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const user = await getCurrentUser();
+    const session = await getServerSession(authOptions);
     
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { receiverId, content } = body;
+
+    if (!receiverId || !content) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email }
+    });
+
     if (!user) {
-      return NextResponse.json(
-        { message: "Unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
-    
-    const url = new URL(req.url);
-    const otherUserId = url.searchParams.get("otherUserId");
-    
-    if (!otherUserId) {
-      return NextResponse.json(
-        { message: "Other user ID is required" },
-        { status: 400 }
-      );
-    }
-    
-    // Fetch messages between the current user and the other user
-    const messages = await db.message.findMany({
-      where: {
-        OR: [
-          {
-            senderId: user.id,
-            receiverId: otherUserId,
-          },
-          {
-            senderId: otherUserId,
-            receiverId: user.id,
-          },
-        ],
-      },
-      orderBy: {
-        createdAt: "asc",
+
+    // Create message
+    const message = await prisma.message.create({
+      data: {
+        senderId: user.id,
+        receiverId,
+        content,
+        attachmentsJson: '[]'
       },
       include: {
         sender: {
           select: {
             id: true,
             name: true,
-            image: true,
-          },
+            image: true
+          }
         },
-      },
+        receiver: {
+          select: {
+            id: true,
+            name: true,
+            image: true
+          }
+        }
+      }
     });
-    
-    // Parse attachments from JSON for each message
-    const messagesWithAttachments = messages.map(message => {
-      const attachments = message.attachmentsJson ? JSON.parse(message.attachmentsJson) : [];
-      
-      return {
-        ...message,
-        attachments,
-        attachmentsJson: undefined, // Remove the JSON string from the response
-      };
-    });
-    
-    return NextResponse.json({
-      messages: messagesWithAttachments,
-    });
+
+    return NextResponse.json(message);
   } catch (error) {
-    console.error("Error fetching messages:", error);
-    return NextResponse.json(
-      { message: "Something went wrong. Please try again." },
-      { status: 500 }
-    );
+    console.error('Message creation error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 } 

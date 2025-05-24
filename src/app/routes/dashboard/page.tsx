@@ -27,7 +27,7 @@ interface ExtendedUser {
 export default async function DashboardPage({ 
   searchParams 
 }: { 
-  searchParams: { error?: string } 
+  searchParams: Promise<{ error?: string }> 
 }) {
   const user = await getCurrentUser() as ExtendedUser;
 
@@ -35,9 +35,9 @@ export default async function DashboardPage({
     redirect("/auth/login?callbackUrl=/routes/dashboard");
   }
 
-  // In Next.js 14+, searchParams is a read-only value from the route segment config
-  // We can safely read values directly since searchParams is passed as a prop
-  const errorParam: string | undefined = typeof searchParams.error === 'string' ? searchParams.error : undefined;
+  // In Next.js 15+, searchParams must be awaited before accessing properties
+  const searchParamsData = await searchParams;
+  const errorParam: string | undefined = typeof searchParamsData.error === 'string' ? searchParamsData.error : undefined;
 
   try {
     // Fetch user's rentals (as a renter)

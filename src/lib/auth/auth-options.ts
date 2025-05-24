@@ -178,8 +178,44 @@ export const authOptions: NextAuthOptions = {
       credentials: {
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' },
+        phone: { label: 'Phone', type: 'text' },
+        type: { label: 'Type', type: 'text' }, // 'email' or 'phone'
       },
       async authorize(credentials) {
+        // Handle phone authentication
+        if (credentials?.type === 'phone' && credentials?.phone) {
+          const user = await prisma.user.findFirst({
+            where: {
+              phone: credentials.phone,
+            },
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+              image: true,
+              isAdmin: true,
+              stripeConnectAccountId: true,
+              userType: true,
+            },
+          });
+
+          if (!user) {
+            throw new Error('No account found with this phone number');
+          }
+
+          return {
+            id: user.id,
+            name: user.name,
+            email: user.email || `phone_${user.phone}@jackerbox.com`, // Ensure email is not null for NextAuth
+            image: user.image,
+            isAdmin: Boolean(user.isAdmin),
+            stripeConnectAccountId: user.stripeConnectAccountId || undefined,
+            userType: user.userType || 'both',
+          };
+        }
+
+        // Handle email/password authentication
         if (!credentials?.email || !credentials?.password) {
           throw new Error('Invalid credentials');
         }

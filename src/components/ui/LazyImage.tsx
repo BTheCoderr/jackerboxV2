@@ -23,7 +23,7 @@ export function LazyImage({
   width,
   height,
   className,
-  fallbackSrc = '/images/placeholder.jpg',
+  fallbackSrc = '/images/placeholder.svg',
   loadingComponent,
   errorComponent,
   rootMargin = '200px',

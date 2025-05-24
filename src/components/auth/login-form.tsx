@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 const phoneSchema = z.object({
@@ -22,9 +22,12 @@ type EmailFormValues = z.infer<typeof emailSchema>;
 
 export function LoginForm() {
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [loginMode, setLoginMode] = useState<'phone' | 'email'>('phone');
+  const [verificationStep, setVerificationStep] = useState<'phone' | 'code'>('phone');
+  const [verificationCode, setVerificationCode] = useState<string>('');
   const router = useRouter();
   
   const phoneForm = useForm<PhoneFormValues>({
@@ -42,21 +45,140 @@ export function LoginForm() {
     },
   });
   
+  // Function to format phone number consistently
+  const formatPhoneNumber = (phoneNumber: string): string => {
+    if (!phoneNumber) return '';
+    
+    // Remove all non-digit characters except the plus sign
+    let formatted = phoneNumber.replace(/[^\d+]/g, '');
+    
+    // Ensure there's only one leading plus if present
+    formatted = formatted.replace(/^\++/, '+');
+    
+    // If no plus sign at the beginning, assume US number and add +1
+    if (!formatted.startsWith('+')) {
+      // Only add +1 if it doesn't already start with 1
+      if (!formatted.startsWith('1')) {
+        formatted = `+1${formatted}`;
+      } else {
+        formatted = `+${formatted}`;
+      }
+    }
+    
+    return formatted;
+  };
+  
   const onPhoneSubmit = async (data: PhoneFormValues) => {
     setIsLoading(true);
     setError(null);
+    setSuccess(null);
     
     try {
-      console.log("Attempting to sign in with phone:", data.phoneNumber);
-      // Here you would typically send a verification code
-      // For now, we'll just show an alert
-      alert(`Verification code sent to ${data.phoneNumber}`);
+      // Format phone number
+      const formattedPhoneNumber = formatPhoneNumber(data.phoneNumber);
       
-      // You would typically implement SMS verification code flow here
+      // Store the formatted phone number in the form
+      phoneForm.setValue("phoneNumber", formattedPhoneNumber);
       
+      console.log("Sending verification code to:", formattedPhoneNumber);
+      
+      // Call our API to send verification code
+      const response = await fetch('/api/auth/send-verification', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ phoneNumber: formattedPhoneNumber }),
+      });
+      
+      const result = await response.json();
+      
+      if (!response.ok) {
+        // Enhanced error handling with more detailed error message
+        const errorMessage = result.error || result.message || 'Failed to send verification code';
+        console.error("Verification code error:", errorMessage, result);
+        
+        // In development mode, we'll continue despite errors for test numbers
+        if (process.env.NODE_ENV === 'development' && (formattedPhoneNumber.includes('5555555555') || formattedPhoneNumber.includes('2025550123'))) {
+          console.log("Development mode: proceeding with test code despite API error");
+          setVerificationStep('code');
+          setSuccess(`Development mode: Use code 123456 for testing. (Error was: ${errorMessage})`);
+          return; // Exit early after setting up dev mode
+        }
+        
+        throw new Error(errorMessage);
+      }
+      
+      // Move to verification code step
+      setVerificationStep('code');
+      
+      // Special handling for development mode
+      if (result.testMode) {
+        setSuccess(`Development mode: Verification code is ${result.testCode}`);
+      } else {
+        setSuccess("Verification code sent! Check your phone.");
+      }
     } catch (error) {
-      console.error("Phone login exception:", error);
-      setError("Something went wrong. Please try again later.");
+      console.error("Error sending verification code:", error);
+      setError(error instanceof Error ? error.message : "Failed to send verification code. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Function to verify the SMS code
+  const verifyCode = async () => {
+    setIsLoading(true);
+    setError(null);
+    setSuccess(null);
+    
+    try {
+      const phoneNumber = phoneForm.getValues().phoneNumber;
+      const formattedPhoneNumber = formatPhoneNumber(phoneNumber);
+      
+      console.log("Verifying code:", verificationCode, "for phone:", formattedPhoneNumber);
+      
+      // Call our API to verify the code
+      const response = await fetch('/api/auth/verify-code', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          phoneNumber: formattedPhoneNumber, 
+          code: verificationCode 
+        }),
+      });
+      
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to verify code');
+      }
+      
+      // Code verified, now sign in using NextAuth with phone
+      setSuccess("Phone verified! Signing you in...");
+      
+      const signInResult = await signIn("credentials", {
+        phone: formattedPhoneNumber,
+        type: "phone",
+        redirect: false,
+      });
+      
+      if (signInResult?.error) {
+        throw new Error(`Authentication failed: ${signInResult.error}`);
+      }
+      
+      // Redirect to dashboard after successful login
+      const searchParams = new URLSearchParams(window.location.search);
+      const callbackUrl = searchParams.get("callbackUrl") || "/routes/dashboard";
+      
+      setTimeout(() => {
+        window.location.href = callbackUrl;
+      }, 500);
+    } catch (error) {
+      console.error("Verification error:", error);
+      setError(error instanceof Error ? error.message : "Failed to verify code. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -64,10 +186,9 @@ export function LoginForm() {
   
   const onEmailSubmit = async (data: EmailFormValues) => {
     setIsLoading(true);
-    setError(null);
+    setError("");
     
     try {
-      console.log("Attempting to sign in with:", data.email);
       const result = await signIn("credentials", {
         email: data.email,
         password: data.password,
@@ -75,29 +196,25 @@ export function LoginForm() {
       });
       
       if (result?.error) {
-        console.error("Login error:", result.error);
+        // Removed console.error for security - error shown in UI instead
         
         // Set a more specific error message based on the error
         if (result.error.includes("Invalid credentials")) {
           setError("Invalid email or password. Please try again.");
-        } else if (result.error.includes("Missing credentials")) {
-          setError("Please enter both your email and password.");
+        } else if (result.error.includes("Account not found")) {
+          setError("No account found with this email address.");
         } else {
-          setError(`Authentication failed: ${result.error}`);
+          setError("Login failed. Please check your credentials and try again.");
         }
-        return;
+      } else if (result?.ok) {
+        // Redirect on successful login
+        const searchParams = new URLSearchParams(window.location.search);
+        const callbackUrl = searchParams.get("callbackUrl") || "/routes/dashboard";
+        window.location.href = callbackUrl;
       }
-      
-      console.log("Login successful, redirecting...");
-      
-      // Add a small delay to ensure the session is updated
-      setTimeout(() => {
-        router.push("/");
-        router.refresh();
-      }, 500);
     } catch (error) {
-      console.error("Login exception:", error);
-      setError("Something went wrong. Please try again later.");
+      // Also remove console.error here for security
+      setError("An unexpected error occurred. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -110,6 +227,14 @@ export function LoginForm() {
   const switchToEmailMode = () => {
     setLoginMode('email');
     setError(null);
+    setSuccess(null);
+  };
+  
+  const switchToPhoneMode = () => {
+    setLoginMode('phone');
+    setVerificationStep('phone');
+    setError(null);
+    setSuccess(null);
   };
   
   return (
@@ -118,58 +243,112 @@ export function LoginForm() {
         <h1 className="text-2xl font-bold">Log in</h1>
       </div>
       
+      {/* Error and success messages */}
+      {error && (
+        <div className="p-3 bg-red-100 text-red-600 rounded-md text-sm">
+          {error}
+        </div>
+      )}
+      
+      {success && (
+        <div className="p-3 bg-green-100 text-green-600 rounded-md text-sm">
+          {success}
+        </div>
+      )}
+      
       {loginMode === 'phone' ? (
         <>
-          <div className="space-y-4">
-            <div className="space-y-1">
-              <label htmlFor="country-code" className="text-sm font-medium">
-                Country code
-              </label>
-              <div className="relative rounded-md border">
-                <button className="flex items-center w-full p-2 text-left">
-                  <span>+1 United States</span>
-                  <svg className="ml-auto h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-            
-            <form onSubmit={phoneForm.handleSubmit(onPhoneSubmit)} className="space-y-4">
-              {error && (
-                <div className="p-3 bg-red-100 text-red-600 rounded-md text-sm">
-                  {error}
+          {verificationStep === 'phone' ? (
+            <>
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <label htmlFor="country-code" className="text-sm font-medium">
+                    Country code
+                  </label>
+                  <div className="relative rounded-md border">
+                    <button className="flex items-center w-full p-2 text-left">
+                      <span>+1 United States</span>
+                      <svg className="ml-auto h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
-              )}
+                
+                <form onSubmit={phoneForm.handleSubmit(onPhoneSubmit)} className="space-y-4">
+                  <div className="space-y-1">
+                    <label htmlFor="phoneNumber" className="text-sm font-medium">
+                      Phone number
+                    </label>
+                    <input
+                      id="phoneNumber"
+                      type="tel"
+                      {...phoneForm.register("phoneNumber")}
+                      className="w-full p-2 border rounded-md"
+                      disabled={isLoading}
+                      placeholder="Phone number"
+                    />
+                    {phoneForm.formState.errors.phoneNumber && (
+                      <p className="text-red-500 text-xs mt-1">{phoneForm.formState.errors.phoneNumber.message}</p>
+                    )}
+                  </div>
+                  
+                  <p className="text-sm text-gray-500">We'll text you a code to confirm your number.</p>
+                  
+                  <button
+                    type="submit"
+                    className="w-full py-2 px-4 bg-amber-500 text-white rounded-md hover:bg-amber-600 transition-colors"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? "Sending..." : "Continue"}
+                  </button>
+                </form>
+              </div>
+            </>
+          ) : (
+            // Verification code step
+            <div className="space-y-4">
+              <div className="text-center">
+                <h2 className="text-lg font-medium">Enter verification code</h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  We sent a code to {phoneForm.getValues().phoneNumber}
+                </p>
+              </div>
               
               <div className="space-y-1">
-                <label htmlFor="phoneNumber" className="text-sm font-medium">
-                  Phone number
+                <label htmlFor="verificationCode" className="text-sm font-medium">
+                  Verification code
                 </label>
                 <input
-                  id="phoneNumber"
-                  type="tel"
-                  {...phoneForm.register("phoneNumber")}
-                  className="w-full p-2 border rounded-md"
+                  id="verificationCode"
+                  type="text"
+                  value={verificationCode}
+                  onChange={(e) => setVerificationCode(e.target.value)}
+                  className="w-full p-2 border rounded-md text-center text-lg tracking-widest"
+                  placeholder="123456"
+                  maxLength={6}
                   disabled={isLoading}
-                  placeholder="Phone number"
                 />
-                {phoneForm.formState.errors.phoneNumber && (
-                  <p className="text-red-500 text-xs mt-1">{phoneForm.formState.errors.phoneNumber.message}</p>
-                )}
               </div>
               
-              <p className="text-sm text-gray-500">We'll text you a code to confirm your number.</p>
+              <button
+                onClick={verifyCode}
+                disabled={isLoading || verificationCode.length !== 6}
+                className="w-full py-2 px-4 bg-amber-500 text-white rounded-md hover:bg-amber-600 transition-colors disabled:bg-gray-300"
+              >
+                {isLoading ? "Verifying..." : "Verify"}
+              </button>
               
               <button
-                type="submit"
-                className="w-full py-2 px-4 bg-amber-500 text-white rounded-md hover:bg-amber-600 transition-colors"
+                type="button"
+                onClick={() => setVerificationStep('phone')}
+                className="w-full py-2 px-4 text-gray-600 hover:text-gray-800"
                 disabled={isLoading}
               >
-                {isLoading ? "Sending..." : "Continue"}
+                Back to phone number
               </button>
-            </form>
-          </div>
+            </div>
+          )}
           
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
@@ -209,7 +388,7 @@ export function LoginForm() {
             
             <button
               type="button"
-              onClick={() => signIn("google", { callbackUrl: "/" })}
+              onClick={() => signIn("google", { callbackUrl: "/routes/dashboard" })}
               className="flex items-center justify-center w-full py-2 px-4 border rounded-md hover:bg-gray-50 transition-colors"
             >
               <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
@@ -237,12 +416,6 @@ export function LoginForm() {
       ) : (
         // Email login form
         <form onSubmit={emailForm.handleSubmit(onEmailSubmit)} className="space-y-4">
-          {error && (
-            <div className="p-3 bg-red-100 text-red-600 rounded-md text-sm">
-              {error}
-            </div>
-          )}
-          
           <div className="space-y-1">
             <label htmlFor="email" className="text-sm font-medium">
               Email
@@ -305,7 +478,7 @@ export function LoginForm() {
           
           <button
             type="button"
-            onClick={() => setLoginMode('phone')}
+            onClick={switchToPhoneMode}
             className="w-full py-2 px-4 border border-gray-300 rounded-md text-sm"
           >
             Back to phone login

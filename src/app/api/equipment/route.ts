@@ -123,10 +123,10 @@ export async function GET(req: Request) {
     const limit = Math.min(parseInt(url.searchParams.get("limit") || "10"), 50); // Cap at 50 items
     const page = Math.max(parseInt(url.searchParams.get("page") || "1"), 1); // Minimum page 1
     const category = url.searchParams.get("category");
-    const search = url.searchParams.get("search");
+    const search = url.searchParams.get("search") || url.searchParams.get("query"); // Support both 'search' and 'query'
     const location = url.searchParams.get("location");
-    const minPrice = url.searchParams.get("minPrice") ? parseFloat(url.searchParams.get("minPrice")!) : undefined;
-    const maxPrice = url.searchParams.get("maxPrice") ? parseFloat(url.searchParams.get("maxPrice")!) : undefined;
+    const minPrice = url.searchParams.get("minPrice") || url.searchParams.get("priceMin") ? parseFloat(url.searchParams.get("minPrice") || url.searchParams.get("priceMin")!) : undefined;
+    const maxPrice = url.searchParams.get("maxPrice") || url.searchParams.get("priceMax") ? parseFloat(url.searchParams.get("maxPrice") || url.searchParams.get("priceMax")!) : undefined;
     const sortBy = url.searchParams.get("sortBy") || "relevance";
     
     // Parse user location if provided
@@ -156,12 +156,89 @@ export async function GET(req: Request) {
       };
     }
     
+    // Add basic text search if provided
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: "insensitive" } },
+        { description: { contains: search, mode: "insensitive" } },
+        { category: { contains: search, mode: "insensitive" } },
+        { subcategory: { contains: search, mode: "insensitive" } }
+      ];
+    }
+    
+    // Add price filtering based on primary display price
+    if (minPrice !== undefined || maxPrice !== undefined) {
+      where.AND = where.AND || [];
+      
+      // Filter by the primary display price (dailyRate if available, otherwise hourlyRate)
+      const priceConditions: any = {};
+      
+      if (minPrice !== undefined && maxPrice !== undefined) {
+        // Both min and max specified - filter by range
+        priceConditions.OR = [
+          // Items with dailyRate in range
+          {
+            AND: [
+              { dailyRate: { not: null } },
+              { dailyRate: { gte: minPrice, lte: maxPrice } }
+            ]
+          },
+          // Items without dailyRate but with hourlyRate in range (only if no dailyRate)
+          {
+            AND: [
+              { dailyRate: null },
+              { hourlyRate: { not: null } },
+              { hourlyRate: { gte: minPrice, lte: maxPrice } }
+            ]
+          }
+        ];
+      } else if (minPrice !== undefined) {
+        // Only minimum specified
+        priceConditions.OR = [
+          {
+            AND: [
+              { dailyRate: { not: null } },
+              { dailyRate: { gte: minPrice } }
+            ]
+          },
+          {
+            AND: [
+              { dailyRate: null },
+              { hourlyRate: { not: null } },
+              { hourlyRate: { gte: minPrice } }
+            ]
+          }
+        ];
+      } else if (maxPrice !== undefined) {
+        // Only maximum specified
+        priceConditions.OR = [
+          {
+            AND: [
+              { dailyRate: { not: null } },
+              { dailyRate: { lte: maxPrice } }
+            ]
+          },
+          {
+            AND: [
+              { dailyRate: null },
+              { hourlyRate: { not: null } },
+              { hourlyRate: { lte: maxPrice } }
+            ]
+          }
+        ];
+      }
+      
+      if (priceConditions.OR) {
+        where.AND.push(priceConditions);
+      }
+    }
+    
     // Debug logs
     console.log('Equipment API called with params:', Object.fromEntries(url.searchParams.entries()));
     console.log('Using where clause:', JSON.stringify(where));
     
-    // Import the search utilities if search parameter is provided
-    if (search || minPrice || maxPrice || (userLat && userLng && maxDistance)) {
+    // Import the search utilities if advanced search is needed
+    if ((search && search.includes(' ')) || (userLat && userLng && maxDistance)) {
       const { generateEnhancedSearchQuery } = await import('@/lib/search/search-utils');
       
       // Prepare search options

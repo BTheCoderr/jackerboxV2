@@ -101,7 +101,7 @@ export function useEquipmentSearch(
   
   // Parse URL search params on initial load if syncWithUrl is true
   const getInitialParams = (): EquipmentSearchParams => {
-    if (!syncWithUrl) return initialParams;
+    if (!syncWithUrl || !urlSearchParams) return initialParams;
     
     const params: EquipmentSearchParams = { ...initialParams };
     
@@ -183,17 +183,22 @@ export function useEquipmentSearch(
       
       // Construct URL with search params
       const urlParams = generateUrlParams(params);
-      const response = await fetch(`/api/search/equipment?${urlParams.toString()}`);
+      const response = await fetch(`/api/equipment?${urlParams.toString()}`);
       
       if (!response.ok) {
         throw new Error(`Search request failed with status ${response.status}`);
       }
       
-      const data: EquipmentSearchResponse = await response.json();
+      const data = await response.json();
       
-      // Update state with results
-      setResults(data.results);
-      setPagination(data.pagination);
+      // Update state with results (API returns 'equipment' instead of 'results')
+      setResults(data.equipment || []);
+      setPagination(data.pagination || {
+        total: 0,
+        page: 1,
+        limit: 20,
+        pages: 0
+      });
       
       // Update URL if syncWithUrl is true
       if (syncWithUrl) {
@@ -210,9 +215,8 @@ export function useEquipmentSearch(
   
   // Run search when debounced search params change
   useEffect(() => {
-    if (Object.keys(debouncedSearchParams).length > 0) {
-      performSearch(debouncedSearchParams);
-    }
+    // Always perform search, even with empty params to load initial results
+    performSearch(debouncedSearchParams);
   }, [debouncedSearchParams, performSearch]);
   
   // Update search parameters

@@ -4,28 +4,28 @@ import Link from "next/link";
 import { Logo } from "./logo";
 import { NotificationDropdownWrapper } from "../notifications/notification-dropdown-wrapper";
 import { LogoutButton } from "../auth/logout-button";
-import { MessageCircle } from "lucide-react";
+import { MessageCircle, Menu, X } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { ThemeToggle } from "../theme/theme-toggle";
 import { resetAuthCookies } from "@/lib/auth/session-reset";
 import { toast } from 'sonner';
+import { useState } from "react";
 
 export function Navbar() {
   const { data: session } = useSession();
   const user = session?.user;
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   
   const handleResetSession = () => {
     resetAuthCookies();
-    toast({
-      title: "Session reset",
+    toast("Session reset", {
       description: "Auth cookies have been cleared. Please refresh the page.",
-      variant: "info",
       duration: 5000
     });
   };
   
   return (
-    <header className="border-b">
+    <header className="border-b hidden md:block">
       <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-8">
           <Logo />
@@ -50,76 +50,6 @@ export function Navbar() {
                 List Equipment
               </Link>
               
-              {user.isAdmin && (
-                <>
-                  <Link 
-                    href="/routes/admin"
-                    className="px-4 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-700"
-                  >
-                    Admin
-                  </Link>
-                  
-                  <Link 
-                    href="/routes/feature-flags"
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                  >
-                    Feature Flags
-                  </Link>
-                  
-                  <div className="relative group">
-                    <button
-                      className="px-4 py-2 bg-purple-800 text-white rounded-md hover:bg-purple-700"
-                    >
-                      Debug
-                    </button>
-                    <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg overflow-hidden z-50 border border-gray-200 dark:border-gray-700 hidden group-hover:block">
-                      <Link
-                        href="/routes/debug/navigation"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      >
-                        Navigation Debug
-                      </Link>
-                      <Link
-                        href="/routes/debug/socket-test"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      >
-                        Socket Debug
-                      </Link>
-                      <Link
-                        href="/routes/debug/socket"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      >
-                        Socket Status
-                      </Link>
-                      <button
-                        onClick={handleResetSession}
-                        className="w-full text-left block px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
-                      >
-                        Reset Session
-                      </button>
-                      <Link
-                        href="/routes/reviews/sample"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      >
-                        Review System Demo
-                      </Link>
-                      <Link
-                        href="/routes/pricing/demo"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      >
-                        Dynamic Pricing Demo
-                      </Link>
-                      <Link
-                        href="/routes/verification/demo"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      >
-                        ID Verification Demo
-                      </Link>
-                    </div>
-                  </div>
-                </>
-              )}
-              
               <button
                 onClick={() => {
                   window.location.href = "/routes/messages";
@@ -143,7 +73,71 @@ export function Navbar() {
                 </Link>
               </div>
               
-              <LogoutButton />
+              {/* Desktop Hamburger Menu for Additional Options */}
+              <div className="relative">
+                <button
+                  onClick={() => setIsMenuOpen(!isMenuOpen)}
+                  className="p-2 text-gray-600 hover:text-jacker-blue rounded-full dark:text-gray-300"
+                  aria-label={isMenuOpen ? "Close menu" : "Open menu"}
+                >
+                  {isMenuOpen ? <X size={20} /> : <Menu size={20} />}
+                </button>
+                
+                {isMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-md shadow-lg z-50 border border-gray-200 dark:border-gray-700">
+                    <div className="py-2">
+                      <Link 
+                        href="/routes/dashboard"
+                        className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        Dashboard
+                      </Link>
+                      <Link 
+                        href="/routes/profile/settings"
+                        className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        Profile Settings
+                      </Link>
+                      
+                      {user.isAdmin && (
+                        <>
+                          <div className="border-t border-gray-200 dark:border-gray-600 my-2"></div>
+                          <Link 
+                            href="/routes/admin"
+                            className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                            onClick={() => setIsMenuOpen(false)}
+                          >
+                            Admin Panel
+                          </Link>
+                          <Link 
+                            href="/routes/feature-flags"
+                            className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                            onClick={() => setIsMenuOpen(false)}
+                          >
+                            Feature Flags
+                          </Link>
+                          <button
+                            onClick={() => {
+                              handleResetSession();
+                              setIsMenuOpen(false);
+                            }}
+                            className="block w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          >
+                            Reset Auth Cookies
+                          </button>
+                        </>
+                      )}
+                      
+                      <div className="border-t border-gray-200 dark:border-gray-600 my-2"></div>
+                      <div className="px-4 py-2">
+                        <LogoutButton />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </>
           ) : (
             <>

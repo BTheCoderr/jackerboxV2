@@ -4,7 +4,13 @@ import { useState } from "react";
 import { useEquipmentSearch } from "@/hooks/use-equipment-search";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/select";
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { 
   Search,
@@ -41,7 +47,7 @@ import { Label } from "@/components/ui/label";
 
 // Equipment categories for dropdown
 const EQUIPMENT_CATEGORIES = [
-  { value: "", label: "All Categories" },
+  { value: "all", label: "All Categories" },
   { value: "tools", label: "Tools" },
   { value: "cameras", label: "Cameras" },
   { value: "audio", label: "Audio Equipment" },
@@ -88,7 +94,7 @@ const EquipmentCard = ({ equipment }: EquipmentCardProps) => {
   // Default image if none available
   const imageUrl = equipment.images && equipment.images.length > 0
     ? equipment.images[0]
-    : "/images/placeholder-equipment.jpg";
+    : "/images/placeholder.svg";
 
   // Primary price (daily rate or hourly rate)
   const primaryPrice = equipment.dailyRate || equipment.hourlyRate;
@@ -112,7 +118,7 @@ const EquipmentCard = ({ equipment }: EquipmentCardProps) => {
       <CardHeader className="p-4 pb-2">
         <CardTitle className="text-lg line-clamp-2">{equipment.title}</CardTitle>
         <CardDescription className="flex items-center gap-1">
-          <div className="text-sm text-gray-500 line-clamp-1">{equipment.category}</div>
+          <span className="text-sm text-gray-500 line-clamp-1">{equipment.category}</span>
         </CardDescription>
       </CardHeader>
       <CardContent className="px-4 py-2 flex-grow">
@@ -271,15 +277,19 @@ export function EquipmentSearch() {
                 <div className="space-y-2">
                   <Label htmlFor="category">Category</Label>
                   <Select
-                    id="category"
-                    value={searchParams.category || ""}
-                    onValueChange={(value) => updateParams({ category: value })}
+                    value={searchParams.category || "all"}
+                    onValueChange={(value) => updateParams({ category: value === "all" ? undefined : value })}
                   >
-                    {EQUIPMENT_CATEGORIES.map((category) => (
-                      <option key={category.value} value={category.value}>
-                        {category.label}
-                      </option>
-                    ))}
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {EQUIPMENT_CATEGORIES.map((category) => (
+                        <SelectItem key={category.value} value={category.value}>
+                          {category.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
                   </Select>
                 </div>
                 
@@ -351,15 +361,19 @@ export function EquipmentSearch() {
                 <div className="space-y-2">
                   <Label htmlFor="sort">Sort Results</Label>
                   <Select
-                    id="sort"
                     value={searchParams.sortBy || "relevance"}
                     onValueChange={(value) => updateParams({ sortBy: value as any })}
                   >
-                    {SORT_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sort by" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SORT_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
                   </Select>
                 </div>
               </div>
@@ -388,27 +402,31 @@ export function EquipmentSearch() {
             <Select
               value={searchParams.sortBy || "relevance"}
               onValueChange={(value) => updateParams({ sortBy: value as any })}
-              className="w-[180px]"
             >
-              <ArrowUpDown className="w-4 h-4 mr-2" />
-              {SORT_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
+              <SelectTrigger className="w-[180px]">
+                <ArrowUpDown className="w-4 h-4 mr-2" />
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                {SORT_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
           </div>
         </div>
         
         {/* Active filters display */}
-        {(searchParams.category || 
+        {(searchParams.category && searchParams.category !== "all" || 
           searchParams.priceMin || 
           searchParams.priceMax || 
           useLocation) && (
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm text-gray-500">Active filters:</span>
             
-            {searchParams.category && (
+            {searchParams.category && searchParams.category !== "all" && (
               <Badge variant="secondary" className="flex items-center gap-1">
                 {EQUIPMENT_CATEGORIES.find(c => c.value === searchParams.category)?.label}
                 <X

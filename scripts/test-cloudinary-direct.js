@@ -2,45 +2,57 @@
 /**
  * Simple Cloudinary Test Script for JackerBox
  * 
- * This script tests the Cloudinary connection using hardcoded credentials
+ * This script tests the Cloudinary connection using environment variables
  * 
  * Run with: node scripts/test-cloudinary-direct.js
  */
 
-const { v2: cloudinary } = require('cloudinary');
+const cloudinary = require('cloudinary').v2;
 
 console.log('🧪 CLOUDINARY DIRECT CONNECTION TEST 🧪');
 console.log('=====================================');
 
-// Configure Cloudinary directly with the credentials
+// Configure Cloudinary using environment variables
 cloudinary.config({
-  cloud_name: 'dgtqpyphg',
-  api_key: '646841252992477',
-  api_secret: 'Zxu873QWGlD6cYq2gB9cqFO6wG0',
-  secure: true
+  cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
 console.log('Cloudinary configured with:');
-console.log(`- Cloud name: dgtqpyphg`);
-console.log(`- API Key: 646841252992477`);
+console.log(`- Cloud name: ${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'Not configured'}`);
+console.log(`- API Key: ${process.env.CLOUDINARY_API_KEY ? 'Configured' : 'Not configured'}`);
+console.log(`- API Secret: ${process.env.CLOUDINARY_API_SECRET ? 'Configured' : 'Not configured'}`);
 
 // Test the connection
-async function testConnection() {
+async function testCloudinaryConnection() {
   try {
-    console.log('Pinging Cloudinary API...');
-    const pingResult = await cloudinary.api.ping();
-    console.log('Ping result:', pingResult);
+    console.log('Testing Cloudinary connection...');
+    console.log('Cloud Name:', process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'Not configured');
+    console.log('API Key:', process.env.CLOUDINARY_API_KEY ? 'Configured' : 'Not configured');
+    console.log('API Secret:', process.env.CLOUDINARY_API_SECRET ? 'Configured' : 'Not configured');
     
-    console.log('Fetching account info...');
-    const accountInfo = await cloudinary.api.usage();
-    console.log('Account info:', accountInfo);
+    // Test API connection
+    const result = await cloudinary.api.ping();
+    console.log('✅ Cloudinary connection successful:', result);
     
-    console.log('\n✅ Cloudinary connection test passed successfully!');
+    return true;
   } catch (error) {
-    console.log('\n❌ Cloudinary connection test failed:');
-    console.error(error);
-    process.exit(1);
+    console.error('❌ Cloudinary connection failed:', error.message);
+    return false;
   }
 }
 
-testConnection(); 
+// Only run if this file is executed directly
+if (require.main === module) {
+  testCloudinaryConnection()
+    .then(success => {
+      process.exit(success ? 0 : 1);
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      process.exit(1);
+    });
+}
+
+module.exports = { testCloudinaryConnection }; 

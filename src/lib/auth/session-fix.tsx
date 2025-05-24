@@ -34,10 +34,8 @@ export function SessionStateManager() {
         console.log('JWT decryption error detected, resetting auth cookies');
         resetAuthCookies();
         setHasResetCookies(true);
-        toast({
-          title: "Session error detected",
+        toast("Session error detected", {
           description: "Your session has been reset. Please refresh the page or sign in again.",
-          variant: "warning",
           duration: 10000
         });
         
@@ -52,20 +50,22 @@ export function SessionStateManager() {
     window.addEventListener('error', handleConsoleError);
 
     // If session is in error state, try to refresh it
+    let timeout: NodeJS.Timeout | null = null;
     if (status === 'loading') {
-      const timeout = setTimeout(() => {
+      timeout = setTimeout(() => {
         console.log('Session still loading after timeout, forcing refresh');
         update();
       }, 5000); // 5 second timeout
-      
-      return () => clearTimeout(timeout);
     }
 
-    // Cleanup
+    // Single cleanup function for all resources
     return () => {
       window.removeEventListener('online', handleOnline);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('error', handleConsoleError);
+      if (timeout) {
+        clearTimeout(timeout);
+      }
     };
   }, [status, update, hasResetCookies]);
 

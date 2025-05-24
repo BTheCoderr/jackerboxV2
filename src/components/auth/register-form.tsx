@@ -225,7 +225,7 @@ export function RegisterForm() {
       <div className="grid grid-cols-2 gap-3">
         <button
           type="button"
-          onClick={() => signIn("google", { callbackUrl: "/" })}
+          onClick={() => signIn("google", { callbackUrl: "/routes/dashboard" })}
           className="flex items-center justify-center py-2 px-4 border rounded-md hover:bg-gray-50 transition-colors"
         >
           <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
@@ -250,7 +250,7 @@ export function RegisterForm() {
         </button>
         <button
           type="button"
-          onClick={() => signIn("apple", { callbackUrl: "/" })}
+          onClick={() => signIn("apple", { callbackUrl: "/routes/dashboard" })}
           className="flex items-center justify-center py-2 px-4 border rounded-md hover:bg-gray-50 transition-colors"
         >
           <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">

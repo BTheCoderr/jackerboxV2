@@ -20,9 +20,10 @@ export default async function ListEquipmentPage() {
     redirect("/auth/login?callbackUrl=/routes/equipment/new");
   }
   
+  // ---- TEMPORARILY DISABLED FOR SIMPLIFIED ONBOARDING ----
   // Check if user's ID is verified
-  const isIdVerified = user.idVerified === true;
-  const isPending = user.idVerificationStatus === "pending";
+  // const isIdVerified = user.idVerified === true;
+  // const isPending = user.idVerificationStatus === "pending";
   
   return (
     <div className="container py-8">
@@ -32,7 +33,13 @@ export default async function ListEquipmentPage() {
           Share your equipment with others and earn money when you're not using it.
         </p>
         
-        {isIdVerified ? (
+        {/* ---- SIMPLIFIED: ALLOW ALL USERS TO LIST EQUIPMENT ---- */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <EquipmentForm />
+        </div>
+        
+        {/* ---- COMMENTED OUT ID VERIFICATION REQUIREMENT ---- */}
+        {/* {isIdVerified ? (
           <div className="bg-white rounded-lg shadow p-6">
             <EquipmentForm />
           </div>
@@ -55,7 +62,7 @@ export default async function ListEquipmentPage() {
               </Link>
             )}
           </div>
-        )}
+        )} */}
         
         <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
           <h2 className="text-xl font-semibold mb-4">Tips for a Great Listing</h2>

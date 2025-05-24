@@ -80,7 +80,7 @@ export default function HomePage() {
   const getEquipmentImageSrc = (equipment: Equipment, index: number = 0) => {
     // If image already failed to load, use fallback
     if (imageLoadError[equipment.id]) {
-      return `/images/equipment-placeholder-${(index % 5) + 1}.jpg`;
+      return `/images/equipment-placeholder-${(index % 5) + 1}.svg`;
     }
     
     // Try to get image from images array
@@ -101,7 +101,7 @@ export default function HomePage() {
     }
     
     // Fallback to numbered placeholder based on ID
-    return `/images/equipment-placeholder-${(index % 5) + 1}.jpg`;
+    return `/images/equipment-placeholder-${(index % 5) + 1}.svg`;
   };
   
   // Get a subset of categories for the homepage
@@ -157,7 +157,7 @@ export default function HomePage() {
                 <div className="relative z-10 bg-white p-4 rounded-lg shadow-lg">
                   <div className="w-full h-64 bg-gray-100 rounded-lg overflow-hidden">
                     <Image 
-                      src="/images/hero-equipment.jpg"
+                      src="/images/hero-equipment.svg"
                       alt="Professional equipment rental"
                       width={600}
                       height={400}

@@ -1,218 +1,107 @@
-import { NextResponse } from "next/server";
-import { z } from "zod";
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '../../../lib/auth/auth-options';
+import { PrismaClient } from '../../../../prisma/generated/client';
 
-import { db } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth/auth-utils";
+const prisma = new PrismaClient();
 
-const createRentalSchema = z.object({
-  equipmentId: z.string(),
-  startDate: z.string().refine((val) => {
-    const date = new Date(val);
-    return !isNaN(date.getTime()) && date >= new Date(new Date().setHours(0, 0, 0, 0));
-  }, "Start date must be today or later"),
-  endDate: z.string().refine((val) => {
-    const date = new Date(val);
-    return !isNaN(date.getTime());
-  }, "End date is required"),
-  rentalType: z.enum(["hourly", "daily", "weekly"]),
-  totalPrice: z.number().min(0),
-  securityDeposit: z.number().min(0).optional(),
-}).refine((data) => {
-  const startDate = new Date(data.startDate);
-  const endDate = new Date(data.endDate);
-  return endDate > startDate;
-}, {
-  message: "End date must be after start date",
-  path: ["endDate"],
-});
-
-export async function POST(req: Request) {
+export async function GET(request: NextRequest) {
   try {
-    const user = await getCurrentUser();
+    const session = await getServerSession(authOptions);
     
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Get user rentals
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email }
+    });
+
     if (!user) {
-      return NextResponse.json(
-        { message: "Unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
-    
-    // Check if user is an owner-only
-    if (user.userType === "owner") {
-      return NextResponse.json(
-        { message: "Equipment owners cannot rent items. Please create a separate renter account." },
-        { status: 403 }
-      );
-    }
-    
-    const body = await req.json();
-    const validatedData = createRentalSchema.parse(body);
-    
-    // Check if the equipment exists and is available
-    const equipment = await db.equipment.findUnique({
+
+    const rentals = await prisma.rental.findMany({
       where: {
-        id: validatedData.equipmentId,
-        isAvailable: true,
-      },
-    });
-    
-    if (!equipment) {
-      return NextResponse.json(
-        { message: "Equipment not found or not available" },
-        { status: 404 }
-      );
-    }
-    
-    // Check if the user is not trying to rent their own equipment
-    if (equipment.ownerId === user.id) {
-      return NextResponse.json(
-        { message: "You cannot rent your own equipment" },
-        { status: 400 }
-      );
-    }
-    
-    // If this is the first rental, update the user type to renter or both
-    const userRentals = await db.rental.count({
-      where: {
-        renterId: user.id
-      }
-    });
-    
-    if (userRentals === 0 && user.userType !== "renter") {
-      // Update user type to "both" if it was previously undefined or "owner"
-      await db.user.update({
-        where: { id: user.id },
-        data: { userType: "both" }
-      });
-    }
-    
-    // Check for date conflicts with existing rentals
-    const conflictingRentals = await db.rental.findMany({
-      where: {
-        equipmentId: validatedData.equipmentId,
-        status: {
-          in: ["Pending", "Approved"],
-        },
         OR: [
-          {
-            // New rental starts during an existing rental
-            startDate: {
-              lte: new Date(validatedData.endDate),
-            },
-            endDate: {
-              gte: new Date(validatedData.startDate),
-            },
-          },
-        ],
-      },
-    });
-    
-    if (conflictingRentals.length > 0) {
-      return NextResponse.json(
-        { message: "Equipment is not available for the selected dates" },
-        { status: 409 }
-      );
-    }
-    
-    // Create the rental
-    const rental = await db.rental.create({
-      data: {
-        startDate: new Date(validatedData.startDate),
-        endDate: new Date(validatedData.endDate),
-        totalPrice: validatedData.totalPrice,
-        securityDeposit: validatedData.securityDeposit,
-        status: "Pending",
-        equipmentId: validatedData.equipmentId,
-        renterId: user.id,
-      },
-    });
-    
-    return NextResponse.json(
-      { rental, message: "Rental created successfully" },
-      { status: 201 }
-    );
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { message: "Invalid input data", errors: error.errors },
-        { status: 400 }
-      );
-    }
-    
-    console.error("Rental creation error:", error);
-    return NextResponse.json(
-      { message: "Something went wrong. Please try again." },
-      { status: 500 }
-    );
-  }
-}
-
-export async function GET(req: Request) {
-  try {
-    const user = await getCurrentUser();
-    
-    if (!user) {
-      return NextResponse.json(
-        { message: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-    
-    const { searchParams } = new URL(req.url);
-    const status = searchParams.get("status");
-    const type = searchParams.get("type"); // "renter" or "owner"
-    
-    let whereClause: any = {};
-    
-    if (status) {
-      whereClause.status = status;
-    }
-    
-    if (type === "renter") {
-      whereClause.renterId = user.id;
-    } else if (type === "owner") {
-      whereClause.equipment = {
-        ownerId: user.id,
-      };
-    } else {
-      // Default to showing rentals where the user is the renter
-      whereClause.renterId = user.id;
-    }
-    
-    const rentals = await db.rental.findMany({
-      where: whereClause,
-      orderBy: {
-        createdAt: "desc",
+          { renterId: user.id },
+          { equipment: { ownerId: user.id } }
+        ]
       },
       include: {
         equipment: {
-          include: {
-            owner: {
-              select: {
-                id: true,
-                name: true,
-                image: true,
-              },
-            },
-          },
+          select: {
+            title: true,
+            category: true,
+            hourlyRate: true,
+            dailyRate: true,
+            imagesJson: true
+          }
         },
         renter: {
           select: {
-            id: true,
             name: true,
-            image: true,
-          },
-        },
-        payment: true,
+            email: true
+          }
+        }
       },
+      orderBy: { createdAt: 'desc' }
     });
-    
-    return NextResponse.json({ rentals });
+
+    return NextResponse.json(rentals);
   } catch (error) {
-    console.error("Rentals fetch error:", error);
-    return NextResponse.json(
-      { message: "Something went wrong. Please try again." },
-      { status: 500 }
-    );
+    console.error('Rentals API error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { equipmentId, startDate, endDate, totalPrice } = body;
+
+    if (!equipmentId || !startDate || !endDate || !totalPrice) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email }
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // Create rental
+    const rental = await prisma.rental.create({
+      data: {
+        equipmentId,
+        renterId: user.id,
+        startDate: new Date(startDate),
+        endDate: new Date(endDate),
+                 totalPrice: parseFloat(totalPrice),
+        status: 'PENDING'
+      },
+      include: {
+        equipment: {
+          select: {
+            title: true,
+            category: true
+          }
+        }
+      }
+    });
+
+    return NextResponse.json(rental);
+  } catch (error) {
+    console.error('Rental creation error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 } 

@@ -19,25 +19,25 @@ APPLE_ID=your-apple-id
 APPLE_SECRET=your-apple-secret
 
 # Upstash Redis Configuration (Replace with your own values)
-KV_URL=rediss://default:AVL4AAIjcDExMjE2ZjY5ZTdmMmQ0NWI5OTg4YzNmYzU3NGEwNTdhYnAxMA@prime-ostrich-21240.upstash.io:6379
-REDIS_URL=rediss://default:AVL4AAIjcDExMjE2ZjY5ZTdmMmQ0NWI5OTg4YzNmYzU3NGEwNTdhYnAxMA@prime-ostrich-21240.upstash.io:6379
-KV_REST_API_TOKEN=AVL4AAIjcDExMjE2ZjY5ZTdmMmQ0NWI5OTg4YzNmYzU3NGEwNTdhYnAxMA
-KV_REST_API_READ_ONLY_TOKEN=AlL4AAIgcDG6Ii1i0y-BbpQgbe6Wwr6fZst5dlrMknb4_VXgvw9CGw
-KV_REST_API_URL=https://prime-ostrich-21240.upstash.io
+KV_URL=your-redis-url
+REDIS_URL=your-redis-url
+KV_REST_API_TOKEN=your-kv-rest-api-token
+KV_REST_API_READ_ONLY_TOKEN=your-kv-readonly-token
+KV_REST_API_URL=your-kv-rest-api-url
 
 # Stripe Configuration
-STRIPE_SECRET_KEY=your-stripe-secret-key
-STRIPE_PUBLISHABLE_KEY=your-stripe-publishable-key
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=your-stripe-publishable-key
-STRIPE_WEBHOOK_SECRET=your-stripe-webhook-secret
-STRIPE_IDENTITY_WEBHOOK_SECRET=your-stripe-identity-webhook-secret
+STRIPE_SECRET_KEY=sk_test_your_stripe_secret_key
+STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_publishable_key
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_publishable_key
+STRIPE_WEBHOOK_SECRET=whsec_your_stripe_webhook_secret
+STRIPE_IDENTITY_WEBHOOK_SECRET=whsec_your_stripe_identity_webhook_secret
 STRIPE_ACCOUNT_COUNTRY=US
 
 # Cloudinary Configuration
-NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=dgtqpyphg
-CLOUDINARY_API_KEY=646841252992477
-CLOUDINARY_API_SECRET=Zxu873QWGlD6cYq2gB9cqFO6wG0
-CLOUDINARY_URL=cloudinary://646841252992477:Zxu873QWGlD6cYq2gB9cqFO6wG0@dgtqpyphg
+NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=your-cloudinary-cloud-name
+CLOUDINARY_API_KEY=your-cloudinary-api-key
+CLOUDINARY_API_SECRET=your-cloudinary-api-secret
+CLOUDINARY_URL=cloudinary://api_key:api_secret@cloud_name
 
 # AWS Configuration
 AWS_REGION=your-aws-region
@@ -50,12 +50,13 @@ EMAIL_FROM=noreply@jackerbox.com
 EMAIL_SERVER=smtp://user:pass@smtp.example.com:587
 
 # Firebase Configuration
-NEXT_PUBLIC_FIREBASE_API_KEY=your-firebase-api-key
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-firebase-auth-domain
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-firebase-project-id
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-firebase-storage-bucket
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your-firebase-messaging-sender-id
-NEXT_PUBLIC_FIREBASE_APP_ID=your-firebase-app-id
+FIREBASE_PROJECT_ID=your-firebase-project-id
+FIREBASE_CLIENT_EMAIL=your-firebase-client-email
+FIREBASE_PRIVATE_KEY=your-firebase-private-key
+
+# Additional Configuration
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+WEBHOOK_SECRET=your-webhook-secret
 
 # Arcjet for Rate Limiting
 ARCJET_KEY=your-arcjet-key
