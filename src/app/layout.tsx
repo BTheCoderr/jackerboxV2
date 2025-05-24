@@ -141,9 +141,9 @@ export default function RootLayout({
         {process.env.NODE_ENV === 'production' ? (
           <link 
             rel="preload" 
-            href="/images/hero-equipment.jpg" 
+            href="/images/hero-equipment.svg" 
             as="image"
-            type="image/jpeg"
+            type="image/svg+xml"
             fetchPriority="high"
             media="(min-width: 768px)"
           />
