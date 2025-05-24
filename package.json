@@ -2,6 +2,9 @@
   "name": "jackerbox",
   "version": "0.1.0",
   "private": true,
+  "npmConfig": {
+    "legacy-peer-deps": true
+  },
   "scripts": {
     "dev": "next dev -p 3001",
     "dev:clean": "node scripts/restart-dev-server.js",
@@ -152,7 +155,7 @@
     "@playwright/test": "^1.52.0",
     "@tailwindcss/nesting": "^0.0.0-insiders.565cd3e",
     "@testing-library/jest-dom": "^6.6.3",
-    "@testing-library/react": "^14.3.1",
+    "@testing-library/react": "^16.0.1",
     "@testing-library/user-event": "^14.6.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/d3-color": "^3.1.3",
