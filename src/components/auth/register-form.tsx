@@ -11,7 +11,7 @@ import Link from "next/link";
 const registerSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Please enter a valid email address"),
-  phone: z.string().min(10, "Please enter a valid phone number").optional(),
+  phone: z.string().optional(),
   password: z.string().min(8, "Password must be at least 8 characters"),
   confirmPassword: z.string(),
   userType: z.enum(["owner", "renter", "both"]),
@@ -137,14 +137,14 @@ export function RegisterForm() {
         </div>
         
         <div className="space-y-1">
-          <label htmlFor="phone" className="text-sm font-medium">
+          <label htmlFor="phone" className="text-sm font-medium text-gray-700">
             Phone Number (optional)
           </label>
           <input
             id="phone"
             type="tel"
             {...register("phone")}
-            className="w-full p-2 border rounded-md"
+            className="w-full p-2 border rounded-md text-gray-900 bg-white"
             disabled={isLoading}
             placeholder="e.g. (123) 456-7890"
           />

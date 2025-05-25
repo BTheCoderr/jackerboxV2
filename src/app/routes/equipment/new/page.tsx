@@ -1,105 +1,252 @@
-export const dynamic = 'force-dynamic';
+"use client";
 
-import { Metadata } from "next";
-import { redirect } from "next/navigation";
-import Link from "next/link";
-import { getCurrentUser, ExtendedUser } from "@/lib/auth/session";
-import { EquipmentForm } from "@/components/equipment/equipment-form";
-import { db } from "@/lib/db";
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { toast } from 'sonner';
+import { ImageUpload } from '@/components/shared/image-upload';
 
-export const metadata: Metadata = {
-  title: "List Your Equipment | Jackerbox",
-  description: "List your equipment for rent and start earning",
-};
+const equipmentSchema = z.object({
+  title: z.string().min(3, 'Title must be at least 3 characters'),
+  description: z.string().min(10, 'Description must be at least 10 characters'),
+  category: z.string().min(1, 'Please select a category'),
+  condition: z.string().min(1, 'Please select a condition'),
+  hourlyRate: z.number().min(0, 'Hourly rate must be positive'),
+  dailyRate: z.number().min(0, 'Daily rate must be positive'),
+  weeklyRate: z.number().min(0, 'Weekly rate must be positive'),
+  location: z.string().min(1, 'Location is required'),
+  images: z.array(z.string()).min(1, 'At least one image is required'),
+});
 
-export default async function ListEquipmentPage() {
-  const user = await getCurrentUser();
-  
-  // Redirect to login if not authenticated
-  if (!user) {
-    redirect("/auth/login?callbackUrl=/routes/equipment/new");
-  }
-  
-  // ---- TEMPORARILY DISABLED FOR SIMPLIFIED ONBOARDING ----
-  // Check if user's ID is verified
-  // const isIdVerified = user.idVerified === true;
-  // const isPending = user.idVerificationStatus === "pending";
-  
+type EquipmentFormValues = z.infer<typeof equipmentSchema>;
+
+export default function NewEquipmentPage() {
+  const [isLoading, setIsLoading] = useState(false);
+  const [images, setImages] = useState<string[]>([]);
+  const router = useRouter();
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    setValue,
+  } = useForm<EquipmentFormValues>({
+    resolver: zodResolver(equipmentSchema),
+    defaultValues: {
+      images: [],
+    },
+  });
+
+  const onSubmit = async (data: EquipmentFormValues) => {
+    try {
+      setIsLoading(true);
+      
+      const response = await fetch('/api/equipment', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...data,
+          images,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create listing');
+      }
+
+      const result = await response.json();
+      toast.success('Equipment listed successfully!');
+      router.push(`/routes/equipment/${result.id}`);
+      
+    } catch (error) {
+      console.error('Error creating listing:', error);
+      toast.error('Failed to create listing. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleImageUpload = (url: string) => {
+    setImages((prev) => [...prev, url]);
+    setValue('images', [...images, url]);
+  };
+
   return (
-    <div className="container py-8">
-      <div className="max-w-3xl mx-auto">
-        <h1 className="text-3xl font-bold mb-2">List Your Equipment</h1>
-        <p className="text-gray-600 mb-8">
-          Share your equipment with others and earn money when you're not using it.
-        </p>
-        
-        {/* ---- SIMPLIFIED: ALLOW ALL USERS TO LIST EQUIPMENT ---- */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <EquipmentForm />
+    <div className="max-w-4xl mx-auto p-6">
+      <h1 className="text-2xl font-bold mb-6">List Your Equipment</h1>
+      
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Equipment Images
+          </label>
+          <ImageUpload
+            onUpload={handleImageUpload}
+            maxImages={5}
+            existingImages={images}
+          />
+          {errors.images && (
+            <p className="text-red-500 text-sm mt-1">{errors.images.message}</p>
+          )}
         </div>
-        
-        {/* ---- COMMENTED OUT ID VERIFICATION REQUIREMENT ---- */}
-        {/* {isIdVerified ? (
-          <div className="bg-white rounded-lg shadow p-6">
-            <EquipmentForm />
-          </div>
-        ) : (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-8">
-            <h2 className="text-xl font-semibold text-yellow-800 mb-4">
-              {isPending ? "ID Verification Pending" : "ID Verification Required"}
-            </h2>
-            <p className="text-yellow-700 mb-4">
-              {isPending 
-                ? "Your ID verification is currently being processed. You'll be able to list equipment once your identity is verified."
-                : "To ensure the safety and trust of our community, we require all users to verify their identity before listing equipment."}
-            </p>
-            {!isPending && (
-              <Link 
-                href="/routes/profile/edit" 
-                className="inline-block py-2 px-4 bg-black text-white rounded-md hover:bg-opacity-80 transition-colors"
-              >
-                Verify Your Identity
-              </Link>
+
+        <div>
+          <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
+            Title
+          </label>
+          <input
+            id="title"
+            type="text"
+            {...register('title')}
+            className="w-full p-2 border rounded-md"
+            placeholder="e.g., Professional Grade Jackhammer"
+          />
+          {errors.title && (
+            <p className="text-red-500 text-sm mt-1">{errors.title.message}</p>
+          )}
+        </div>
+
+        <div>
+          <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+            Description
+          </label>
+          <textarea
+            id="description"
+            {...register('description')}
+            rows={4}
+            className="w-full p-2 border rounded-md"
+            placeholder="Describe your equipment, including its features, specifications, and condition..."
+          />
+          {errors.description && (
+            <p className="text-red-500 text-sm mt-1">{errors.description.message}</p>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">
+              Category
+            </label>
+            <select
+              id="category"
+              {...register('category')}
+              className="w-full p-2 border rounded-md"
+            >
+              <option value="">Select a category</option>
+              <option value="power-tools">Power Tools</option>
+              <option value="hand-tools">Hand Tools</option>
+              <option value="construction">Construction Equipment</option>
+              <option value="landscaping">Landscaping Equipment</option>
+              <option value="cleaning">Cleaning Equipment</option>
+              <option value="other">Other</option>
+            </select>
+            {errors.category && (
+              <p className="text-red-500 text-sm mt-1">{errors.category.message}</p>
             )}
           </div>
-        )} */}
-        
-        <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
-          <h2 className="text-xl font-semibold mb-4">Tips for a Great Listing</h2>
-          <ul className="space-y-3">
-            <li className="flex items-start">
-              <span className="text-blue-500 font-bold mr-2">•</span>
-              <span>
-                <strong>High-quality photos:</strong> Take clear, well-lit photos from multiple angles.
-              </span>
-            </li>
-            <li className="flex items-start">
-              <span className="text-blue-500 font-bold mr-2">•</span>
-              <span>
-                <strong>Detailed description:</strong> Include specifications, condition, and any special features.
-              </span>
-            </li>
-            <li className="flex items-start">
-              <span className="text-blue-500 font-bold mr-2">•</span>
-              <span>
-                <strong>Fair pricing:</strong> Research similar items to set competitive rates.
-              </span>
-            </li>
-            <li className="flex items-start">
-              <span className="text-blue-500 font-bold mr-2">•</span>
-              <span>
-                <strong>Clear availability:</strong> Keep your calendar updated to avoid scheduling conflicts.
-              </span>
-            </li>
-            <li className="flex items-start">
-              <span className="text-blue-500 font-bold mr-2">•</span>
-              <span>
-                <strong>Responsive communication:</strong> Reply promptly to rental inquiries.
-              </span>
-            </li>
-          </ul>
+
+          <div>
+            <label htmlFor="condition" className="block text-sm font-medium text-gray-700 mb-1">
+              Condition
+            </label>
+            <select
+              id="condition"
+              {...register('condition')}
+              className="w-full p-2 border rounded-md"
+            >
+              <option value="">Select condition</option>
+              <option value="new">New</option>
+              <option value="like-new">Like New</option>
+              <option value="good">Good</option>
+              <option value="fair">Fair</option>
+            </select>
+            {errors.condition && (
+              <p className="text-red-500 text-sm mt-1">{errors.condition.message}</p>
+            )}
+          </div>
         </div>
-      </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div>
+            <label htmlFor="hourlyRate" className="block text-sm font-medium text-gray-700 mb-1">
+              Hourly Rate ($)
+            </label>
+            <input
+              id="hourlyRate"
+              type="number"
+              step="0.01"
+              min="0"
+              {...register('hourlyRate', { valueAsNumber: true })}
+              className="w-full p-2 border rounded-md"
+            />
+            {errors.hourlyRate && (
+              <p className="text-red-500 text-sm mt-1">{errors.hourlyRate.message}</p>
+            )}
+          </div>
+
+          <div>
+            <label htmlFor="dailyRate" className="block text-sm font-medium text-gray-700 mb-1">
+              Daily Rate ($)
+            </label>
+            <input
+              id="dailyRate"
+              type="number"
+              step="0.01"
+              min="0"
+              {...register('dailyRate', { valueAsNumber: true })}
+              className="w-full p-2 border rounded-md"
+            />
+            {errors.dailyRate && (
+              <p className="text-red-500 text-sm mt-1">{errors.dailyRate.message}</p>
+            )}
+          </div>
+
+          <div>
+            <label htmlFor="weeklyRate" className="block text-sm font-medium text-gray-700 mb-1">
+              Weekly Rate ($)
+            </label>
+            <input
+              id="weeklyRate"
+              type="number"
+              step="0.01"
+              min="0"
+              {...register('weeklyRate', { valueAsNumber: true })}
+              className="w-full p-2 border rounded-md"
+            />
+            {errors.weeklyRate && (
+              <p className="text-red-500 text-sm mt-1">{errors.weeklyRate.message}</p>
+            )}
+          </div>
+        </div>
+
+        <div>
+          <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
+            Location
+          </label>
+          <input
+            id="location"
+            type="text"
+            {...register('location')}
+            className="w-full p-2 border rounded-md"
+            placeholder="e.g., Boston, MA"
+          />
+          {errors.location && (
+            <p className="text-red-500 text-sm mt-1">{errors.location.message}</p>
+          )}
+        </div>
+
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isLoading ? 'Creating Listing...' : 'Create Listing'}
+        </button>
+      </form>
     </div>
   );
 } 

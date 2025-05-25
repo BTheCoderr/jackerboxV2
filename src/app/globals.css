@@ -15,11 +15,12 @@
   --foreground: #171717;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Force light mode styles regardless of system preference */
+/* Remove the dark mode media query to ensure consistent colors */
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+  color-scheme: light;
 }
 
 /* Optimize content visibility for below-the-fold content */
@@ -83,4 +84,77 @@ body {
 html {
   visibility: visible;
   opacity: 1;
+}
+
+/* Base text colors - with !important to override browser defaults */
+@layer base {
+  body {
+    @apply text-gray-900 bg-white;
+    color: #171717 !important;
+    background-color: #ffffff !important;
+  }
+  
+  input, textarea, select {
+    @apply text-gray-900 bg-white;
+    color: #171717 !important;
+  }
+  
+  label {
+    @apply text-gray-700;
+    color: #374151 !important;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply text-gray-900;
+    color: #171717 !important;
+  }
+  
+  p {
+    @apply text-gray-700;
+    color: #374151 !important;
+  }
+
+  /* Force text colors for specific elements */
+  .text-white {
+    color: #ffffff !important;
+  }
+  
+  .text-black {
+    color: #000000 !important;
+  }
+}
+
+/* Form styles with enforced colors */
+@layer components {
+  .form-input {
+    @apply w-full p-2 border rounded-md;
+    color: #171717 !important;
+    background-color: #ffffff !important;
+  }
+  
+  .form-label {
+    @apply block text-sm font-medium;
+    color: #374151 !important;
+  }
+}
+
+/* Ensure buttons with white text stay white */
+button[class*="text-white"], 
+a[class*="text-white"] {
+  color: #ffffff !important;
+}
+
+/* Fix for Safari */
+@supports (-webkit-touch-callout: none) {
+  .min-h-screen {
+    min-height: -webkit-fill-available;
+  }
+}
+
+/* Fix for Firefox */
+@-moz-document url-prefix() {
+  select {
+    color: #171717 !important;
+    background-color: #ffffff !important;
+  }
 }
