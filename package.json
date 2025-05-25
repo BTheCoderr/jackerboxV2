@@ -9,7 +9,7 @@
     "dev": "next dev",
     "dev:clean": "node scripts/restart-dev-server.js",
     "dev:socket": "node scripts/start-dev-with-socket.js",
-    "build": "prisma generate && prisma db push && next build",
+    "build": "prisma generate && next build",
     "build:simple": "next build --no-lint",
     "start": "next start",
     "lint": "next lint",
