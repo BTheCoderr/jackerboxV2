@@ -6,12 +6,12 @@
     "legacy-peer-deps": true
   },
   "scripts": {
-    "dev": "next dev -p 3001",
+    "dev": "next dev",
     "dev:clean": "node scripts/restart-dev-server.js",
     "dev:socket": "node scripts/start-dev-with-socket.js",
-    "build": "npx prisma generate --schema=./prisma/schema.prisma && next build",
+    "build": "prisma generate && prisma db push && next build",
     "build:simple": "next build --no-lint",
-    "start": "next start -p 3001",
+    "start": "next start",
     "lint": "next lint",
     "postinstall": "prisma generate",
     "fix-dynamic": "node fix-dynamic-routes.js",
