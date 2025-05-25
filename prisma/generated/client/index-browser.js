@@ -193,7 +193,31 @@ exports.Prisma.EquipmentScalarFieldEnum = {
   moderatedAt: 'moderatedAt',
   moderatedBy: 'moderatedBy',
   moderationNotes: 'moderationNotes',
-  ownerId: 'ownerId'
+  ownerId: 'ownerId',
+  availabilitySchedule: 'availabilitySchedule',
+  blackoutDates: 'blackoutDates'
+};
+
+exports.Prisma.BookingScalarFieldEnum = {
+  id: 'id',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  startDate: 'startDate',
+  endDate: 'endDate',
+  status: 'status',
+  totalPrice: 'totalPrice',
+  equipmentId: 'equipmentId',
+  renterId: 'renterId'
+};
+
+exports.Prisma.MessageScalarFieldEnum = {
+  id: 'id',
+  createdAt: 'createdAt',
+  content: 'content',
+  senderId: 'senderId',
+  recipientId: 'recipientId',
+  equipmentId: 'equipmentId',
+  bookingId: 'bookingId'
 };
 
 exports.Prisma.AvailabilityScalarFieldEnum = {
@@ -271,16 +295,6 @@ exports.Prisma.PaymentScalarFieldEnum = {
   userAgent: 'userAgent',
   velocityScore: 'velocityScore',
   status: 'status'
-};
-
-exports.Prisma.MessageScalarFieldEnum = {
-  id: 'id',
-  content: 'content',
-  isRead: 'isRead',
-  createdAt: 'createdAt',
-  senderId: 'senderId',
-  receiverId: 'receiverId',
-  attachmentsJson: 'attachmentsJson'
 };
 
 exports.Prisma.NotificationScalarFieldEnum = {
@@ -402,12 +416,13 @@ exports.Prisma.ModelName = {
   Session: 'Session',
   VerificationToken: 'VerificationToken',
   Equipment: 'Equipment',
+  Booking: 'Booking',
+  Message: 'Message',
   Availability: 'Availability',
   Rental: 'Rental',
   Review: 'Review',
   ReviewVote: 'ReviewVote',
   Payment: 'Payment',
-  Message: 'Message',
   Notification: 'Notification',
   CalendarSync: 'CalendarSync',
   PushSubscription: 'PushSubscription',

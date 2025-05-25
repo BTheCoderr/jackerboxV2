@@ -30,121 +30,19 @@ let httpServer: any = null;
  * In development, it redirects requests to the actual socket server running on a different port.
  * When the socket server is not available, it provides a fallback implementation.
  */
-export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const forceRestart = searchParams.get('restart') === 'true';
-  
-  // Restart the server if requested
-  if (forceRestart && io) {
-    console.log('Force restarting socket.io server');
-    io.close();
-    io = null;
-    if (httpServer) {
-      httpServer.close();
-      httpServer = null;
-    }
-  }
-
-  // If socket.io server is already initialized, return early
-  if (io) {
-    return new NextResponse("Socket.io server is already running", {
-      status: 200,
-    });
-  }
-
+export async function GET() {
   try {
-    // Get the Socket.io adapter for Redis
-    const createAdapter = (await import("@socket.io/redis-adapter")).createAdapter;
+    if (!io.httpServer) {
+      // Initialize socket server if not already running
+      const res = new NextResponse();
+      // @ts-ignore - we know this exists
+      io.attach(res.socket?.server);
+    }
     
-    // Create Redis pub/sub clients
-    const pubClient = redis;
-    // Create a new Redis client for sub client with the same configuration as the main client
-    const subClient = new Redis({
-      url: process.env.KV_REST_API_URL || process.env.REDIS_URL || '',
-      token: process.env.KV_REST_API_TOKEN || process.env.REDIS_TOKEN || '',
-    });
-    
-    // Create a new Socket.io server
-    io = new Server({
-      path: "/api/socket",
-      addTrailingSlash: false,
-      transports: ['websocket', 'polling'],
-      cors: {
-        origin: "*",
-        methods: ["GET", "POST"],
-      },
-      pingTimeout: 60000,
-      pingInterval: 25000,
-    });
-    
-    // Use Redis adapter for multi-instance support
-    io.adapter(createAdapter(pubClient, subClient));
-    
-    // Set up connection event
-    io.on("connection", (socket) => {
-      console.log("Client connected:", socket.id);
-      
-      // Store the connection in Redis for tracking
-      redis.set(`socket:${socket.id}`, JSON.stringify({
-        id: socket.id,
-        connected: true,
-        timestamp: new Date().toISOString()
-      }), {
-        ex: 3600 // Expire after 1 hour
-      });
-      
-      // Send an immediate welcome message
-      socket.emit('welcome', { 
-        message: 'Connected to Jackerbox socket server',
-        socketId: socket.id,
-        serverTime: new Date().toISOString()
-      });
-      
-      // Handle events
-      socket.on("message", async (data) => {
-        console.log("Message received:", data);
-        
-        // Store message in Redis
-        await redis.lpush("messages", JSON.stringify({
-          ...data,
-          timestamp: new Date().toISOString(),
-          socketId: socket.id
-        }));
-        
-        // Broadcast to all clients
-        if (io) {
-          io.emit("message", data);
-        }
-      });
-      
-      // Handle disconnection
-      socket.on("disconnect", () => {
-        console.log("Client disconnected:", socket.id);
-        redis.del(`socket:${socket.id}`);
-      });
-    });
-    
-    // Create an HTTP server
-    const http = await import("http");
-    httpServer = http.createServer();
-    
-    // Attach Socket.io to the HTTP server
-    io.attach(httpServer);
-    
-    // Start listening on a port
-    const port = parseInt(process.env.SOCKET_PORT || '3002');
-    httpServer.listen(port, () => {
-      console.log(`Socket.io server running on port ${port}`);
-    });
-    
-    return new NextResponse("Socket.io server started", {
-      status: 200,
-    });
+    return new NextResponse('Socket server running', { status: 200 });
   } catch (error) {
-    console.error("Error starting Socket.io server:", error);
-    return new NextResponse(`Failed to start Socket.io server: ${error instanceof Error ? error.message : String(error)}`, {
-      status: 500,
-    });
+    console.error('Socket initialization error:', error);
+    return new NextResponse('Internal Server Error', { status: 500 });
   }
 }
 
@@ -193,10 +91,10 @@ export async function OPTIONS(_request: NextRequest) {
 }
 
 // Handle other methods
-export async function PUT(request: NextRequest) { return GET(request); }
-export async function DELETE(request: NextRequest) { return GET(request); }
-export async function PATCH(request: NextRequest) { return GET(request); }
-export async function HEAD(request: NextRequest) { return GET(request); }
+export async function PUT(request: NextRequest) { return GET(); }
+export async function DELETE(request: NextRequest) { return GET(); }
+export async function PATCH(request: NextRequest) { return GET(); }
+export async function HEAD(request: NextRequest) { return GET(); }
 
 // Disable response caching
 export const fetchCache = "force-no-store";

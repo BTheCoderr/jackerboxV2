@@ -166,6 +166,7 @@
     "@types/node": "^20",
     "@types/node-fetch": "^2.6.12",
     "@types/react": "^19.1.2",
+    "@types/react-big-calendar": "^1.16.1",
     "@types/react-dom": "^19.1.2",
     "@types/web-push": "^3.6.4",
     "concurrently": "^9.1.2",

@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { Calendar, dateFnsLocalizer } from "react-big-calendar";
-import { format, parse, startOfWeek, getDay, addDays, addWeeks, addMonths } from "date-fns";
+import { format, parse, startOfWeek, getDay, addDays, addWeeks, addMonths, isSameDay, parseISO } from "date-fns";
 import { enUS } from "date-fns/locale";
 import "react-big-calendar/lib/css/react-big-calendar.css";
+import { toast } from 'sonner';
 
 // Set up the localizer for the calendar
 const locales = {
@@ -29,12 +30,26 @@ interface AvailabilityCalendarProps {
     end: Date;
     status: string;
   }>;
+  onDateSelect?: (startDate: Date, endDate: Date) => void;
+}
+
+interface Booking {
+  startDate: string;
+  endDate: string;
+  status: string;
+}
+
+interface Availability {
+  bookings: Booking[];
+  blackoutDates: string[];
+  availabilitySchedule: Record<string, any>;
 }
 
 export function AvailabilityCalendar({
   equipmentId,
   isOwner,
   existingBookings = [],
+  onDateSelect,
 }: AvailabilityCalendarProps) {
   const [events, setEvents] = useState<Array<any>>([]);
   const [newAvailability, setNewAvailability] = useState<{
@@ -44,8 +59,16 @@ export function AvailabilityCalendar({
     start: null,
     end: null,
   });
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [availability, setAvailability] = useState<Availability | null>(null);
+  const [selectedDates, setSelectedDates] = useState<{
+    from: Date | undefined;
+    to: Date | undefined;
+  }>({
+    from: undefined,
+    to: undefined,
+  });
   
   // New state for recurring availability
   const [isRecurring, setIsRecurring] = useState(false);
@@ -99,6 +122,7 @@ export function AvailabilityCalendar({
 
         // Combine both types of events
         setEvents([...availabilityEvents, ...bookingEvents]);
+        setAvailability(data);
       } catch (error) {
         console.error("Error fetching availability:", error);
         setError("Failed to load availability. Please try again.");
@@ -307,6 +331,54 @@ export function AvailabilityCalendar({
       style,
     };
   };
+
+  const isDateUnavailable = (date: Date) => {
+    if (!availability) return false;
+
+    // Check if date is in blackout dates
+    const isBlackout = availability.blackoutDates.some(blackoutDate => 
+      isSameDay(parseISO(blackoutDate), date)
+    );
+    if (isBlackout) return true;
+
+    // Check if date overlaps with any existing bookings
+    const isBooked = availability.bookings.some(booking => {
+      const bookingStart = parseISO(booking.startDate);
+      const bookingEnd = parseISO(booking.endDate);
+      return date >= bookingStart && date <= bookingEnd;
+    });
+
+    return isBooked;
+  };
+
+  const handleSelect = (dates: { from: Date | undefined; to: Date | undefined }) => {
+    setSelectedDates(dates);
+    if (dates.from && dates.to && onDateSelect) {
+      onDateSelect(dates.from, dates.to);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-4 text-center">
+        <p className="text-red-500">{error}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="mt-2 text-blue-600 hover:underline"
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="mt-6 space-y-4">

@@ -35,9 +35,10 @@ model User {
   calendarSyncs          CalendarSync[]
   moderatedEquipment     Equipment[]        @relation("ModeratedEquipment")
   equipmentListings      Equipment[]        @relation("OwnerEquipment")
+  bookingsAsRenter       Booking[]          @relation("RenterBookings")
+  sentMessages           Message[]          @relation("SentMessages")
+  receivedMessages       Message[]          @relation("ReceivedMessages")
   FraudDetection         FraudDetection[]
-  receivedMessages       Message[]          @relation("MessageReceiver")
-  messages               Message[]          @relation("MessageSender")
   notifications          Notification[]
   payments               Payment[]
   pushSubscriptions      PushSubscription[]
@@ -46,6 +47,8 @@ model User {
   receivedReviews        Review[]           @relation("ReviewReceiver")
   reviewVotes            ReviewVote[]
   sessions               Session[]
+
+  @@index([email])
 }
 
 model Account {
@@ -83,41 +86,82 @@ model VerificationToken {
 }
 
 model Equipment {
-  id               String             @id @default(cuid())
-  title            String
-  description      String
-  condition        String
-  category         String
-  subcategory      String?
-  tagsJson         String             @default("[]")
-  location         String
-  latitude         Float?
-  longitude        Float?
-  hourlyRate       Float?
-  dailyRate        Float?
-  weeklyRate       Float?
-  securityDeposit  Float?
-  imagesJson       String             @default("[]")
-  isVerified       Boolean            @default(false)
-  isAvailable      Boolean            @default(true)
-  createdAt        DateTime           @default(now())
-  updatedAt        DateTime           @updatedAt
-  moderationStatus ModerationStatus   @default(PENDING)
-  moderatedAt      DateTime?
-  moderatedBy      String?
-  moderationNotes  String?
-  ownerId          String
-  availability     Availability[]
-  calendarSync     CalendarSync?
-  moderator        User?              @relation("ModeratedEquipment", fields: [moderatedBy], references: [id])
-  owner            User               @relation("OwnerEquipment", fields: [ownerId], references: [id])
-  PaymentAnalytics PaymentAnalytics[]
-  rentals          Rental[]
-  reviews          Review[]           @relation("EquipmentReviews")
+  id                  String             @id @default(cuid())
+  title               String
+  description         String
+  condition           String
+  category            String
+  subcategory         String?
+  tagsJson            String             @default("[]")
+  location            String
+  latitude            Float?
+  longitude           Float?
+  hourlyRate          Float?
+  dailyRate           Float?
+  weeklyRate          Float?
+  securityDeposit     Float?
+  imagesJson          String             @default("[]")
+  isVerified          Boolean            @default(false)
+  isAvailable         Boolean            @default(true)
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  moderationStatus    ModerationStatus   @default(PENDING)
+  moderatedAt         DateTime?
+  moderatedBy         String?
+  moderationNotes     String?
+  ownerId             String
+  availabilitySchedule Json?             @default("{}")
+  blackoutDates       DateTime[]         @default([])
+  availability        Availability[]
+  bookings            Booking[]
+  calendarSync        CalendarSync?
+  moderator           User?              @relation("ModeratedEquipment", fields: [moderatedBy], references: [id])
+  owner               User               @relation("OwnerEquipment", fields: [ownerId], references: [id])
+  messages            Message[]
+  PaymentAnalytics    PaymentAnalytics[]
+  rentals             Rental[]
+  reviews             Review[]           @relation("EquipmentReviews")
 
   @@index([ownerId])
   @@index([moderationStatus])
   @@index([moderatedBy])
+}
+
+model Booking {
+  id          String      @id @default(cuid())
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  startDate   DateTime
+  endDate     DateTime
+  status      String      @default("PENDING")
+  totalPrice  Float
+  equipment   Equipment   @relation(fields: [equipmentId], references: [id])
+  equipmentId String
+  renter      User       @relation("RenterBookings", fields: [renterId], references: [id])
+  renterId    String
+  messages    Message[]
+
+  @@index([equipmentId])
+  @@index([renterId])
+}
+
+model Message {
+  id          String    @id @default(cuid())
+  createdAt   DateTime  @default(now())
+  content     String
+  sender      User      @relation("SentMessages", fields: [senderId], references: [id])
+  senderId    String
+  recipient   User      @relation("ReceivedMessages", fields: [recipientId], references: [id])
+  recipientId String
+  equipment   Equipment @relation(fields: [equipmentId], references: [id])
+  equipmentId String
+  booking     Booking?  @relation(fields: [bookingId], references: [id])
+  bookingId   String?
+
+  @@index([senderId])
+  @@index([recipientId])
+  @@index([equipmentId])
+  @@index([bookingId])
 }
 
 model Availability {
@@ -218,18 +262,6 @@ model Payment {
   @@index([createdAt])
   @@index([ipAddress])
   @@index([status])
-}
-
-model Message {
-  id              String   @id @default(cuid())
-  content         String
-  isRead          Boolean  @default(false)
-  createdAt       DateTime @default(now())
-  senderId        String
-  receiverId      String
-  attachmentsJson String?  @default("[]")
-  receiver        User     @relation("MessageReceiver", fields: [receiverId], references: [id])
-  sender          User     @relation("MessageSender", fields: [senderId], references: [id])
 }
 
 model Notification {

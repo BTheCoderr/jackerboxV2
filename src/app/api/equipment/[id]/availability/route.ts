@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/auth-utils";
+import { prisma } from '@/lib/prisma';
 
 // Schema for creating/updating availability
 const availabilitySchema = z.object({
@@ -24,62 +25,51 @@ const availabilitySchema = z.object({
 
 // GET endpoint to fetch availability for an equipment
 export async function GET(
-  req: Request,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    const equipmentId = await Promise.resolve(params.id);
+    const equipmentId = params.id;
     
-    // Check if equipment exists
-    const equipment = await db.equipment.findUnique({
-      where: { id: equipmentId },
-    });
-    
-    if (!equipment) {
-      return NextResponse.json(
-        { message: "Equipment not found" },
-        { status: 404 }
-      );
-    }
-    
-    // Fetch availability periods
-    const availability = await db.availability.findMany({
-      where: { equipmentId },
-      orderBy: { startDate: "asc" },
-    });
-    
-    // Fetch bookings for this equipment
-    const bookings = await db.rental.findMany({
+    // Get all bookings for this equipment
+    const bookings = await prisma.booking.findMany({
       where: {
         equipmentId,
         status: {
-          in: ["Pending", "Approved"],
-        },
+          in: ['PENDING', 'CONFIRMED']
+        }
       },
       select: {
-        id: true,
         startDate: true,
         endDate: true,
-        status: true,
-        renter: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
+        status: true
+      }
     });
-    
-    return NextResponse.json({
-      availability,
+
+    // Get equipment details to check owner's availability settings
+    const equipment = await prisma.equipment.findUnique({
+      where: { id: equipmentId },
+      select: {
+        availabilitySchedule: true,
+        blackoutDates: true
+      }
+    });
+
+    if (!equipment) {
+      return new NextResponse('Equipment not found', { status: 404 });
+    }
+
+    // Combine bookings with blackout dates and availability schedule
+    const availability = {
       bookings,
-    });
+      blackoutDates: equipment.blackoutDates || [],
+      availabilitySchedule: equipment.availabilitySchedule || {}
+    };
+
+    return NextResponse.json(availability);
   } catch (error) {
-    console.error("Error fetching availability:", error);
-    return NextResponse.json(
-      { message: "Something went wrong. Please try again." },
-      { status: 500 }
-    );
+    console.error('Error fetching availability:', error);
+    return new NextResponse('Internal Server Error', { status: 500 });
   }
 }
 
@@ -289,4 +279,6 @@ export async function DELETE(
       { status: 500 }
     );
   }
-} 
+}
+
+export const dynamic = 'force-dynamic'; 
