@@ -19,7 +19,7 @@ export function NotFoundPage() {
   // Only render the full content once hydrated
   return (
     <ClientOnly fallback={<SimpleNotFoundFallback />}>
-      <div className="flex flex-col items-center justify-center min-h-[60vh] py-12 px-4 text-center">
+      <div className="flex flex-col items-center justify-center min-h-[60vh] py-12 px-4 text-center" data-testid="404-page">
         <h1 className="text-9xl font-bold text-gray-800" suppressHydrationWarning>404</h1>
         <div className="h-1 w-24 bg-black my-6"></div>
         <h2 className="text-2xl font-medium text-gray-800 mb-6" suppressHydrationWarning>
@@ -33,12 +33,14 @@ export function NotFoundPage() {
           <Link
             href="/"
             className="px-6 py-3 bg-black text-white rounded-md hover:bg-opacity-90 transition-all"
+            data-testid="404-home-link"
           >
             Go Home
           </Link>
           <Link
             href="/routes/equipment"
             className="px-6 py-3 border border-black text-black rounded-md hover:bg-gray-100 transition-all"
+            data-testid="404-browse-link"
           >
             Browse Equipment
           </Link>
@@ -54,7 +56,7 @@ export function NotFoundPage() {
  */
 function SimpleNotFoundFallback() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] py-12 px-4 text-center">
+    <div className="flex flex-col items-center justify-center min-h-[60vh] py-12 px-4 text-center" data-testid="404-page">
       <div className="text-9xl font-bold text-gray-800" suppressHydrationWarning>404</div>
       <div className="h-1 w-24 bg-black my-6"></div>
       <div className="text-2xl font-medium text-gray-800 mb-6" suppressHydrationWarning>

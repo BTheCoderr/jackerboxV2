@@ -477,7 +477,7 @@ export function EquipmentSearch() {
       
       {/* Loading state */}
       {isLoading && (
-        <div className="flex justify-center items-center py-12">
+        <div className="flex justify-center items-center py-12" data-testid="equipment-search-loading">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
           <span className="ml-2">Searching equipment...</span>
         </div>
@@ -485,7 +485,7 @@ export function EquipmentSearch() {
       
       {/* Error state */}
       {isError && (
-        <div className="text-center py-12">
+        <div className="text-center py-12" data-testid="equipment-search-error">
           <p className="text-red-500">Error: {error?.message || "Failed to load results"}</p>
           <Button
             variant="outline"

@@ -32,13 +32,13 @@ model User {
   stripeConnectAccountId String?
   userType               String?            @default("both")
   accounts               Account[]
+  bookingsAsRenter       Booking[]          @relation("RenterBookings")
   calendarSyncs          CalendarSync[]
   moderatedEquipment     Equipment[]        @relation("ModeratedEquipment")
   equipmentListings      Equipment[]        @relation("OwnerEquipment")
-  bookingsAsRenter       Booking[]          @relation("RenterBookings")
-  sentMessages           Message[]          @relation("SentMessages")
-  receivedMessages       Message[]          @relation("ReceivedMessages")
   FraudDetection         FraudDetection[]
+  receivedMessages       Message[]          @relation("ReceivedMessages")
+  sentMessages           Message[]          @relation("SentMessages")
   notifications          Notification[]
   payments               Payment[]
   pushSubscriptions      PushSubscription[]
@@ -86,41 +86,41 @@ model VerificationToken {
 }
 
 model Equipment {
-  id                  String             @id @default(cuid())
-  title               String
-  description         String
-  condition           String
-  category            String
-  subcategory         String?
-  tagsJson            String             @default("[]")
-  location            String
-  latitude            Float?
-  longitude           Float?
-  hourlyRate          Float?
-  dailyRate           Float?
-  weeklyRate          Float?
-  securityDeposit     Float?
-  imagesJson          String             @default("[]")
-  isVerified          Boolean            @default(false)
-  isAvailable         Boolean            @default(true)
-  createdAt           DateTime           @default(now())
-  updatedAt           DateTime           @updatedAt
-  moderationStatus    ModerationStatus   @default(PENDING)
-  moderatedAt         DateTime?
-  moderatedBy         String?
-  moderationNotes     String?
-  ownerId             String
-  availabilitySchedule Json?             @default("{}")
-  blackoutDates       DateTime[]         @default([])
-  availability        Availability[]
-  bookings            Booking[]
-  calendarSync        CalendarSync?
-  moderator           User?              @relation("ModeratedEquipment", fields: [moderatedBy], references: [id])
-  owner               User               @relation("OwnerEquipment", fields: [ownerId], references: [id])
-  messages            Message[]
-  PaymentAnalytics    PaymentAnalytics[]
-  rentals             Rental[]
-  reviews             Review[]           @relation("EquipmentReviews")
+  id                   String             @id @default(cuid())
+  title                String
+  description          String
+  condition            String
+  category             String
+  subcategory          String?
+  tagsJson             String             @default("[]")
+  location             String
+  latitude             Float?
+  longitude            Float?
+  hourlyRate           Float?
+  dailyRate            Float?
+  weeklyRate           Float?
+  securityDeposit      Float?
+  imagesJson           String             @default("[]")
+  isVerified           Boolean            @default(false)
+  isAvailable          Boolean            @default(true)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  moderationStatus     ModerationStatus   @default(PENDING)
+  moderatedAt          DateTime?
+  moderatedBy          String?
+  moderationNotes      String?
+  ownerId              String
+  availabilitySchedule Json?              @default("{}")
+  blackoutDates        DateTime[]         @default([])
+  availability         Availability[]
+  bookings             Booking[]
+  calendarSync         CalendarSync?
+  moderator            User?              @relation("ModeratedEquipment", fields: [moderatedBy], references: [id])
+  owner                User               @relation("OwnerEquipment", fields: [ownerId], references: [id])
+  messages             Message[]
+  PaymentAnalytics     PaymentAnalytics[]
+  rentals              Rental[]
+  reviews              Review[]           @relation("EquipmentReviews")
 
   @@index([ownerId])
   @@index([moderationStatus])
@@ -128,17 +128,17 @@ model Equipment {
 }
 
 model Booking {
-  id          String      @id @default(cuid())
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  id          String    @id @default(cuid())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
   startDate   DateTime
   endDate     DateTime
-  status      String      @default("PENDING")
+  status      String    @default("PENDING")
   totalPrice  Float
-  equipment   Equipment   @relation(fields: [equipmentId], references: [id])
   equipmentId String
-  renter      User       @relation("RenterBookings", fields: [renterId], references: [id])
   renterId    String
+  equipment   Equipment @relation(fields: [equipmentId], references: [id])
+  renter      User      @relation("RenterBookings", fields: [renterId], references: [id])
   messages    Message[]
 
   @@index([equipmentId])
@@ -149,14 +149,14 @@ model Message {
   id          String    @id @default(cuid())
   createdAt   DateTime  @default(now())
   content     String
-  sender      User      @relation("SentMessages", fields: [senderId], references: [id])
   senderId    String
-  recipient   User      @relation("ReceivedMessages", fields: [recipientId], references: [id])
   recipientId String
-  equipment   Equipment @relation(fields: [equipmentId], references: [id])
   equipmentId String
-  booking     Booking?  @relation(fields: [bookingId], references: [id])
   bookingId   String?
+  booking     Booking?  @relation(fields: [bookingId], references: [id])
+  equipment   Equipment @relation(fields: [equipmentId], references: [id])
+  recipient   User      @relation("ReceivedMessages", fields: [recipientId], references: [id])
+  sender      User      @relation("SentMessages", fields: [senderId], references: [id])
 
   @@index([senderId])
   @@index([recipientId])

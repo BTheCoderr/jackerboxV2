@@ -225,11 +225,11 @@ export default function HomePage() {
           </div>
           
           {isLoading ? (
-            <div className="flex justify-center py-12">
+            <div className="flex justify-center py-12" data-testid="featured-equipment-loading">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
             </div>
           ) : error ? (
-            <div className="text-center py-12">
+            <div className="text-center py-12" data-testid="featured-equipment-error">
               <p className="text-red-500 mb-4">{error}</p>
               <button 
                 onClick={fetchFeaturedEquipment}

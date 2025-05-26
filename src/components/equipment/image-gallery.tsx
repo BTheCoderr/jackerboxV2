@@ -154,7 +154,7 @@ export function ImageGallery({ images, title }: ImageGalleryProps) {
   if (isLoading) {
     return (
       <div className="mb-8">
-        <div className="aspect-w-16 aspect-h-9 relative rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center h-[400px]">
+        <div className="aspect-w-16 aspect-h-9 relative rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center h-[400px]" data-testid="image-gallery-loading">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
         </div>
       </div>

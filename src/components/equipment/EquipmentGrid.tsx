@@ -112,7 +112,7 @@ export function EquipmentGrid() {
   
   if (error) {
     return (
-      <div className="text-center py-10">
+      <div data-testid="equipment-search-error" className="text-center py-10">
         <p className="text-red-500 mb-4">{error}</p>
         <button 
           onClick={() => {
@@ -129,7 +129,7 @@ export function EquipmentGrid() {
   
   if (!equipment || equipment.length === 0) {
     return (
-      <div className="text-center py-10">
+      <div data-testid="no-equipment-message" className="text-center py-10">
         <h3 className="text-xl font-semibold mb-2">No equipment found</h3>
         <p className="text-gray-600">Try adjusting your search criteria or check back later.</p>
       </div>
@@ -137,7 +137,7 @@ export function EquipmentGrid() {
   }
   
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+    <div data-testid="equipment-grid" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
       {equipment.map((item, index) => (
         <EquipmentCard 
           key={item.id} 
@@ -151,7 +151,7 @@ export function EquipmentGrid() {
 
 export function EquipmentGridSkeleton() {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+    <div data-testid="equipment-search-skeleton" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
       {Array.from({ length: 8 }).map((_, i) => (
         <div key={i} className="flex flex-col rounded-lg border border-gray-200 overflow-hidden">
           <div className="h-48 w-full bg-gray-200" /> {/* Fixed height image placeholder */}

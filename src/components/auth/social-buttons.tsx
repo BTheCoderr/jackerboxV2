@@ -34,7 +34,7 @@ export function SocialButton({ provider, className }: SocialButtonProps) {
       className={className}
     >
       {isLoading ? (
-        <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />
+        <Icons.spinner className="mr-2 h-4 w-4 animate-spin" data-testid="social-button-loading" />
       ) : (
         <Icon className="mr-2 h-4 w-4" />
       )}

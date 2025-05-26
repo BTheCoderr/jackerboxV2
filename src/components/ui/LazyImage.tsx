@@ -66,13 +66,13 @@ export function LazyImage({
       style={{ width: typeof width === 'number' ? `${width}px` : width, height: typeof height === 'number' ? `${height}px` : height }}
     >
       {!isLoaded && (
-        <div className="absolute inset-0 flex items-center justify-center">
+        <div className="absolute inset-0 flex items-center justify-center" data-testid="lazy-image-loading">
           {loadingComponent || <Skeleton className="w-full h-full" />}
         </div>
       )}
       
       {hasError && (
-        <div className="absolute inset-0 flex items-center justify-center">
+        <div className="absolute inset-0 flex items-center justify-center" data-testid="lazy-image-error">
           {errorComponent || (
             <div className="flex flex-col items-center justify-center p-4 text-center">
               <svg 

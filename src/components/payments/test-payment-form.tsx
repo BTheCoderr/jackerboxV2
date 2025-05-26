@@ -118,7 +118,6 @@ export function TestPaymentFormWrapper({
       {stripePromise && (
         <Elements stripe={stripePromise} options={{ clientSecret }}>
           <TestPaymentForm
-            clientSecret={clientSecret}
             amount={amount}
             securityDeposit={securityDeposit}
             currency={currency}
@@ -132,7 +131,6 @@ export function TestPaymentFormWrapper({
 }
 
 interface InnerTestPaymentFormProps {
-  clientSecret: string;
   amount: number;
   securityDeposit?: number;
   currency: string;
@@ -141,7 +139,6 @@ interface InnerTestPaymentFormProps {
 }
 
 function TestPaymentForm({
-  clientSecret,
   amount,
   securityDeposit,
   currency,

@@ -45,14 +45,14 @@ export function EquipmentGrid() {
 
   if (equipment.length === 0) {
     return (
-      <div className="text-center py-12">
+      <div className="text-center py-12" data-testid="no-equipment-message">
         <p className="text-gray-500">No equipment found</p>
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" data-testid="equipment-grid">
       {equipment.map((item) => {
         const images = JSON.parse(item.imagesJson || '[]');
         const firstImage = images[0] || '/placeholder-image.jpg';
@@ -62,6 +62,7 @@ export function EquipmentGrid() {
             key={item.id}
             href={`/equipment/${item.id}`}
             className="group block bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow"
+            data-testid={`equipment-item-${item.id}`}
           >
             <div className="aspect-w-16 aspect-h-9 relative rounded-t-lg overflow-hidden">
               <Image

@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 // Define skeleton loader for EquipmentSearch
 function EquipmentSearchSkeleton() {
   return (
-    <div className="mb-8 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+    <div className="mb-8 rounded-lg border border-gray-200 bg-white p-6 shadow-sm" data-testid="equipment-search-skeleton">
       <div className="mb-4 h-8 w-48 bg-gray-200 rounded"></div>
       <div className="space-y-4">
         <div className="h-10 w-full bg-gray-200 rounded"></div>
