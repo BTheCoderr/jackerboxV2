@@ -1,5 +1,11 @@
 # JackerBox
 
+<!-- repo-intro:start -->
+**Project snapshot:** JackerBox V2 is the newer full-stack equipment-rental marketplace direction, combining searchable inventory, multi-provider authentication, payments, media storage, and relational persistence.
+
+**What it demonstrates:** Next.js · TypeScript · Prisma/PostgreSQL · Stripe · Cloudinary · auth/webhooks.
+<!-- repo-intro:end -->
+
 JackerBox is a modern equipment rental platform built with Next.js, Prisma, and TypeScript. It features secure authentication with multiple providers, including Apple Sign In, and robust webhook handling.
 
 ## Features
