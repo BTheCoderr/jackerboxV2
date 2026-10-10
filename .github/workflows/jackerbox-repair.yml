@@ -1,0 +1,37 @@
+name: JackerBox repair checks
+
+on:
+  push:
+    branches:
+      - audit/security-and-rental-hardening-2026-10
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  security-and-unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b163ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+      - name: Generate Prisma client
+        run: npx prisma generate
+      - name: Verify security repair regression tests
+        run: npx jest tests/unit/security-guardrails.test.ts --runInBand
+      - name: TypeScript diagnostics
+        run: npx tsc --noEmit
+        continue-on-error: true
+      - name: Dependency audit
+        run: npm audit --omit=dev --audit-level=high
+        continue-on-error: true
