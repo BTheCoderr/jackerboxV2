@@ -27,7 +27,7 @@ export async function POST(req: Request) {
 
     const previous = rental.payment.metadata && typeof rental.payment.metadata === 'object' && !Array.isArray(rental.payment.metadata)
       ? rental.payment.metadata : {};
-    if ('securityDepositRefundId' in previous) {
+    if ('securityDepositRefundId' in previous || 'legacySecurityDepositRefundRecorded' in previous) {
       return NextResponse.json({ error: 'Deposit refund already recorded' }, { status: 409 });
     }
 

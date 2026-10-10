@@ -3,7 +3,10 @@ DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM "Payment"
                  WHERE "id" = 'legacy-payment' AND "status"::text = 'COMPLETED'
-                   AND "platformFee" = 15 AND "ownerPaidOut" = false) THEN
+                   AND "platformFee" = 15 AND "ownerPaidOut" = true
+                   AND "metadata"->>'ownerPayoutTransferId' = 'tr_legacy_transfer'
+                   AND "metadata"->>'legacyOwnerPayoutRecorded' = 'true'
+                   AND "metadata"->>'legacySecurityDepositRefundRecorded' = 'true') THEN
     RAISE EXCEPTION 'Historical payment data lost or altered';
   END IF;
   IF NOT EXISTS (SELECT 1 FROM "Rental"

@@ -6,7 +6,7 @@ INSERT INTO "Equipment" ("id", "title", "description", "condition", "category", 
 VALUES ('legacy-equipment', 'Legacy equipment', 'Historical listing', 'good', 'Tools', 'Providence, RI', 'legacy-owner', NOW());
 INSERT INTO "Rental" ("id", "startDate", "endDate", "totalPrice", "status", "equipmentId", "renterId", "updatedAt")
 VALUES ('legacy-rental', NOW(), NOW() + INTERVAL '1 day', 100, 'COMPLETED', 'legacy-equipment', 'legacy-renter', NOW());
-INSERT INTO "Payment" ("id", "amount", "status", "userId", "rentalId", "updatedAt", "platformFee", "ownerPaidOut")
-VALUES ('legacy-payment', 100, 'COMPLETED', 'legacy-renter', 'legacy-rental', NOW(), 15, false);
+INSERT INTO "Payment" ("id", "amount", "status", "userId", "rentalId", "updatedAt", "platformFee", "ownerPaidOut", "securityDepositReturned", "stripeTransferId")
+VALUES ('legacy-payment', 100, 'COMPLETED', 'legacy-renter', 'legacy-rental', NOW(), 15, true, true, 'tr_legacy_transfer');
 INSERT INTO "Message" ("id", "content", "senderId", "receiverId")
 VALUES ('legacy-message', 'Please keep this historical message', 'legacy-renter', 'legacy-owner');

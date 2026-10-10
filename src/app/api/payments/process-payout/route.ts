@@ -25,7 +25,7 @@ export async function POST(req: Request) {
 
     const previous = rental.payment.metadata && typeof rental.payment.metadata === 'object' && !Array.isArray(rental.payment.metadata)
       ? rental.payment.metadata : {};
-    if ('ownerPayoutTransferId' in previous) {
+    if ('ownerPayoutTransferId' in previous || 'legacyOwnerPayoutRecorded' in previous) {
       return NextResponse.json({ error: 'Owner payout already recorded' }, { status: 409 });
     }
 

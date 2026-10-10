@@ -111,4 +111,11 @@ describe('JackerBox security regression checks', () => {
     expect(utility).not.toContain('copyFileSync');
     expect(utility).not.toContain('.env.backup');
   });
+
+  test('historical payouts and deposits are not reissued', () => {
+    expect(content('src/app/api/payments/process-payout/route.ts'))
+      .toContain("'legacyOwnerPayoutRecorded' in previous");
+    expect(content('src/app/api/payments/refund-security-deposit/route.ts'))
+      .toContain("'legacySecurityDepositRefundRecorded' in previous");
+  });
 });

@@ -48,6 +48,20 @@ DO $$ BEGIN
 END $$;
 ALTER TABLE "Payment" ALTER COLUMN "status" TYPE "PaymentStatus" USING UPPER(TRIM("status"))::"PaymentStatus";
 ALTER TABLE "Payment" ALTER COLUMN "rentalId" DROP NOT NULL;
+-- Carry verified historic transfer/refund state into the new metadata keys.
+-- A true legacy flag blocks reissuing money when the old record lacks an external ID.
+UPDATE "Payment"
+SET "metadata" = COALESCE("metadata", '{}'::jsonb)
+  || CASE WHEN "ownerPaidOut" IS TRUE OR "stripeTransferId" IS NOT NULL
+     THEN jsonb_build_object('legacyOwnerPayoutRecorded', true) ELSE '{}'::jsonb END
+  || CASE WHEN "stripeTransferId" IS NOT NULL
+     THEN jsonb_build_object('ownerPayoutTransferId', "stripeTransferId") ELSE '{}'::jsonb END
+  || CASE WHEN "securityDepositReturned" IS TRUE
+     THEN jsonb_build_object('legacySecurityDepositRefundRecorded', true) ELSE '{}'::jsonb END
+WHERE "ownerPaidOut" IS TRUE
+   OR "stripeTransferId" IS NOT NULL
+   OR "securityDepositReturned" IS TRUE;
+
 
 -- Do not falsely treat unconfirmed legacy rentals as paid. Unsupported statuses block deployment.
 DO $$ BEGIN
