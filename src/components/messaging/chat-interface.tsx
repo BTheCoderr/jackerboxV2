@@ -1,11 +1,10 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { formatDistanceToNow } from "date-fns";
 import { useSocket } from "@/hooks/use-socket";
-import { PaperclipIcon, X, Image as ImageIcon, File, Send, AlertTriangle, RefreshCw } from "lucide-react";
+import { PaperclipIcon, X, Image as ImageIcon, File, Send, AlertTriangle } from "lucide-react";
 import { SocketStatus } from "./socket-status";
 
 interface Message {
@@ -55,20 +54,17 @@ export function ChatInterface({
   const [otherUserTyping, setOtherUserTyping] = useState(false);
   const [attachments, setAttachments] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
-  const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const router = useRouter();
   
   // Add connection status state
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'fallback'>('connected');
-  const [showReconnectButton, setShowReconnectButton] = useState(false);
 
   // Generate a unique chat ID for this conversation
   const chatId = [currentUserId, otherUserId].sort().join('-');
   
   // Initialize socket connection
-  const { socket, isConnected, isPollingFallback, joinChat, leaveChat, sendMessage: socketSendMessage, subscribe } = useSocket();
+  const { isConnected, isPollingFallback, joinChat, leaveChat, subscribe } = useSocket();
   
   // Scroll to bottom of messages
   const scrollToBottom = () => {
@@ -257,19 +253,10 @@ export function ChatInterface({
   useEffect(() => {
     if (isConnected) {
       setConnectionStatus(isPollingFallback ? 'fallback' : 'connected');
-      setShowReconnectButton(false);
     } else {
       setConnectionStatus('disconnected');
-      setShowReconnectButton(true);
     }
   }, [isConnected, isPollingFallback]);
-
-  // Add a function to manually reconnect
-  const handleReconnect = () => {
-    if (socket) {
-      socket.connect();
-    }
-  };
 
   // Modify the handleSendMessage function to work with or without socket connection
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -286,55 +273,31 @@ export function ChatInterface({
         uploadedAttachments = await uploadAttachments();
       }
       
-      const messageData = {
-        content: newMessage.trim(),
-        senderId: currentUserId,
-        receiverId: otherUserId,
-        attachments: uploadedAttachments,
-      };
-      
-      // Try to send via socket first if connected
-      let socketSent = false;
-      if (isConnected) {
-        socketSent = socketSendMessage(otherUserId, messageData);
+      // The database-backed REST endpoint is the source of truth.
+      // Never skip persistence just because a socket appears connected.
+      if (uploadedAttachments.length > 0) {
+        throw new Error("Attachments are not yet supported by message storage.");
       }
-      
-      // If socket failed or not connected, send via REST API
-      if (!socketSent) {
-        const response = await fetch("/api/messages", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            content: newMessage.trim(),
-            receiverId: otherUserId,
-            attachments: uploadedAttachments,
-            equipmentId,
-          }),
-        });
-        
-        if (!response.ok) {
-          throw new Error("Failed to send message");
-        }
-        
-        const data = await response.json();
-        
-        // Add the new message to the state
-        setMessages((prev) => [
-          ...prev,
-          {
-            ...data.message,
-            createdAt: new Date(data.message.createdAt),
-            sender: {
-              id: currentUserId,
-              name: "You",
-              image: null,
-            },
-          },
-        ]);
-      }
-      
+      const response = await fetch("/api/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: newMessage.trim(),
+          receiverId: otherUserId,
+          equipmentId,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.message || "Unable to send message");
+      setMessages(prev => prev.some(msg => msg.id === data.message.id) ? prev : [
+        ...prev,
+        {
+          ...data.message,
+          createdAt: new Date(data.message.createdAt),
+          sender: { id: currentUserId, name: "You", image: null },
+        },
+      ]);
+
       // Clear the input and attachments
       setNewMessage("");
       setAttachments([]);
@@ -398,7 +361,7 @@ export function ChatInterface({
 
       {/* Socket status notification */}
       <div className="px-4 pt-2">
-        <SocketStatus showReconnectButton={true} />
+        <SocketStatus />
       </div>
 
       {/* Messages container */}
