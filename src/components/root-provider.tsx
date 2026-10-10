@@ -82,8 +82,7 @@ export default function RootProvider({ children }: { children: ReactNode }) {
       } else if (socketStatus === 'disconnected' || sseStatus === 'disconnected') {
         toastTimeoutRef.current = setTimeout(() => {
           if (!toastShown) {
-            toast({
-              title: 'Connection lost',
+            toast.warning('Connection lost', {
               description: 'Attempting to reconnect...',
               duration: 3000
             });
