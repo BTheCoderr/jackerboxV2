@@ -1,9 +1,8 @@
 /* Global CSS - Make sure this file is properly imported in layout.tsx */
 /* This file is essential for Next.js to generate the CSS bundle correctly */
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@config "../../tailwind.config.js";
 
 /* Root variables */
 :root {

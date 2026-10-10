@@ -1,20 +1,7 @@
 /** @type {import('next').NextConfig} */
 const config = {
   reactStrictMode: true,
-  // Disable ESLint during build
-  eslint: {
-    // Warning instead of error during build
-    ignoreDuringBuilds: true,
-  },
-  // Simple configuration without Turbopack-specific settings
-  typescript: {
-    // !! WARN !!
-    // Dangerously allow production builds to successfully complete even if
-    // your project has type errors.
-    // !! WARN !!
-    // Existing type debt must be fixed before re-enabling blocking type checks.
-    ignoreBuildErrors: true,
-  },
+  typescript: { ignoreBuildErrors: false },
   output: 'standalone',
   images: {
     formats: ['image/avif', 'image/webp'],
@@ -36,12 +23,10 @@ const config = {
       bodySizeLimit: '2mb',
       allowedOrigins: ['localhost:3000', 'localhost:3001', 'jackerbox.vercel.app', 'jackerbox.netlify.app']
     },
-    optimizeCss: true,
     optimizePackageImports: ['lucide-react', '@radix-ui', 'date-fns'],
     // Disable some experimental features that might cause chunking issues
-    ppr: false,
-    taint: false,
   },
+  // Use Webpack during the staged Next.js 16 migration.
   // Disable Next.js tracing to fix api.createContextKey errors
   productionBrowserSourceMaps: false,
   compiler: {
@@ -52,15 +37,6 @@ const config = {
   staticPageGenerationTimeout: 1000,
   // External packages configuration
   serverExternalPackages: ['bcrypt', 'cloudinary'],
-  // Add this to handle dynamic server usage errors
-  serverRuntimeConfig: {
-    // Will only be available on the server side
-    mySecret: 'secret',
-  },
-  publicRuntimeConfig: {
-    // Will be available on both server and client
-    staticFolder: '/static',
-  },
   // Enhanced webpack configuration for Vercel deployment
   webpack: (config, { isServer }) => {
     // Only add fallbacks for client-side bundles

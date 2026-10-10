@@ -6,13 +6,13 @@
     "legacy-peer-deps": true
   },
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --webpack",
     "dev:clean": "node scripts/restart-dev-server.js",
     "dev:socket": "node scripts/start-dev-with-socket.js",
-    "build": "prisma generate && next build",
-    "build:simple": "next build --no-lint",
+    "build": "prisma generate && next build --webpack",
+    "build:simple": "next build --webpack",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "postinstall": "prisma generate",
     "fix-dynamic": "node fix-dynamic-routes.js",
     "create-admin": "ts-node scripts/create-admin.ts",
@@ -109,7 +109,7 @@
     "https-browserify": "^1.0.0",
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.477.0",
-    "next": "15.5.27",
+    "next": "16.4.0",
     "next-auth": "^4.24.11",
     "node-fetch": "^2.7.0",
     "node-ical": "^0.20.1",
@@ -135,7 +135,7 @@
     "stripe": "^17.7.0",
     "swr": "^2.3.3",
     "tailwind-merge": "^3.0.2",
-    "tailwindcss": "^3.4.1",
+    "tailwindcss": "^4.3.3",
     "tesseract.js": "^6.0.0",
     "twilio": "^5.6.1",
     "url": "^0.11.4",
@@ -147,9 +147,8 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@jest/globals": "^29.7.0",
-    "@netlify/plugin-nextjs": "^5.9.4",
+    "@netlify/plugin-nextjs": "^5.16.1",
     "@playwright/test": "^1.52.0",
-    "@tailwindcss/nesting": "^0.0.0-insiders.565cd3e",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.0.1",
     "@testing-library/user-event": "^14.6.1",
@@ -169,7 +168,7 @@
     "concurrently": "^9.1.2",
     "cssnano": "^7.0.6",
     "eslint": "^9",
-    "eslint-config-next": "15.5.27",
+    "eslint-config-next": "16.4.0",
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^29.7.0",
     "null-loader": "^4.0.1",
@@ -178,6 +177,7 @@
     "supertest": "^6.3.4",
     "ts-jest": "^29.3.4",
     "ts-node": "^10.9.2",
-    "typescript": "^5"
+    "typescript": "^5",
+    "@tailwindcss/postcss": "^4.3.3"
   }
 }
