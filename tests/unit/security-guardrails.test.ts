@@ -45,4 +45,33 @@ describe('JackerBox security regression checks', () => {
     const route = content('src/app/api/users/verify-id-basic/route.ts');
     expect(route).toContain('idVerified: false');
   });
+
+  test('equipment photos are stored rather than invented', () => {
+    const upload = content('src/app/api/upload/images/route.ts');
+    expect(upload).toContain('await uploadImage(buffer');
+    expect(upload).toContain('MAX_FILE_SIZE');
+    expect(upload).not.toContain('mock-image-id');
+    expect(content('src/app/api/upload/route.ts')).toContain('status: 501');
+  });
+
+  test('push broadcast requires an administrator and an explicit target', () => {
+    const send = content('src/app/api/push/send/route.ts');
+    expect(send).toContain('!currentUser?.isAdmin');
+    expect(send).toContain('!sendToAll');
+    expect(send).toContain("r.value.status === 'success'");
+  });
+
+  test('realtime subscription belongs to authenticated user', () => {
+    const route = content('src/app/api/sse/route.ts');
+    expect(route).toContain('isSSEClientOwnedBy(clientId, user.id)');
+    expect(route).toContain("topic.startsWith('public:')");
+  });
+
+  test('equipment listings require true photo URLs, not base64 payloads', () => {
+    const create = content('src/app/api/equipment/route.ts');
+    expect(create).toContain('MIN_REQUIRED_IMAGES = 3');
+    expect(create).toContain("new URL(url).protocol === 'https:'");
+    const page = content('src/app/routes/equipment/new/page.tsx');
+    expect(page).toContain('imagesJson: JSON.stringify(values.images)');
+  });
 });

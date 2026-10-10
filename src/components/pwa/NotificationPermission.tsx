@@ -42,6 +42,7 @@ export function NotificationPermission() {
 
       return () => clearTimeout(timer);
     }
+    return undefined;
   }, []);
 
   const requestPermission = async () => {

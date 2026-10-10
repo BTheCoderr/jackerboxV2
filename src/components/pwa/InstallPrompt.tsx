@@ -58,6 +58,7 @@ export function InstallPrompt() {
         setShowPrompt(true);
       }
     }
+    return undefined;
   }, []);
 
   const handleInstallClick = async () => {
