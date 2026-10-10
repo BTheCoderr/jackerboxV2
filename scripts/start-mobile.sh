@@ -1,21 +1,7 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-# Switch to mobile configuration
-echo "Switching to mobile-optimized configuration..."
-cp next.config.mobile.mjs next.config.mjs
-
-# Install required packages
-echo "Installing PWA dependencies..."
-npm install --save next-pwa
-
-# Clean build cache
-echo "Cleaning build cache..."
-rm -rf .next
-
-# Build the application
-echo "Building mobile-optimized application..."
+# The standard Next.js build is responsive; do not overwrite active config or change lockfiles.
+echo "Starting JackerBox responsive web app with the canonical Next.js config..."
 npm run build
-
-# Start the application
-echo "Starting mobile-optimized application..."
 npm start

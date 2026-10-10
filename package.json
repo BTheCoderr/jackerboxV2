@@ -36,7 +36,7 @@
     "cleanup": "node scripts/cleanup-storage.js",
     "cleanup:deep": "npm run cleanup && npm prune --production && npm cache clean --force",
     "optimize-mobile": "node scripts/optimize-for-mobile.js",
-    "mobile:dev": "cp next.config.mobile.mjs next.config.mjs && next dev",
+    "mobile:dev": "next dev",
     "mobile": "bash scripts/start-mobile.sh",
     "pwa": "npm run optimize-mobile && npm run mobile",
     "kill-socket": "node scripts/kill-socket-process.js",
