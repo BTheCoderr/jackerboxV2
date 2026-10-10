@@ -6,7 +6,7 @@ import { EQUIPMENT_CATEGORIES } from "@/lib/constants";
 import Link from "next/link";
 import { EquipmentBulkActions } from "@/components/admin/equipment-bulk-actions";
 import { ContentModerationPanel } from "@/components/admin/content-moderation-panel";
-import { Prisma, ModerationStatus } from "@prisma/client";
+import { Prisma, ModerationStatus } from "@/lib/prisma-client";
 import { EquipmentFilters } from "@/components/admin/equipment-filters";
 
 interface AdminEquipmentPageProps {
@@ -82,7 +82,7 @@ export default async function AdminEquipmentPage({ searchParams }: AdminEquipmen
   // Convert to serializable format
   const serializedStats = moderationStats.map(stat => ({
     moderationStatus: stat.moderationStatus,
-    count: stat._count,
+    count: stat._count._all,
   }));
   
   // Convert equipment to serializable format

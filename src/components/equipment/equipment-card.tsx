@@ -1,6 +1,6 @@
 "use client";
 
-import { Equipment, User } from "@prisma/client";
+import type { Equipment } from "@/lib/prisma-client";
 import Image from "next/image";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/utils/format";

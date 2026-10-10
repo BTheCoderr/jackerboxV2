@@ -21,7 +21,7 @@ const updateEquipmentSchema = z.object({
 });
 
 export async function GET(
-  req: Request,
+  _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -84,7 +84,7 @@ export async function GET(
 }
 
 export async function DELETE(
-  req: Request,
+  _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -98,7 +98,7 @@ export async function DELETE(
     }
     
     // Properly await params before using
-    const equipmentId = await Promise.resolve(params.id);
+    const equipmentId = (await params).id;
     
     // Check if user is a renter (has rental history)
     const userRentals = await db.rental.count({
@@ -173,7 +173,7 @@ export async function DELETE(
 }
 
 export async function PATCH(
-  req: Request,
+  _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -187,7 +187,7 @@ export async function PATCH(
     }
     
     // Properly await params before using
-    const equipmentId = await Promise.resolve(params.id);
+    const equipmentId = (await params).id;
     
     // Check if user is a renter (has rental history)
     const userRentals = await db.rental.count({

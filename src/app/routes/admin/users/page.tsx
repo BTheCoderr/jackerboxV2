@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic';
 import { getCurrentUser } from "@/lib/auth/auth-utils";
 import { db } from "@/lib/db";
 import Link from "next/link";
-import { Prisma } from "@prisma/client";
+import { Prisma } from "@/lib/prisma-client";
 import { UserFilters } from "@/components/admin/user-filters";
 
 interface AdminUsersPageProps {

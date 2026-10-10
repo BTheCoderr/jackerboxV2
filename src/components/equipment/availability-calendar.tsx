@@ -110,14 +110,14 @@ export function AvailabilityCalendar({
         }));
 
         // Convert existing bookings to calendar events
-        const bookingEvents = existingBookings.map((booking) => ({
+        const bookingEvents = (data.bookings?.length ? data.bookings.map((r: any) => ({ id: r.id, title: "Reserved", start: r.startDate, end: r.endDate, status: r.status })) : existingBookings).map((booking: any) => ({
           id: booking.id,
           title: `Booked: ${booking.title}`,
           start: new Date(booking.start),
           end: new Date(booking.end),
           status: booking.status,
           allDay: true,
-          className: booking.status === "Approved" ? "bg-red-200" : "bg-yellow-200",
+          className: ["PAID", "ACTIVE"].includes(booking.status) ? "bg-red-200" : "bg-yellow-200",
         }));
 
         // Combine both types of events

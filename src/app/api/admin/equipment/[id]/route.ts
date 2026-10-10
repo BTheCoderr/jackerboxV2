@@ -4,18 +4,16 @@ import { db } from "@/lib/db";
 
 // Use the correct Next.js App Router parameter type
 type RouteParams = {
-  params: {
-    id: string;
-  };
+  params: Promise<{ id: string }>;
 };
 
 export async function DELETE(
-  req: Request,
+  _req: Request,
   context: RouteParams
 ) {
   try {
     const user = await getCurrentUser();
-    const { id } = context.params;
+    const { id } = await context.params;
     
     if (!user?.isAdmin) {
       return NextResponse.json(
@@ -41,7 +39,7 @@ export async function DELETE(
       where: {
         equipmentId: id,
         status: {
-          in: ["PENDING", "CONFIRMED", "ACTIVE"],
+          in: ["PENDING", "PAID", "ACTIVE"],
         },
       },
     });

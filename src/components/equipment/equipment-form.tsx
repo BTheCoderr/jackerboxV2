@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useRouter } from "next/navigation";
-import { Equipment } from "@prisma/client";
+import type { Equipment } from "@/lib/prisma-client";
 import { EQUIPMENT_CATEGORIES, EQUIPMENT_CONDITIONS } from "@/lib/constants";
 import { useCloudinaryUpload } from "@/hooks/use-cloudinary-upload";
 

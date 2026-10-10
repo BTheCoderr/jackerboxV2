@@ -25,18 +25,18 @@ const availabilitySchema = z.object({
 
 // GET endpoint to fetch availability for an equipment
 export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const equipmentId = params.id;
+    const equipmentId = (await params).id;
     
     // Get all bookings for this equipment
-    const bookings = await prisma.booking.findMany({
+    const bookings = await prisma.rental.findMany({
       where: {
         equipmentId,
         status: {
-          in: ['PENDING', 'CONFIRMED']
+          in: ['PAID', 'ACTIVE']
         }
       },
       select: {
@@ -60,7 +60,9 @@ export async function GET(
     }
 
     // Combine bookings with blackout dates and availability schedule
+    const ranges = await prisma.availability.findMany({ where: { equipmentId }, orderBy: { startDate: 'asc' } });
     const availability = {
+      availability: ranges,
       bookings,
       blackoutDates: equipment.blackoutDates || [],
       availabilitySchedule: equipment.availabilitySchedule || {}
@@ -76,7 +78,7 @@ export async function GET(
 // POST endpoint to add new availability period
 export async function POST(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await getCurrentUser();
@@ -102,7 +104,7 @@ export async function POST(
       );
     }
     
-    const equipmentId = await Promise.resolve(params.id);
+    const equipmentId = (await params).id;
     
     // Check if equipment exists and user is the owner
     const equipment = await db.equipment.findUnique({
@@ -135,16 +137,16 @@ export async function POST(
       where: {
         equipmentId,
         status: {
-          in: ["Pending", "Approved"],
+          in: ["PENDING", "PAID", "ACTIVE"],
         },
         OR: [
           {
             // New availability period overlaps with existing booking
             startDate: {
-              lte: endDate,
+              lt: endDate,
             },
             endDate: {
-              gte: startDate,
+              gt: startDate,
             },
           },
         ],
@@ -215,7 +217,7 @@ export async function POST(
 // DELETE endpoint to remove an availability period
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await getCurrentUser();
