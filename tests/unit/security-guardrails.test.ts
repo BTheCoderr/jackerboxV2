@@ -95,4 +95,20 @@ describe('JackerBox security regression checks', () => {
     const canonical = content('src/lib/auth/auth-options.ts');
     expect(canonical).toContain('await compare(');
   });
+  test('phone ownership proof requires server-validated, time-limited OTP', () => {
+    const route = content('src/app/api/auth/verify-phone/route.ts');
+    expect(route).toContain('phoneVerificationExpiresAt');
+    expect(route).toContain('MAX_ATTEMPTS = 5');
+    expect(route).toContain('sendPhoneOwnershipCode');
+    expect(route).toContain('await compare(parsed.data.code');
+    expect(route).not.toContain('TEST_VERIFICATION_CODE');
+    const bypass = content('src/app/api/users/verify-phone/route.ts');
+    expect(bypass).not.toContain('phoneVerified: true');
+  });
+
+  test('credentials check cannot create unencrypted backups', () => {
+    const utility = content('scripts/check-aws-key.ts');
+    expect(utility).not.toContain('copyFileSync');
+    expect(utility).not.toContain('.env.backup');
+  });
 });

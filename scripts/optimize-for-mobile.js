@@ -424,7 +424,7 @@ cp next.config.mobile.mjs next.config.mjs
 
 # Install required packages
 echo "Installing PWA dependencies..."
-npm install --save next-pwa
+echo "Skipping unsafe automatic dependency install; run the validated repository build"
 
 # Clean build cache
 echo "Cleaning build cache..."
