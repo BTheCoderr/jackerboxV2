@@ -4,7 +4,7 @@ import { hash } from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
-  if (process.env.NODE_ENV === 'production') throw new Error('Demo data seeding is disabled in production');
+  if (process.env.NODE_ENV === 'production' || process.env.ALLOW_DESTRUCTIVE_TEST_SEED !== 'YES') throw new Error('Demo seed is destructive and requires ALLOW_DESTRUCTIVE_TEST_SEED=YES in a nonproduction environment');
   console.log('🌱 Starting to seed test data...');
 
   // Clean up existing data (optional - comment out if you want to keep existing data)
@@ -270,6 +270,7 @@ async function main() {
       payment: {
         create: {
           amount: 1375,
+          currency: 'USD',
           status: 'COMPLETED',
           user: {
             connect: {
@@ -301,6 +302,7 @@ async function main() {
       payment: {
         create: {
           amount: 1125,
+          currency: 'USD',
           status: 'COMPLETED',
           user: {
             connect: {
@@ -325,6 +327,7 @@ async function main() {
       payment: {
         create: {
           amount: 2200,
+          currency: 'USD',
           status: 'PENDING',
           user: {
             connect: {
@@ -349,6 +352,7 @@ async function main() {
       payment: {
         create: {
           amount: 450,
+          currency: 'USD',
           status: 'COMPLETED',
           user: {
             connect: {
@@ -380,6 +384,7 @@ async function main() {
       payment: {
         create: {
           amount: 1295,
+          currency: 'USD',
           status: 'REFUNDED',
           user: {
             connect: {
