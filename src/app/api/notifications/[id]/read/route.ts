@@ -3,7 +3,7 @@ import { getCurrentUser } from '@/lib/auth/session';
 import { db } from '@/lib/db';
 
 export async function POST(
-  req: Request,
+  _req: Request,
   { params }: { params: { id: string } }
 ) {
   try {

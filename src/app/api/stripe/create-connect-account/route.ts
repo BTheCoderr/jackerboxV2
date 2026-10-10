@@ -4,7 +4,7 @@ import Stripe from 'stripe';
 
 export const dynamic = 'force-dynamic';
 
-export async function POST(req: Request) {
+export async function POST(_req: Request) {
   try {
     const user = await getCurrentUser();
 

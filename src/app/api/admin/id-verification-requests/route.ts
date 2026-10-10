@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth-utils";
 import { db } from "@/lib/db";
 
-export async function GET(req: Request) {
+export async function GET(_req: Request) {
   try {
     const user = await getCurrentUser();
     

@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/auth-utils";
 
 export async function GET(
-  req: Request,
+  _req: Request,
   { params }: { params: { id: string } }
 ) {
   try {

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { generateICalFeed } from "@/lib/calendar-sync/calendar-service";
 
 export async function GET(
-  req: Request,
+  _req: Request,
   { params }: { params: { id: string } }
 ) {
   try {

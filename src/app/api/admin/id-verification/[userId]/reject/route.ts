@@ -3,7 +3,7 @@ import { getCurrentUser } from "@/lib/auth/auth-utils";
 import { db } from "@/lib/db";
 
 export async function POST(
-  req: Request,
+  _req: Request,
   { params }: { params: { userId: string } }
 ) {
   try {

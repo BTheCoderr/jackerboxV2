@@ -10,7 +10,7 @@ type RouteParams = {
 };
 
 export async function DELETE(
-  req: Request,
+  _req: Request,
   context: RouteParams
 ) {
   try {

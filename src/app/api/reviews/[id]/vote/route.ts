@@ -10,7 +10,7 @@ const voteSchema = z.object({
 
 // POST endpoint to vote on a review
 export async function POST(
-  req: Request,
+  _req: Request,
   { params }: { params: { id: string } }
 ) {
   try {
