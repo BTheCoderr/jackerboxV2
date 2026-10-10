@@ -10,7 +10,7 @@ const voteSchema = z.object({
 
 // POST endpoint to vote on a review
 export async function POST(
-  _req: Request,
+  req: Request,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -144,7 +144,7 @@ export async function POST(
 
 // DELETE endpoint to remove a vote
 export async function DELETE(
-  req: Request,
+  _req: Request,
   { params }: { params: { id: string } }
 ) {
   try {

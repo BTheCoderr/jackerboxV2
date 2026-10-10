@@ -66,9 +66,9 @@ export function calculateImageDimensions(
  * @returns URL for a placeholder image
  */
 export function generatePlaceholderUrl(
-  width: number = 400,
-  height: number = 300,
-  text: string = 'Loading...'
+  _width: number = 400,
+  _height: number = 300,
+  _text: string = 'Loading...'
 ): string {
   // Use local SVG placeholder
   return `/images/placeholder.svg`;

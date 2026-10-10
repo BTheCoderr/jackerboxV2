@@ -55,7 +55,7 @@ export function useSocket(options: UseSocketOptions = {}): UseSocketReturn {
   } = options;
 
   const { status: sessionStatus } = useSession();
-  const [socket, setSocket] = useState<Socket | null>(null);
+  const [, setSocket] = useState<Socket | null>(null);
   const [status, setStatus] = useState<SocketStatus>('disconnected');
   const [error, setError] = useState<Error | null>(null);
   const [isPollingFallback, setIsPollingFallback] = useState(false);
@@ -421,7 +421,7 @@ export function useSocket(options: UseSocketOptions = {}): UseSocketReturn {
     const unsubscribers = eventsRef.current.map((event) => {
       console.log(`Auto-subscribing to event: ${event}`);
       
-      const handler = (...args: any[]) => {
+      const handler = (..._args: any[]) => {
         // This is just a placeholder handler to ensure the event is registered
         // Actual handlers should be registered using the subscribe method
       };

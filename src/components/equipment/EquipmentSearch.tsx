@@ -40,7 +40,6 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Pagination } from "@/components/ui/pagination";
 import { Label } from "@/components/ui/label";
@@ -174,16 +173,6 @@ export function EquipmentSearch() {
   // Handle search input changes
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     updateParams({ query: e.target.value });
-  };
-
-  // Handle category changes
-  const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    updateParams({ category: e.target.value });
-  };
-
-  // Handle sort changes
-  const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    updateParams({ sortBy: e.target.value as any });
   };
 
   // Handle price range changes
