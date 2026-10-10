@@ -28,7 +28,7 @@ export function InstallPrompt() {
     };
 
     if (checkPromptDismissed()) {
-      return; // Don't show if recently dismissed
+      return undefined; // Don't show if recently dismissed
     }
 
     // Check if on iOS

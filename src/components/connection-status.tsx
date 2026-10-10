@@ -101,7 +101,6 @@ export default function ConnectionStatus() {
     // Skip if not in browser
     if (typeof window === 'undefined') return;
 
-    let eventSource = null;
     let reconnectTimeout = null;
     
     const connectSSE = () => {
@@ -169,7 +168,7 @@ export default function ConnectionStatus() {
   }, [updateConnectionStatus, sseConnectionChecked]);
 
   // Get status classes
-  const getStatusClass = (status) => {
+  const getStatusClass = (status: string) => {
     switch (status) {
       case 'connected':
         return 'bg-green-500';
@@ -187,7 +186,7 @@ export default function ConnectionStatus() {
   };
 
   // Get status text
-  const getStatusText = (type, status) => {
+  const getStatusText = (type: 'socket' | 'sse', status: string) => {
     const typeName = type === 'socket' ? 'Socket' : 'SSE';
     return `${typeName}: ${status}`;
   };

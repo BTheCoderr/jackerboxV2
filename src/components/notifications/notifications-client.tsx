@@ -2,24 +2,14 @@
 
 import { useState } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { GenerateSampleNotificationsButton } from "@/components/notifications/generate-sample-button";
 import { NotificationPreferences } from "@/components/notifications/notification-preferences";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
-interface NotificationData {
-  amount?: number;
-  propertyName?: string;
-  checkIn?: string;
-  checkOut?: string;
-  rentalId?: string;
-  [key: string]: any;
-}
 
 interface NotificationType {
   id: string;
   type: string;
   userId: string;
-  data: NotificationData | null;
+  data: unknown;
   read: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -30,25 +20,29 @@ export function NotificationsClient({ notifications = [] }: { notifications: Not
 
   // Helper function to get notification message
   const getNotificationMessage = (notification: NotificationType) => {
-    const data = notification.data || {};
+    const data = notification.data && typeof notification.data === 'object' && !Array.isArray(notification.data)
+      ? notification.data as Record<string, unknown> : {};
+    const amount = typeof data.amount === 'number' ? data.amount : 0;
+    const subject = typeof data.propertyName === 'string' ? data.propertyName : 'your rental';
+    const message = typeof data.message === 'string' ? data.message : 'New notification';
     
     switch (notification.type) {
       case "PAYMENT_RECEIVED":
-        return `Payment of $${data.amount || 0} received`;
+        return `Payment of $${amount} received`;
       case "PAYMENT_FAILED":
-        return `Payment of $${data.amount || 0} failed`;
+        return `Payment of $${amount} failed`;
       case "RENTAL_BOOKED":
-        return `New booking confirmed for ${data.propertyName || 'your rental'}`;
+        return `New booking confirmed for ${subject}`;
       case "RENTAL_CANCELLED":
-        return `Booking for ${data.propertyName || 'your rental'} was cancelled`;
+        return `Booking for ${subject} was cancelled`;
       case "PAYOUT_PROCESSED":
-        return `Payout of $${data.amount || 0} processed`;
+        return `Payout of $${amount} processed`;
       case "SECURITY_DEPOSIT_RETURNED":
-        return `Security deposit of $${data.amount || 0} returned`;
+        return `Security deposit of $${amount} returned`;
       case "RENTAL_UPDATE":
-        return data.message || "Your rental has been updated";
+        return message;
       default:
-        return data.message || "New notification";
+        return message;
     }
   };
 
@@ -56,7 +50,7 @@ export function NotificationsClient({ notifications = [] }: { notifications: Not
     <>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Notifications</h1>
-        {activeTab === "notifications" && <GenerateSampleNotificationsButton />}
+
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -70,7 +64,7 @@ export function NotificationsClient({ notifications = [] }: { notifications: Not
             <div className="bg-white rounded-lg shadow p-6 text-center">
               <p className="text-gray-500 mb-4">You have no notifications</p>
               <p className="text-sm text-gray-400">
-                Click the "Generate Sample Notifications" button above to create sample notifications for demonstration purposes.
+                Booking and payment updates will appear here.
               </p>
             </div>
           ) : (
