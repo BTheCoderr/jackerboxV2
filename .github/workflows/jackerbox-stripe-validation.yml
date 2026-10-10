@@ -1,0 +1,31 @@
+name: JackerBox isolated Stripe workflow validation
+on:
+  push:
+    branches:
+      - audit/stripe-staging-validation-2026-10
+permissions:
+  contents: read
+jobs:
+  test-stripe-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Reproducible install
+        run: npm ci --legacy-peer-deps
+      - name: Generate Prisma client
+        run: npx prisma generate
+      - name: Run mocked Stripe workflow and existing financial regression tests
+        run: npx jest --runInBand tests/unit/stripe-workflow.test.ts tests/unit/security-guardrails.test.ts tests/unit/rental-pricing.test.ts tests/unit/test-verification-guard.test.ts tests/unit/uuid-compatibility.test.ts tests/unit/migration-history.test.ts
+      - name: TypeScript check
+        run: npx tsc --noEmit
+      - name: Production build
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+      - name: Production dependency audit
+        run: npm audit --omit=dev --audit-level=moderate
