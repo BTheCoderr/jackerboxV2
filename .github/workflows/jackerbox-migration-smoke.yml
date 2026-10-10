@@ -44,6 +44,8 @@ jobs:
         run: npx prisma migrate status
       - name: Verify migrations can be reapplied idempotently
         run: npx prisma migrate deploy
+      - name: Review SQL needed to reconcile model drift (do not execute)
+        run: npx prisma migrate diff --from-url "$DIRECT_DATABASE_URL" --to-schema-datamodel prisma/schema.prisma --script
       - name: Check migrated database against checked-in schema
         run: npx prisma migrate diff --from-url "$DIRECT_DATABASE_URL" --to-schema-datamodel prisma/schema.prisma --exit-code
       - name: Production type checks
