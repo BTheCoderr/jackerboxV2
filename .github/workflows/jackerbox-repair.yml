@@ -25,7 +25,7 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
       - name: Verify security repair regression tests
-        run: npx jest tests/unit/security-guardrails.test.ts tests/unit/rental-pricing.test.ts --runInBand
+        run: npx jest tests/unit/security-guardrails.test.ts tests/unit/rental-pricing.test.ts tests/unit/test-verification-guard.test.ts --runInBand
       - name: TypeScript diagnostics (release gate)
         run: npx tsc --noEmit
       - name: Dependency audit (release gate)

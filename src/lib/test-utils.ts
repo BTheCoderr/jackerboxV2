@@ -6,10 +6,12 @@
  * Determines if the application is in test mode
  * This allows bypassing certain security features during development
  */
+export function canUseTestVerification(nodeEnv: string | undefined, testFlag: string | undefined): boolean {
+  return nodeEnv === 'test' || (nodeEnv === 'development' && testFlag === 'true');
+}
+
 export function isTestMode(): boolean {
-  // Check for test mode environment variable
-  return process.env.NODE_ENV === 'test' ||
-    (process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_TEST_MODE === 'true');
+  return canUseTestVerification(process.env.NODE_ENV, process.env.NEXT_PUBLIC_TEST_MODE);
 }
 
 /**
