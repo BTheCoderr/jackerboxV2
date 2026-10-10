@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { io, Socket, ManagerOptions, SocketOptions } from "socket.io-client";
+import { io, Socket } from "socket.io-client";
 import { useSession } from "next-auth/react";
 
 // Define the socket connection status
@@ -54,7 +54,7 @@ export function useSocket(options: UseSocketOptions = {}): UseSocketReturn {
     onReconnectFailed,
   } = options;
 
-  const { data: session, status: sessionStatus } = useSession();
+  const { status: sessionStatus } = useSession();
   const [socket, setSocket] = useState<Socket | null>(null);
   const [status, setStatus] = useState<SocketStatus>('disconnected');
   const [error, setError] = useState<Error | null>(null);

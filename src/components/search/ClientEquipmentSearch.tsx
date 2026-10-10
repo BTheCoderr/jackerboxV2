@@ -2,7 +2,6 @@
 
 import { Suspense } from 'react';
 import dynamic from 'next/dynamic';
-import { Skeleton } from '@/components/ui/skeleton';
 
 // Define skeleton loader for EquipmentSearch
 function EquipmentSearchSkeleton() {
@@ -38,7 +37,7 @@ interface ClientEquipmentSearchProps {
 }
 
 // Export the client component wrapper
-export default function ClientEquipmentSearch({ defaultValues }: ClientEquipmentSearchProps) {
+export default function ClientEquipmentSearch(_props: ClientEquipmentSearchProps) {
   // Our new search component doesn't need defaultValues as it will read from URL
   return (
     <Suspense fallback={<EquipmentSearchSkeleton />}>

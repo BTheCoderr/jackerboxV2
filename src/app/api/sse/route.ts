@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSSEConnection, subscribe, unsubscribe, getStats, toggleDebugMode } from '@/lib/sse/sse-manager';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth-options';
-import { headers } from 'next/headers';
 import { getCurrentUser } from '@/lib/auth/session';
 
 export const dynamic = 'force-dynamic';
@@ -14,7 +13,7 @@ export const fetchCache = 'force-no-store';
 /**
  * Handle SSE connection requests
  */
-export async function GET(req: NextRequest) {
+export async function GET() {
   const isDev = process.env.NODE_ENV === 'development';
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -32,15 +31,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Get user session if available
-    let userId: string | undefined = undefined;
-    try {
-      const session = await getServerSession(authOptions);
-      userId = session?.user?.id;
-    } catch (sessionError) {
-      console.error('Error getting session:', sessionError);
-      // Continue without user ID
-    }
+    const userId = session.user.id;
 
     // Create the SSE stream
     const stream = await Promise.resolve().then(() => createSSEConnection(userId));
@@ -57,7 +48,7 @@ export async function GET(req: NextRequest) {
         message: 'Failed to establish SSE connection',
         code: 'CONNECTION_ERROR',
         timestamp: Date.now(),
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: 'Unable to create event stream'
       })}\n\n`,
       { headers: responseHeaders, status: 500 }
     );
@@ -67,7 +58,7 @@ export async function GET(req: NextRequest) {
 /**
  * Handle OPTIONS requests for CORS preflight
  */
-export async function OPTIONS(req: NextRequest) {
+export async function OPTIONS() {
   return new Response(null, {
     status: 204,
     headers: {
