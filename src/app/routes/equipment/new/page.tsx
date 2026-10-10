@@ -7,246 +7,130 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import { ImageUpload } from '@/components/shared/image-upload';
+import { EQUIPMENT_CATEGORIES, EQUIPMENT_CONDITIONS } from '@/lib/constants';
 
-const equipmentSchema = z.object({
-  title: z.string().min(3, 'Title must be at least 3 characters'),
-  description: z.string().min(10, 'Description must be at least 10 characters'),
-  category: z.string().min(1, 'Please select a category'),
-  condition: z.string().min(1, 'Please select a condition'),
-  hourlyRate: z.number().min(0, 'Hourly rate must be positive'),
-  dailyRate: z.number().min(0, 'Daily rate must be positive'),
-  weeklyRate: z.number().min(0, 'Weekly rate must be positive'),
-  location: z.string().min(1, 'Location is required'),
-  images: z.array(z.string()).min(1, 'At least one image is required'),
+const schema = z.object({
+  title: z.string().trim().min(3),
+  description: z.string().trim().min(10),
+  category: z.string().min(1, 'Select a category'),
+  condition: z.string().min(1, 'Select the condition'),
+  location: z.string().trim().min(3, 'Enter a city and state'),
+  hourlyRate: z.number().nonnegative().optional(),
+  dailyRate: z.number().nonnegative().optional(),
+  weeklyRate: z.number().nonnegative().optional(),
+  securityDeposit: z.number().nonnegative().optional(),
+  images: z.array(z.string().url()).min(3, 'Add at least three photos').max(5),
+}).refine(v => [v.hourlyRate, v.dailyRate, v.weeklyRate].some(n => typeof n === 'number' && n > 0), {
+  message: 'At least one rental rate must be greater than zero',
+  path: ['dailyRate'],
 });
-
-type EquipmentFormValues = z.infer<typeof equipmentSchema>;
+type Values = z.infer<typeof schema>;
 
 export default function NewEquipmentPage() {
-  const [isLoading, setIsLoading] = useState(false);
-  const [images, setImages] = useState<string[]>([]);
   const router = useRouter();
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    setValue,
-  } = useForm<EquipmentFormValues>({
-    resolver: zodResolver(equipmentSchema),
-    defaultValues: {
-      images: [],
-    },
+  const [saving, setSaving] = useState(false);
+  const [photos, setPhotos] = useState<string[]>([]);
+  const { register, handleSubmit, setValue, formState: { errors } } = useForm<Values>({
+    resolver: zodResolver(schema),
+    defaultValues: { images: [], category: '', condition: '' },
   });
-
-  const onSubmit = async (data: EquipmentFormValues) => {
+  const setImages = (urls: string[]) => {
+    setPhotos(urls);
+    setValue('images', urls, { shouldValidate: true, shouldDirty: true });
+  };
+  const submit = async (values: Values) => {
+    setSaving(true);
     try {
-      setIsLoading(true);
-      
       const response = await fetch('/api/equipment', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...data,
-          images,
+          title: values.title,
+          description: values.description,
+          category: values.category,
+          condition: values.condition,
+          location: values.location,
+          hourlyRate: values.hourlyRate,
+          dailyRate: values.dailyRate,
+          weeklyRate: values.weeklyRate,
+          securityDeposit: values.securityDeposit,
+          tagsJson: '[]',
+          imagesJson: JSON.stringify(values.images),
         }),
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to create listing');
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.equipment?.id) {
+        throw new Error(data.message || 'Unable to create equipment listing');
       }
-
-      const result = await response.json();
-      toast.success('Equipment listed successfully!');
-      router.push(`/routes/equipment/${result.id}`);
-      
+      toast.success('Your listing was submitted for review');
+      router.push(`/routes/equipment/${data.equipment.id}`);
     } catch (error) {
-      console.error('Error creating listing:', error);
-      toast.error('Failed to create listing. Please try again.');
+      toast.error(error instanceof Error ? error.message : 'Unable to create listing');
     } finally {
-      setIsLoading(false);
+      setSaving(false);
     }
   };
-
-  const handleImageUpload = (url: string) => {
-    setImages((prev) => [...prev, url]);
-    setValue('images', [...images, url]);
-  };
-
+  const numberField = { setValueAs: (v: string) => v === '' ? undefined : Number(v) };
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-6">List Your Equipment</h1>
-      
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Equipment Images
-          </label>
-          <ImageUpload
-            onUpload={handleImageUpload}
-            maxImages={5}
-            existingImages={images}
-          />
-          {errors.images && (
-            <p className="text-red-500 text-sm mt-1">{errors.images.message}</p>
-          )}
-        </div>
-
-        <div>
-          <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
-            Title
-          </label>
-          <input
-            id="title"
-            type="text"
-            {...register('title')}
-            className="w-full p-2 border rounded-md"
-            placeholder="e.g., Professional Grade Jackhammer"
-          />
-          {errors.title && (
-            <p className="text-red-500 text-sm mt-1">{errors.title.message}</p>
-          )}
-        </div>
-
-        <div>
-          <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-            Description
-          </label>
-          <textarea
-            id="description"
-            {...register('description')}
-            rows={4}
-            className="w-full p-2 border rounded-md"
-            placeholder="Describe your equipment, including its features, specifications, and condition..."
-          />
-          {errors.description && (
-            <p className="text-red-500 text-sm mt-1">{errors.description.message}</p>
-          )}
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">
-              Category
-            </label>
-            <select
-              id="category"
-              {...register('category')}
-              className="w-full p-2 border rounded-md"
-            >
-              <option value="">Select a category</option>
-              <option value="power-tools">Power Tools</option>
-              <option value="hand-tools">Hand Tools</option>
-              <option value="construction">Construction Equipment</option>
-              <option value="landscaping">Landscaping Equipment</option>
-              <option value="cleaning">Cleaning Equipment</option>
-              <option value="other">Other</option>
+    <main className="mx-auto max-w-4xl px-4 py-8">
+      <h1 className="mb-3 text-2xl font-semibold">List your equipment</h1>
+      <p className="mb-6 text-sm text-gray-600">Add clear photos and accurate rental rates. New listings are reviewed before they appear publicly.</p>
+      <form onSubmit={handleSubmit(submit)} className="space-y-5">
+        <section>
+          <h2 className="mb-2 font-medium">Equipment photos</h2>
+          <ImageUpload onChange={setImages} value={photos} disabled={saving} maxFiles={5} />
+          {errors.images && <p role="alert" className="mt-1 text-sm text-red-700">{errors.images.message}</p>}
+        </section>
+        <label className="block">Equipment title
+          <input {...register('title')} className="mt-1 w-full rounded border p-2" />
+          {errors.title && <span className="text-sm text-red-700">{errors.title.message}</span>}
+        </label>
+        <label className="block">Description
+          <textarea {...register('description')} className="mt-1 w-full rounded border p-2" rows={4} />
+          {errors.description && <span className="text-sm text-red-700">{errors.description.message}</span>}
+        </label>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="block">Category
+            <select {...register('category')} className="mt-1 w-full rounded border p-2">
+              <option value="">Choose category</option>
+              {EQUIPMENT_CATEGORIES.map(x => <option key={x} value={x}>{x}</option>)}
             </select>
-            {errors.category && (
-              <p className="text-red-500 text-sm mt-1">{errors.category.message}</p>
-            )}
-          </div>
-
-          <div>
-            <label htmlFor="condition" className="block text-sm font-medium text-gray-700 mb-1">
-              Condition
-            </label>
-            <select
-              id="condition"
-              {...register('condition')}
-              className="w-full p-2 border rounded-md"
-            >
-              <option value="">Select condition</option>
-              <option value="new">New</option>
-              <option value="like-new">Like New</option>
-              <option value="good">Good</option>
-              <option value="fair">Fair</option>
-            </select>
-            {errors.condition && (
-              <p className="text-red-500 text-sm mt-1">{errors.condition.message}</p>
-            )}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div>
-            <label htmlFor="hourlyRate" className="block text-sm font-medium text-gray-700 mb-1">
-              Hourly Rate ($)
-            </label>
-            <input
-              id="hourlyRate"
-              type="number"
-              step="0.01"
-              min="0"
-              {...register('hourlyRate', { valueAsNumber: true })}
-              className="w-full p-2 border rounded-md"
-            />
-            {errors.hourlyRate && (
-              <p className="text-red-500 text-sm mt-1">{errors.hourlyRate.message}</p>
-            )}
-          </div>
-
-          <div>
-            <label htmlFor="dailyRate" className="block text-sm font-medium text-gray-700 mb-1">
-              Daily Rate ($)
-            </label>
-            <input
-              id="dailyRate"
-              type="number"
-              step="0.01"
-              min="0"
-              {...register('dailyRate', { valueAsNumber: true })}
-              className="w-full p-2 border rounded-md"
-            />
-            {errors.dailyRate && (
-              <p className="text-red-500 text-sm mt-1">{errors.dailyRate.message}</p>
-            )}
-          </div>
-
-          <div>
-            <label htmlFor="weeklyRate" className="block text-sm font-medium text-gray-700 mb-1">
-              Weekly Rate ($)
-            </label>
-            <input
-              id="weeklyRate"
-              type="number"
-              step="0.01"
-              min="0"
-              {...register('weeklyRate', { valueAsNumber: true })}
-              className="w-full p-2 border rounded-md"
-            />
-            {errors.weeklyRate && (
-              <p className="text-red-500 text-sm mt-1">{errors.weeklyRate.message}</p>
-            )}
-          </div>
-        </div>
-
-        <div>
-          <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
-            Location
+            {errors.category && <span className="text-sm text-red-700">{errors.category.message}</span>}
           </label>
-          <input
-            id="location"
-            type="text"
-            {...register('location')}
-            className="w-full p-2 border rounded-md"
-            placeholder="e.g., Boston, MA"
-          />
-          {errors.location && (
-            <p className="text-red-500 text-sm mt-1">{errors.location.message}</p>
-          )}
+          <label className="block">Condition
+            <select {...register('condition')} className="mt-1 w-full rounded border p-2">
+              <option value="">Choose condition</option>
+              {EQUIPMENT_CONDITIONS.map(x => <option key={x} value={x}>{x}</option>)}
+            </select>
+            {errors.condition && <span className="text-sm text-red-700">{errors.condition.message}</span>}
+          </label>
         </div>
-
-        <button
-          type="submit"
-          disabled={isLoading}
-          className="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isLoading ? 'Creating Listing...' : 'Create Listing'}
+        <label className="block">Location (city and state)
+          <input {...register('location')} className="mt-1 w-full rounded border p-2" placeholder="Providence, RI" />
+          {errors.location && <span className="text-sm text-red-700">{errors.location.message}</span>}
+        </label>
+        <div className="grid gap-4 sm:grid-cols-3">
+          {([
+            ['hourlyRate', 'Hourly rate ($)'],
+            ['dailyRate', 'Daily rate ($)'],
+            ['weeklyRate', 'Weekly rate ($)'],
+          ] as const).map(([field, label]) => (
+            <label className="block" key={field}>{label}
+              <input type="number" min="0" step="0.01" {...register(field, numberField)}
+                className="mt-1 w-full rounded border p-2" />
+              {errors[field] && <span className="text-sm text-red-700">{errors[field]?.message}</span>}
+            </label>
+          ))}
+        </div>
+        <label className="block">Security deposit ($, optional)
+          <input type="number" min="0" step="0.01" {...register('securityDeposit', numberField)}
+            className="mt-1 w-full rounded border p-2" />
+          {errors.securityDeposit && <span className="text-sm text-red-700">{errors.securityDeposit.message}</span>}
+        </label>
+        <button type="submit" disabled={saving} className="w-full rounded bg-jacker-blue p-3 font-medium text-white disabled:opacity-50">
+          {saving ? 'Submitting listing…' : 'Submit listing'}
         </button>
       </form>
-    </div>
+    </main>
   );
-} 
+}

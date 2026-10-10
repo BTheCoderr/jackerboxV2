@@ -7,7 +7,7 @@ import { getCurrentUser } from "@/lib/auth/auth-utils";
 import { EQUIPMENT_CATEGORIES, EQUIPMENT_CONDITIONS } from "@/lib/constants";
 
 // Minimum number of required images
-const MIN_REQUIRED_IMAGES = 5;
+const MIN_REQUIRED_IMAGES = 3;
 
 const equipmentSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters"),
@@ -32,7 +32,7 @@ const equipmentSchema = z.object({
   (data) => {
     try {
       const images = JSON.parse(data.imagesJson);
-      return Array.isArray(images) && images.length >= MIN_REQUIRED_IMAGES;
+      return Array.isArray(images) && images.length >= MIN_REQUIRED_IMAGES && images.length <= 5 && images.every((url: unknown) => { try { return typeof url === 'string' && new URL(url).protocol === 'https:'; } catch { return false; } });
     } catch {
       return false;
     }
@@ -78,7 +78,7 @@ export async function POST(req: Request) {
     });
     
     return NextResponse.json(
-      { equipment, message: "Equipment created successfully" },
+      { equipment, id: equipment.id, message: "Equipment created successfully" },
       { status: 201 }
     );
   } catch (error) {
