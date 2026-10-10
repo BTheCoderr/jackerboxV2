@@ -55,7 +55,7 @@ export default async function RentalDetailPage({ params }: RentalDetailPageProps
   return (
     <div className="max-w-7xl mx-auto p-6">
       <div className="mb-6">
-        <Link href="/routes/rentals" className="text-black hover:underline flex items-center">
+        <Link href="/routes/rentals" className="text-jacker-blue hover:underline flex items-center">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             className="h-4 w-4 mr-1"
@@ -185,7 +185,7 @@ export default async function RentalDetailPage({ params }: RentalDetailPageProps
                 <h2 className="text-xl font-medium mb-4">Leave a Review</h2>
                 <Link
                   href={`/routes/rentals/${rental.id}/review`}
-                  className="inline-block px-4 py-2 bg-black text-white rounded-md hover:bg-opacity-80"
+                  className="inline-block px-4 py-2 bg-jacker-blue text-white rounded-md hover:bg-blue-700 transition-colors"
                 >
                   Write a Review
                 </Link>

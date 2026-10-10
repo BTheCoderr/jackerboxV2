@@ -206,7 +206,7 @@ export function RegisterForm() {
         
         <button
           type="submit"
-          className="w-full py-2 px-4 bg-black text-white rounded-md hover:bg-gray-800 transition-colors"
+          className="w-full py-2 px-4 bg-jacker-blue text-white rounded-md hover:bg-blue-700 transition-colors"
           disabled={isLoading}
         >
           {isLoading ? "Creating account..." : "Create account"}
@@ -263,7 +263,7 @@ export function RegisterForm() {
       <div className="text-center text-sm">
         <p>
           Already have an account?{" "}
-          <Link href="/auth/login" className="text-blue-600 hover:underline">
+          <Link href="/auth/login" className="text-jacker-blue hover:underline">
             Log in
           </Link>
         </p>

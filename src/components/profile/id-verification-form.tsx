@@ -208,7 +208,7 @@ export function IdVerificationForm({ user }: IdVerificationFormProps) {
         
         <button
           type="submit"
-          className="w-full py-2 px-4 bg-black text-white rounded-md hover:bg-gray-800 transition-colors"
+          className="w-full py-2 px-4 bg-jacker-blue text-white rounded-md hover:bg-blue-700 transition-colors"
           disabled={isLoading || !idDocumentUrl}
         >
           {isLoading ? "Verifying..." : "Verify ID"}

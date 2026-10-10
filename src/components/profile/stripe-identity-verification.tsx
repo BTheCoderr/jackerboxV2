@@ -157,7 +157,7 @@ export function StripeIdentityVerification({ user }: StripeIdentityVerificationP
         <Button
           onClick={startVerification}
           disabled={isLoading}
-          className="w-full bg-black hover:bg-gray-800 text-white"
+          className="w-full bg-jacker-blue hover:bg-blue-700 text-white"
         >
           {isLoading ? "Loading..." : "Verify with Stripe Identity"}
         </Button>

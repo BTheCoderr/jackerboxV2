@@ -558,7 +558,7 @@ export function EquipmentForm({
         </button>
         <button
           type="submit"
-          className="px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800"
+          className="px-4 py-2 bg-jacker-blue text-white rounded-md hover:bg-blue-700"
           disabled={isLoading}
         >
           {isLoading
