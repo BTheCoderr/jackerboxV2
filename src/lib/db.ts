@@ -16,11 +16,7 @@ function createPrismaClient() {
     // Configure Prisma Client with a connection retry strategy to handle Neon auto-suspend
     const client = new PrismaClient({
       log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
-      datasources: {
-        db: {
-          url: process.env.DATABASE_URL,
-        },
-      },
+      ...(process.env.DATABASE_URL ? { datasources: { db: { url: process.env.DATABASE_URL } } } : {}),
       // Add retry logic for transient connection errors
       errorFormat: 'minimal',
     });
@@ -43,14 +39,8 @@ function createPrismaClient() {
       }
     };
     
-    // Test the connection
-    client.$connect()
-  .then(() => {
-    console.log('Database connected successfully');
-  })
-  .catch((error) => {
-    console.error('Database connection failed:', error);
-  });
+    // Do not connect at module import time. Queries connect lazily at runtime;
+    // eager connections break production builds and trigger unnecessary cold-start traffic.
 
     return client;
   } catch (error) {
