@@ -80,4 +80,12 @@ describe('JackerBox security regression checks', () => {
     expect(login).not.toContain('type: "phone"');
     expect(login).not.toContain('Development mode: Use code 123456');
   });
+  test('no unauthenticated user verification override remains', () => {
+    expect(fs.existsSync(path.join(root, 'src/app/api/admin/verify-user/route.ts'))).toBe(false);
+  });
+
+  test('presigned storage keys are isolated by authenticated user', () => {
+    const route = content('src/app/api/upload/presigned-url/route.ts');
+    expect(route).toContain('users/${user.id}');
+  });
 });

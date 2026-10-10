@@ -33,7 +33,7 @@ export async function POST(req: Request) {
     
     // Generate a unique key for the file
     const fileKey = `${uuidv4()}-${Date.now()}${filename ? `-${filename}` : ""}`;
-    const key = folder ? `${folder}/${fileKey}` : fileKey;
+    const key = `users/${user.id}/${folder}/${fileKey}`;
     
     // Generate a pre-signed URL for uploading
     const presignedUrl = await getSignedUploadUrl(key, contentType, 300); // 5 minutes expiry
@@ -56,7 +56,7 @@ export async function POST(req: Request) {
     }
     
     return NextResponse.json(
-      { error: 'Failed to generate pre-signed URL', message: (error as Error).message },
+      { error: 'Failed to generate pre-signed URL' },
       { status: 500 }
     );
   }
