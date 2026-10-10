@@ -27,6 +27,7 @@ export function CloudinaryUpload({
   maxFiles = 10,
   acceptedFileTypes = 'image/*',
 }: CloudinaryUploadProps) {
+  const acceptedMimeTypes = { [acceptedFileTypes]: [] as string[] };
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     if (acceptedFiles.length === 0) return;
     
@@ -74,6 +75,7 @@ export function CloudinaryUpload({
   }, [onUploadSuccess, onUploadError, uploadPreset, multiple]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    accept: acceptedMimeTypes,
     onDrop,
     accept: {
       'image/*': ['.jpeg', '.jpg', '.png', '.gif', '.webp']
