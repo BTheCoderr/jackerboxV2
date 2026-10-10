@@ -80,7 +80,7 @@ export default async function RentalDetailPage({ params }: RentalDetailPageProps
             <h1 className="text-2xl font-bold">Rental Details</h1>
             <span
               className={`px-3 py-1 text-sm rounded-full ${
-                rental.status === "ACTIVE"
+                rental.status === "ACTIVE" || rental.status === "PAID"
                   ? "bg-green-100 text-green-800"
                   : rental.status === "PENDING"
                   ? "bg-yellow-100 text-yellow-800"
