@@ -32,4 +32,6 @@ jobs:
           git add -- package.json package-lock.json
           if git diff --cached --quiet; then exit 0; fi
           git commit -m "security: apply non-breaking npm advisory fixes [skip ci]"
+          git fetch --no-tags origin audit/security-and-rental-hardening-2026-10
+          git rebase FETCH_HEAD
           git push origin HEAD:audit/security-and-rental-hardening-2026-10
