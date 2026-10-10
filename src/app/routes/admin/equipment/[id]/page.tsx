@@ -8,9 +8,7 @@ import { notFound } from "next/navigation";
 import { EquipmentModerationForm } from "@/components/admin/equipment-moderation-form";
 
 interface AdminEquipmentDetailPageProps {
-  params: {
-    id: string;
-  };
+  params: Promise<{ id: string }>;
 }
 
 export default async function AdminEquipmentDetailPage({ params }: AdminEquipmentDetailPageProps) {
@@ -22,7 +20,7 @@ export default async function AdminEquipmentDetailPage({ params }: AdminEquipmen
   
   const equipment = await db.equipment.findUnique({
     where: {
-      id: params.id,
+      id: (await params).id,
     },
     include: {
       owner: true,

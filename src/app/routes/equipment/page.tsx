@@ -18,18 +18,18 @@ export const dynamic = 'force-dynamic';
 
 // Define page props interface
 interface EquipmentPageProps {
-  searchParams?: {
+  searchParams?: Promise<{
     query?: string;
     category?: string;
     location?: string;
     minPrice?: string;
     maxPrice?: string;
-  };
+  }>;
 }
 
-export default async function EquipmentPage({ searchParams = {} }: EquipmentPageProps) {
+export default async function EquipmentPage({ searchParams }: EquipmentPageProps) {
   // Prepare search params for components
-  const searchParamsObj = await Promise.resolve(searchParams);
+  const searchParamsObj = (await searchParams) ?? {};
   
   const searchValues = {
     query: searchParamsObj.query || '',

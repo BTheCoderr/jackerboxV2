@@ -4,22 +4,23 @@ import { EquipmentGridSkeleton } from '@/components/equipment/equipment-grid-ske
 import { ClientEquipmentSearch } from '@/components/equipment/client-equipment-search';
 
 interface BrowsePageProps {
-  searchParams?: {
+  searchParams?: Promise<{
     query?: string;
     category?: string;
     location?: string;
     minPrice?: string;
     maxPrice?: string;
-  };
+  }>;
 }
 
-export default async function BrowsePage({ searchParams = {} }: BrowsePageProps) {
+export default async function BrowsePage({ searchParams }: BrowsePageProps) {
+  const resolvedSearchParams = (await searchParams) ?? {};
   const searchValues = {
-    query: searchParams.query || '',
-    category: searchParams.category || '',
-    location: searchParams.location || '',
-    minPrice: searchParams.minPrice || '',
-    maxPrice: searchParams.maxPrice || ''
+    query: resolvedSearchParams.query || '',
+    category: resolvedSearchParams.category || '',
+    location: resolvedSearchParams.location || '',
+    minPrice: resolvedSearchParams.minPrice || '',
+    maxPrice: resolvedSearchParams.maxPrice || ''
   };
 
   return (

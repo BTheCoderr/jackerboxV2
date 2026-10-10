@@ -7,17 +7,17 @@ import { Prisma } from "@/lib/prisma-client";
 import { UserFilters } from "@/components/admin/user-filters";
 
 interface AdminUsersPageProps {
-  searchParams: {
+  searchParams: Promise<{
     verified?: string;
     role?: string;
     search?: string;
     page?: string;
-  };
+  }>;
 }
 
 export default async function AdminUsersPage({ searchParams }: AdminUsersPageProps) {
   // Make searchParams awaitable to fix Next.js error
-  const params = await Promise.resolve(searchParams);
+  const params = (await searchParams) ?? {};
   
   const user = await getCurrentUser();
   

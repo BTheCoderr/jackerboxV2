@@ -10,38 +10,39 @@ import { Prisma, ModerationStatus } from "@/lib/prisma-client";
 import { EquipmentFilters } from "@/components/admin/equipment-filters";
 
 interface AdminEquipmentPageProps {
-  searchParams: {
+  searchParams: Promise<{
     category?: string;
     status?: string;
     moderation?: string;
     page?: string;
-  };
+  }>;
 }
 
 export default async function AdminEquipmentPage({ searchParams }: AdminEquipmentPageProps) {
+  const resolvedSearchParams = (await searchParams) ?? {};
   const user = await getCurrentUser();
   
   if (!user?.isAdmin) {
     throw new Error("Unauthorized");
   }
   
-  const page = Number(searchParams.page) || 1;
+  const page = Number(resolvedSearchParams.page) || 1;
   const pageSize = 20;
   const skip = (page - 1) * pageSize;
   
   // Build where clause based on filters
   let whereClause: Prisma.EquipmentWhereInput = {};
   
-  if (searchParams.category) {
-    whereClause.category = searchParams.category;
+  if (resolvedSearchParams.category) {
+    whereClause.category = resolvedSearchParams.category;
   }
   
-  if (searchParams.status) {
-    whereClause.isAvailable = searchParams.status === "available";
+  if (resolvedSearchParams.status) {
+    whereClause.isAvailable = resolvedSearchParams.status === "available";
   }
   
-  if (searchParams.moderation) {
-    whereClause.moderationStatus = searchParams.moderation.toUpperCase() as ModerationStatus;
+  if (resolvedSearchParams.moderation) {
+    whereClause.moderationStatus = resolvedSearchParams.moderation.toUpperCase() as ModerationStatus;
   }
   
   // Fetch equipment with pagination

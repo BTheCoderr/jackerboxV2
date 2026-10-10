@@ -9,15 +9,13 @@ import { Suspense } from "react";
 import { AvailabilityCalendar } from "@/components/equipment/availability-calendar";
 
 interface EquipmentDetailPageProps {
-  params: {
-    id: string;
-  };
+  params: Promise<{ id: string }>;
 }
 
 export default async function EquipmentDetailPage({
   params,
 }: EquipmentDetailPageProps) {
-  const equipmentId = String(params.id);
+  const equipmentId = String((await params).id);
   const user = await getCurrentUser();
   
   const equipment = await prisma.equipment.findUnique({

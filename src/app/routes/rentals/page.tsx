@@ -7,10 +7,10 @@ import { db } from "@/lib/db";
 import { formatCurrency, formatDateRange } from "@/lib/utils/format";
 
 interface RentalsPageProps {
-  searchParams: {
+  searchParams: Promise<{
     type?: string; // "renter" or "owner"
     status?: string;
-  };
+  }>;
 }
 
 export default async function RentalsPage({ searchParams }: RentalsPageProps) {
@@ -18,7 +18,7 @@ export default async function RentalsPage({ searchParams }: RentalsPageProps) {
   const user = await requireAuth();
   
   // Extract search parameters safely for Next.js 15.2.0
-  const params = await Promise.resolve(searchParams);
+  const params = (await searchParams) ?? {};
   const type = params.type || '';
   const status = params.status || '';
   

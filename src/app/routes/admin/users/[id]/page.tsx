@@ -9,14 +9,12 @@ import Image from "next/image";
 import { formatCurrency } from "@/lib/utils/format";
 
 interface AdminUserDetailPageProps {
-  params: {
-    id: string;
-  };
+  params: Promise<{ id: string }>;
 }
 
 export default async function AdminUserDetailPage({ params }: AdminUserDetailPageProps) {
-  // Properly await the params.id
-  const userId = await Promise.resolve(params.id);
+  // Properly await the (await params).id
+  const userId = (await params).id;
   
   const currentUser = await getCurrentUser();
   
