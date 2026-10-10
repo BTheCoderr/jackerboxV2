@@ -250,7 +250,7 @@ export default async function AdminRentalsPage({ searchParams }: AdminRentalsPag
                   href={{
                     pathname: "/routes/admin/rentals",
                     query: {
-                      ...searchParams,
+                      ...resolvedSearchParams,
                       page: page - 1,
                     },
                   }}
@@ -264,7 +264,7 @@ export default async function AdminRentalsPage({ searchParams }: AdminRentalsPag
                   href={{
                     pathname: "/routes/admin/rentals",
                     query: {
-                      ...searchParams,
+                      ...resolvedSearchParams,
                       page: page + 1,
                     },
                   }}

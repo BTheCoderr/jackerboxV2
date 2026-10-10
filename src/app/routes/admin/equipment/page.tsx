@@ -123,7 +123,7 @@ export default async function AdminEquipmentPage({ searchParams }: AdminEquipmen
       
       {/* Filters */}
       <EquipmentFilters 
-        searchParams={searchParams} 
+        searchParams={resolvedSearchParams} 
         categories={EQUIPMENT_CATEGORIES} 
       />
       
@@ -235,7 +235,7 @@ export default async function AdminEquipmentPage({ searchParams }: AdminEquipmen
                   href={{
                     pathname: "/routes/admin/equipment",
                     query: {
-                      ...searchParams,
+                      ...resolvedSearchParams,
                       page: pageNum,
                     },
                   }}
