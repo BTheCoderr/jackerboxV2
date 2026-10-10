@@ -22,7 +22,7 @@ const updateEquipmentSchema = z.object({
 
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await getCurrentUser();
@@ -35,7 +35,7 @@ export async function GET(
     }
     
     // Properly await params before using
-    const equipmentId = await Promise.resolve(params.id);
+    const equipmentId = (await params).id;
     
     // Fetch the equipment by ID
     const equipment = await db.equipment.findUnique({
@@ -85,7 +85,7 @@ export async function GET(
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await getCurrentUser();
@@ -123,7 +123,7 @@ export async function DELETE(
         rentals: {
           where: {
             status: {
-              in: ["Pending", "Approved"],
+              in: ["PENDING", "PAID", "ACTIVE"],
             },
           },
         },
@@ -174,7 +174,7 @@ export async function DELETE(
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await getCurrentUser();

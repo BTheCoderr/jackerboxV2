@@ -33,8 +33,8 @@ export async function POST(req: Request) {
       data: {
         idDocumentUrl,
         idDocumentType: documentType,
-        idVerificationStatus: verificationResult.isValid ? "approved" : "pending",
-        idVerified: verificationResult.isValid,
+        idVerificationStatus: "pending",
+        idVerified: false, // Only a reviewed result or signed provider webhook may verify identity.
         idVerificationDate: new Date(),
       },
     });
@@ -42,7 +42,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       success: true,
       ...verificationResult,
-      status: verificationResult.isValid ? "approved" : "pending",
+      status: "pending",
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
