@@ -74,4 +74,10 @@ describe('JackerBox security regression checks', () => {
     const page = content('src/app/routes/equipment/new/page.tsx');
     expect(page).toContain('imagesJson: JSON.stringify(values.images)');
   });
+  test('login no longer suggests a phone code signs users in', () => {
+    const login = content('src/components/auth/login-form.tsx');
+    expect(login).toContain("signIn('credentials'");
+    expect(login).not.toContain('type: "phone"');
+    expect(login).not.toContain('Development mode: Use code 123456');
+  });
 });
