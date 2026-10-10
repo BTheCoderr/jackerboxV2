@@ -6,10 +6,9 @@ import { useRouter } from "next/navigation";
 
 interface ProcessPayoutButtonProps {
   rentalId: string;
-  paymentId: string;
 }
 
-export function ProcessPayoutButton({ rentalId, paymentId }: ProcessPayoutButtonProps) {
+export function ProcessPayoutButton({ rentalId }: ProcessPayoutButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
@@ -31,11 +30,9 @@ export function ProcessPayoutButton({ rentalId, paymentId }: ProcessPayoutButton
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || "Failed to process payout");
+        throw new Error(error.message || error.error || "Failed to process payout");
       }
 
-      const data = await response.json();
-      
       toast.success("Payout processed successfully");
       router.refresh();
     } catch (error) {
