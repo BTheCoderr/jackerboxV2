@@ -161,12 +161,14 @@ export async function POST(req: NextRequest) {
     );
     
     // Count successes and failures
-    const succeeded = results.filter(r => r.status === 'fulfilled').length;
-    const failed = results.filter(r => r.status === 'rejected').length;
+    const succeeded = results.filter(r => r.status === 'fulfilled' && r.value.status === 'success').length;
+    const failed = results.filter(r => r.status === 'rejected' ||
+      (r.status === 'fulfilled' && r.value.status === 'error')).length;
+    const skipped = results.filter(r => r.status === 'fulfilled' && r.value.status === 'skipped').length;
     
     return NextResponse.json({
-      success: true,
-      message: `Sent ${succeeded} notifications, ${failed} failed`,
+      success: failed === 0,
+      message: `Sent ${succeeded} notifications, ${failed} failed, ${skipped} skipped`,
       results
     });
   } catch (error) {

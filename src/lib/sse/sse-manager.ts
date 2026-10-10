@@ -53,6 +53,12 @@ export function createSSEConnection(userId?: string): ReadableStream {
     // Clean up inactive clients first
     cleanupInactiveClients();
     
+    // Reject unidentified clients and bound per-user resource use.
+    if (!userId) throw new Error('Authenticated user required for SSE');
+    if ([...clients.values()].filter(client => client.userId === userId).length >= MAX_CLIENTS_PER_USER) {
+      throw new Error('Too many active SSE connections');
+    }
+
     // Create a new client ID
     const clientId = `client-${uuidv4()}`;
     const encoder = new TextEncoder();
@@ -87,19 +93,18 @@ export function createSSEConnection(userId?: string): ReadableStream {
           controller.enqueue(encoder.encode(`data: ${initialMessage}\n\n`));
           
           // Set up heartbeat with error handling
-          const heartbeatInterval = setInterval(() => {
+          heartbeatInterval = setInterval(() => {
             try {
               const client = clients.get(clientId);
-              if (client && !client.controller.desiredSize) {
+              if (client && (client.controller.desiredSize ?? 0) > 0) {
                 const heartbeat = JSON.stringify({ 
                   type: 'heartbeat',
                   timestamp: Date.now()
                 });
                 client.controller.enqueue(encoder.encode(`data: ${heartbeat}\n\n`));
                 client.lastActivity = Date.now();
-              } else {
-                clearInterval(heartbeatInterval);
-                removeClient(clientId);
+              } else if (!client) {
+                if (heartbeatInterval) clearInterval(heartbeatInterval);
               }
             } catch (err) {
               console.error(`Heartbeat error for client ${clientId}:`, err);
@@ -108,15 +113,7 @@ export function createSSEConnection(userId?: string): ReadableStream {
             }
           }, HEARTBEAT_INTERVAL);
           
-          // Clean up on stream end
-          return () => {
-            try {
-              clearInterval(heartbeatInterval);
-              removeClient(clientId);
-              if (debugMode) {
-                console.log(`Stream ended for client ${clientId}`);
-              }
-            } catch (err) {
+        } catch (err) {
               console.error(`Error cleaning up client ${clientId}:`, err);
             }
           };
@@ -128,6 +125,7 @@ export function createSSEConnection(userId?: string): ReadableStream {
       
       cancel() {
         try {
+          if (heartbeatInterval) clearInterval(heartbeatInterval);
           removeClient(clientId);
           if (debugMode) {
             console.log(`Stream cancelled for client ${clientId}`);
