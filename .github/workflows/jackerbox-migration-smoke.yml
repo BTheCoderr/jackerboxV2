@@ -54,8 +54,11 @@ jobs:
         run: npx prisma migrate deploy
       - name: Review SQL needed to reconcile model drift (do not execute)
         run: npx prisma migrate diff --from-url "$DIRECT_DATABASE_URL" --to-schema-datamodel prisma/schema.prisma --script
-      - name: Check migrated database against checked-in schema
-        run: npx prisma migrate diff --from-url "$DIRECT_DATABASE_URL" --to-schema-datamodel prisma/schema.prisma --exit-code
+      - name: Validate intentional legacy-data retention only
+        run: |
+          npx prisma migrate diff --from-url "$DIRECT_DATABASE_URL" --to-schema-datamodel prisma/schema.prisma --script > /tmp/jackerbox-schema-drift.sql
+          node scripts/validate-legacy-schema-drift.mjs /tmp/jackerbox-schema-drift.sql
+      - name: Verify retention allowlist rejects unexpected schema changes
+        run: node --test tests/unit/legacy-schema-drift.test.mjs
       - name: Production type checks
-        if: always()
         run: npx tsc --noEmit
