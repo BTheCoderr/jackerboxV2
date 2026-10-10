@@ -38,8 +38,16 @@ jobs:
         run: |
           npx prisma validate
           npx prisma generate
-      - name: Apply complete migration history on disposable database
-        run: npx prisma migrate deploy
+      - name: Apply historical migrations and seed legacy financial/message records
+        run: |
+          mv prisma/migrations/20261010130000_reconcile_legacy_schema /tmp/jackerbox_reconcile_migration
+          npx prisma migrate deploy
+          psql "postgresql://jackerbox:isolated_test_password@localhost:5432/jackerbox_migrations" -v ON_ERROR_STOP=1 -f tests/fixtures/legacy-schema-before.sql
+          mv /tmp/jackerbox_reconcile_migration prisma/migrations/20261010130000_reconcile_legacy_schema
+      - name: Apply safe reconciliation migration and verify surviving data
+        run: |
+          npx prisma migrate deploy
+          psql "postgresql://jackerbox:isolated_test_password@localhost:5432/jackerbox_migrations" -v ON_ERROR_STOP=1 -f tests/fixtures/legacy-schema-after.sql
       - name: Verify migration status
         run: npx prisma migrate status
       - name: Verify migrations can be reapplied idempotently
@@ -49,4 +57,5 @@ jobs:
       - name: Check migrated database against checked-in schema
         run: npx prisma migrate diff --from-url "$DIRECT_DATABASE_URL" --to-schema-datamodel prisma/schema.prisma --exit-code
       - name: Production type checks
+        if: always()
         run: npx tsc --noEmit
