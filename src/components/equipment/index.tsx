@@ -1,6 +1,5 @@
 'use client';
 
-import React from 'react';
 import dynamic from 'next/dynamic';
 import { EquipmentCard } from './EquipmentCard';
 import { EquipmentSearch } from './EquipmentSearch';
