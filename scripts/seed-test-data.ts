@@ -19,7 +19,7 @@ async function main() {
   console.log('Creating test users...');
   
   // Admin user
-  const adminUser = await prisma.user.upsert({
+  await prisma.user.upsert({
     where: { email: 'admin@test.com' },
     update: {},
     create: {
@@ -118,19 +118,6 @@ async function main() {
       bio: 'Photography student looking to try different equipment.',
     },
   });
-
-  // Create equipment categories
-  console.log('Creating equipment categories...');
-  const categories = [
-    'Photography', 
-    'Audio', 
-    'Video', 
-    'Lighting', 
-    'Computers', 
-    'Tools', 
-    'Outdoor', 
-    'Musical Instruments'
-  ];
 
   // Create equipment
   console.log('Creating test equipment...');
@@ -245,7 +232,7 @@ async function main() {
     },
   });
 
-  const gimbal = await prisma.equipment.create({
+  await prisma.equipment.create({
     data: {
       title: 'DJI Ronin-S Gimbal Stabilizer',
       description: 'Professional 3-axis gimbal stabilizer for DSLR and mirrorless cameras. Supports up to 8 lbs and includes follow focus wheel.',
@@ -271,7 +258,7 @@ async function main() {
   console.log('Creating test rentals...');
   
   // Completed rental with review
-  const pastRental1 = await prisma.rental.create({
+  await prisma.rental.create({
     data: {
       startDate: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000), // 15 days ago
       endDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000), // 10 days ago
@@ -282,11 +269,8 @@ async function main() {
       renterId: renter1.id,
       payment: {
         create: {
-          amount: 375,
+          amount: 1375,
           status: 'COMPLETED',
-          securityDepositAmount: 1000,
-          securityDepositReturned: true,
-          rentalAmount: 375,
           user: {
             connect: {
               id: renter1.id
@@ -305,7 +289,7 @@ async function main() {
   });
 
   // Current active rental
-  const activeRental = await prisma.rental.create({
+  await prisma.rental.create({
     data: {
       startDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
       endDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 days from now
@@ -316,11 +300,8 @@ async function main() {
       renterId: renter1.id,
       payment: {
         create: {
-          amount: 325,
+          amount: 1125,
           status: 'COMPLETED',
-          securityDepositAmount: 800,
-          securityDepositReturned: false,
-          rentalAmount: 325,
           user: {
             connect: {
               id: renter1.id
@@ -332,7 +313,7 @@ async function main() {
   });
 
   // Pending rental
-  const pendingRental = await prisma.rental.create({
+  await prisma.rental.create({
     data: {
       startDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000), // 5 days from now
       endDate: new Date(Date.now() + 12 * 24 * 60 * 60 * 1000), // 12 days from now
@@ -343,11 +324,8 @@ async function main() {
       renterId: renter2.id,
       payment: {
         create: {
-          amount: 700,
+          amount: 2200,
           status: 'PENDING',
-          securityDepositAmount: 1500,
-          securityDepositReturned: false,
-          rentalAmount: 700,
           user: {
             connect: {
               id: renter2.id
@@ -359,7 +337,7 @@ async function main() {
   });
 
   // Completed rental with review
-  const pastRental2 = await prisma.rental.create({
+  await prisma.rental.create({
     data: {
       startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 days ago
       endDate: new Date(Date.now() - 23 * 24 * 60 * 60 * 1000), // 23 days ago
@@ -370,11 +348,8 @@ async function main() {
       renterId: renter1.id,
       payment: {
         create: {
-          amount: 150,
+          amount: 450,
           status: 'COMPLETED',
-          securityDepositAmount: 300,
-          securityDepositReturned: true,
-          rentalAmount: 150,
           user: {
             connect: {
               id: renter1.id
@@ -393,7 +368,7 @@ async function main() {
   });
 
   // Canceled rental
-  const canceledRental = await prisma.rental.create({
+  await prisma.rental.create({
     data: {
       startDate: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000), // 20 days ago
       endDate: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000), // 15 days ago
@@ -404,11 +379,8 @@ async function main() {
       renterId: renter2.id,
       payment: {
         create: {
-          amount: 95,
-          status: 'CANCELED',
-          securityDepositAmount: 1200,
-          securityDepositReturned: false,
-          rentalAmount: 95,
+          amount: 1295,
+          status: 'REFUNDED',
           user: {
             connect: {
               id: renter2.id

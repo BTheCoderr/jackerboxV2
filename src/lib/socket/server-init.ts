@@ -65,7 +65,7 @@ const isPortAvailable = (port: number): Promise<boolean> => {
 const findAvailablePort = async (startPort: number, maxAttempts = 5): Promise<number | null> => {
   const ports = [startPort, 3002, 3003, 3004, 3005]; // Try these specific ports
   
-  for (const port of ports) {
+  for (const port of ports.slice(0, Math.max(1, Math.min(maxAttempts, ports.length)))) {
     const available = await isPortAvailable(port);
     if (available) {
       return port;

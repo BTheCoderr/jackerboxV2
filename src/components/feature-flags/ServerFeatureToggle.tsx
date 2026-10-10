@@ -1,7 +1,5 @@
 import { ReactNode } from 'react';
-import { useSession } from 'next-auth/react';
-import { cookies } from 'next/headers';
-import { checkServerFeatureFlag, createServerStatsigUser } from '@/lib/server-feature-flags';
+import { checkServerFeatureFlag } from '@/lib/server-feature-flags';
 
 interface ServerFeatureToggleProps {
   /**

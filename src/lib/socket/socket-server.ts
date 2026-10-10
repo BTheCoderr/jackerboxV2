@@ -1,10 +1,9 @@
 import { Server as NetServer } from "http";
 import { Server as SocketIOServer } from "socket.io";
-import { NextApiRequest } from "next";
 import { NextApiResponse } from "next";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/auth-options";
-import io from "./server-init";
+import { getSocketServer } from "./server-init";
 
 export type NextApiResponseWithSocket = NextApiResponse & {
   socket: {
@@ -14,11 +13,10 @@ export type NextApiResponseWithSocket = NextApiResponse & {
   };
 };
 
-export const initSocketServer = async (req: Request) => {
+export const initSocketServer = async () => {
   // If socket.io server is already initialized from server-init, return it
-  if (io) {
-    return io;
-  }
+  const existing = getSocketServer();
+  if (existing) return existing;
 
   // In production, we'll use a different approach
   const isProduction = process.env.NODE_ENV === 'production';
