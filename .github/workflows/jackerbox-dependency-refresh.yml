@@ -1,0 +1,46 @@
+name: JackerBox one-time dependency cleanup
+on:
+  push:
+    branches:
+      - audit/security-and-rental-hardening-2026-10
+    paths:
+      - .github/workflows/jackerbox-dependency-refresh.yml
+permissions:
+  contents: write
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: audit/security-and-rental-hardening-2026-10
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install current lockfile
+        run: npm ci --legacy-peer-deps
+      - name: Remove unneeded vulnerable packages
+        run: npm uninstall firebase next-pwa crypto-browserify --legacy-peer-deps
+      - name: Add accurate Supertest types
+        run: npm install --save-dev '@types/supertest@^6' --legacy-peer-deps
+      - name: Remove provisional type declaration
+        run: rm -f src/types/supertest.d.ts
+      - name: Generate Prisma types
+        run: npx prisma generate
+      - name: Check TypeScript
+        run: npx tsc --noEmit
+      - name: Run focused tests
+        run: npx jest --runInBand tests/unit/security-guardrails.test.ts tests/unit/rental-pricing.test.ts tests/unit/test-verification-guard.test.ts
+      - name: Record dependency audit
+        run: npm audit --omit=dev --audit-level=high || true
+      - name: Commit validated dependency pruning
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json src/types/supertest.d.ts
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: prune unused vulnerable dependencies and type Supertest"
+            git push origin HEAD:audit/security-and-rental-hardening-2026-10
+          fi
