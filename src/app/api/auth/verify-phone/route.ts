@@ -1,205 +1,111 @@
-import { NextResponse } from "next/server";
-import { z } from "zod";
-import { db } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth/session";
-import { 
-  generateVerificationCode, 
-  sendVerificationSMS, 
-  validatePhoneNumber 
-} from "@/lib/phone-verification";
-import { 
-  isTestMode, 
-  isTestPhoneNumber, 
-  isTestVerificationCode,
-  TEST_VERIFICATION_CODE
-} from "@/lib/test-utils";
+import { NextResponse } from 'next/server';
+import { z } from 'zod';
+import { hash, compare } from 'bcryptjs';
+import { db } from '@/lib/db';
+import { getCurrentUser } from '@/lib/auth/session';
+import { generateVerificationCode, sendPhoneOwnershipCode } from '@/lib/phone-verification';
 
-// Schema for phone verification request
-const phoneVerificationSchema = z.object({
-  phone: z.string().min(10, "Phone number is required"),
-});
+const phoneSchema = z.object({ phone: z.string().regex(/^\+[1-9]\d{7,14}$/, 'Use E.164 format such as +14015550100') });
+const confirmSchema = phoneSchema.extend({ code: z.string().regex(/^\d{6}$/) });
+const OTP_TTL_MS = 10 * 60 * 1000;
+const SEND_COOLDOWN_MS = 60 * 1000;
+const MAX_ATTEMPTS = 5;
 
-// Schema for phone verification code check
-const verifyCodeSchema = z.object({
-  phone: z.string().min(10, "Phone number is required"),
-  code: z.string().length(6, "Verification code must be 6 digits"),
-});
-
-// Send verification code
 export async function POST(req: Request) {
+  const current = await getCurrentUser();
+  if (!current) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN || !process.env.TWILIO_PHONE_NUMBER) {
+    return NextResponse.json({ message: 'Phone verification is not configured' }, { status: 503 });
+  }
+  const parsed = phoneSchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) return NextResponse.json({ message: 'Enter a valid international phone number' }, { status: 400 });
+  const { phone } = parsed.data;
   try {
-    const user = await getCurrentUser();
-    
-    if (!user) {
-      return NextResponse.json(
-        { message: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-    
-    const body = await req.json();
-    const { phone } = phoneVerificationSchema.parse(body);
-    
-    // Validate phone number format
-    if (!validatePhoneNumber(phone)) {
-      return NextResponse.json(
-        { message: "Invalid phone number format" },
-        { status: 400 }
-      );
-    }
-    
-    // Check if phone is already used by another user
-    const existingUser = await db.user.findFirst({
+    const other = await db.user.findFirst({ where: { phone, id: { not: current.id } }, select: { id: true } });
+    if (other) return NextResponse.json({ message: 'Phone number already registered' }, { status: 409 });
+    const code = generateVerificationCode();
+    const token = await hash(code, 10);
+    const now = new Date();
+    const issued = await db.user.updateMany({
       where: {
-        phone,
-        id: { not: user.id },
+        id: current.id,
+        OR: [
+          { phoneVerificationSentAt: null },
+          { phoneVerificationSentAt: { lte: new Date(now.getTime() - SEND_COOLDOWN_MS) } },
+        ],
       },
-    });
-    
-    if (existingUser) {
-      return NextResponse.json(
-        { message: "This phone number is already associated with another account" },
-        { status: 400 }
-      );
-    }
-    
-    // Generate verification code
-    const verificationCode = isTestPhoneNumber(phone) 
-      ? TEST_VERIFICATION_CODE 
-      : generateVerificationCode();
-    
-    // Store verification code in database
-    await db.user.update({
-      where: { id: user.id },
       data: {
         phone,
-        verificationToken: verificationCode,
+        phoneVerified: false,
+        verificationToken: token,
+        phoneVerificationExpiresAt: new Date(now.getTime() + OTP_TTL_MS),
+        phoneVerificationSentAt: now,
+        phoneVerificationAttempts: 0,
       },
     });
-    
-    // For test phone numbers, automatically "succeed" without sending SMS
-    if (isTestPhoneNumber(phone)) {
-      console.log(`TEST MODE: Verification code for ${phone} is ${verificationCode}`);
-      return NextResponse.json({
-        success: true,
-        message: "Test verification code set successfully",
-        testMode: true,
-        code: verificationCode // Only send code in test mode
+    if (issued.count !== 1) return NextResponse.json({ message: 'Please wait before requesting another code' }, { status: 429 });
+    const sent = await sendPhoneOwnershipCode(phone, code);
+    if (!sent) {
+      await db.user.updateMany({
+        where: { id: current.id, verificationToken: token },
+        data: { verificationToken: null, phoneVerificationExpiresAt: null },
       });
+      return NextResponse.json({ message: 'Unable to send SMS. Try again later.' }, { status: 503 });
     }
-    
-    // Send SMS with verification code for real phone numbers
-    const smsSent = await sendVerificationSMS(phone, verificationCode);
-    
-    if (!smsSent) {
-      return NextResponse.json(
-        { message: "Failed to send verification SMS. Please try again." },
-        { status: 500 }
-      );
-    }
-    
-    return NextResponse.json({
-      success: true,
-      message: "Verification code sent successfully",
-    });
+    return NextResponse.json({ success: true, message: 'Verification code sent' });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { message: "Invalid input data", errors: error.errors },
-        { status: 400 }
-      );
-    }
-    
-    console.error("Phone verification error:", error);
-    return NextResponse.json(
-      { message: "Something went wrong. Please try again." },
-      { status: 500 }
-    );
+    console.error('Phone OTP issuance failed', error);
+    return NextResponse.json({ message: 'Unable to start verification' }, { status: 500 });
   }
 }
 
-// Verify the code
 export async function PUT(req: Request) {
+  const current = await getCurrentUser();
+  if (!current) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  const parsed = confirmSchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) return NextResponse.json({ message: 'Invalid phone or code' }, { status: 400 });
   try {
-    const user = await getCurrentUser();
-    
-    if (!user) {
-      return NextResponse.json(
-        { message: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-    
-    const body = await req.json();
-    const { phone, code } = verifyCodeSchema.parse(body);
-    
-    // Special handling for test phone numbers
-    if (isTestPhoneNumber(phone) && isTestVerificationCode(code)) {
-      // Update user record to mark phone as verified
-      await db.user.update({
-        where: { id: user.id },
-        data: {
-          phoneVerified: true,
-          verificationToken: null, // Clear the token after successful verification
-        },
-      });
-      
-      return NextResponse.json({
-        success: true,
-        message: "Test phone number verified successfully",
-        testMode: true
-      });
-    }
-    
-    // Get user with verification token
-    const currentUser = await db.user.findUnique({
-      where: { id: user.id },
+    const user = await db.user.findUnique({
+      where: { id: current.id },
       select: {
-        id: true,
-        verificationToken: true,
         phone: true,
+        verificationToken: true,
+        phoneVerificationExpiresAt: true,
+        phoneVerificationAttempts: true,
       },
     });
-    
-    if (!currentUser || currentUser.verificationToken !== code) {
-      return NextResponse.json(
-        { message: "Invalid verification code" },
-        { status: 400 }
-      );
+    const now = new Date();
+    if (!user || user.phone !== parsed.data.phone || !user.verificationToken ||
+        !user.phoneVerificationExpiresAt || user.phoneVerificationExpiresAt <= now ||
+        user.phoneVerificationAttempts >= MAX_ATTEMPTS) {
+      return NextResponse.json({ message: 'Code expired or unavailable. Request a new code.' }, { status: 400 });
     }
-    
-    if (currentUser.phone !== phone) {
-      return NextResponse.json(
-        { message: "Phone number does not match the one being verified" },
-        { status: 400 }
-      );
+    const valid = await compare(parsed.data.code, user.verificationToken);
+    if (!valid) {
+      await db.user.updateMany({
+        where: { id: current.id, verificationToken: user.verificationToken, phoneVerificationAttempts: { lt: MAX_ATTEMPTS } },
+        data: { phoneVerificationAttempts: { increment: 1 } },
+      });
+      return NextResponse.json({ message: 'Incorrect verification code' }, { status: 400 });
     }
-    
-    // Update user record to mark phone as verified
-    await db.user.update({
-      where: { id: user.id },
+    const confirmed = await db.user.updateMany({
+      where: {
+        id: current.id, phone: parsed.data.phone,
+        verificationToken: user.verificationToken,
+        phoneVerificationExpiresAt: { gt: now },
+        phoneVerificationAttempts: { lt: MAX_ATTEMPTS },
+      },
       data: {
         phoneVerified: true,
-        verificationToken: null, // Clear the token after successful verification
+        verificationToken: null,
+        phoneVerificationExpiresAt: null,
+        phoneVerificationAttempts: 0,
       },
     });
-    
-    return NextResponse.json({
-      success: true,
-      message: "Phone number verified successfully",
-    });
+    if (!confirmed.count) return NextResponse.json({ message: 'Code expired or already used' }, { status: 409 });
+    return NextResponse.json({ success: true, message: 'Phone ownership verified' });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { message: "Invalid input data", errors: error.errors },
-        { status: 400 }
-      );
-    }
-    
-    console.error("Phone verification error:", error);
-    return NextResponse.json(
-      { message: "Something went wrong. Please try again." },
-      { status: 500 }
-    );
+    console.error('Phone OTP validation failed', error);
+    return NextResponse.json({ message: 'Unable to verify code' }, { status: 500 });
   }
-} 
+}
