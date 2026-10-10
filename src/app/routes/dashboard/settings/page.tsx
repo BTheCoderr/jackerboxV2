@@ -3,8 +3,7 @@ export const dynamic = 'force-dynamic';
 import { Metadata } from "next";
 import { getCurrentUser } from "@/lib/auth/auth-utils";
 import { redirect } from "next/navigation";
-import { db } from "@/lib/db";
-import { Settings, User, Bell, Shield, CreditCard } from "lucide-react";
+import { User, Bell, Shield, CreditCard } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Account Settings | Jackerbox",

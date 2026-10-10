@@ -4,7 +4,6 @@ export const dynamic = 'force-dynamic';
 import { LoginForm } from "@/components/auth/login-form";
 import { getCurrentUser } from "@/lib/auth/auth-utils";
 import { redirect } from "next/navigation";
-import Image from "next/image";
 import Link from "next/link";
 
 export default async function LoginPage() {

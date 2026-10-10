@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { Bell } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 
 interface Notification {
   id: string;

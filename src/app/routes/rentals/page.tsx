@@ -1,7 +1,6 @@
 // Add dynamic export to ensure proper data fetching
 export const dynamic = 'force-dynamic';
 
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { requireAuth } from "@/lib/auth/auth-utils";
 import { db } from "@/lib/db";

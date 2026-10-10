@@ -5,8 +5,7 @@ import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Camera, Upload, X, Info, AlertTriangle, CheckCircle2 } from "lucide-react";
-import Image from "next/image";
+import { Upload, X, Info, AlertTriangle, CheckCircle2 } from "lucide-react";
 
 // Define the form schema
 const idVerificationSchema = z.object({

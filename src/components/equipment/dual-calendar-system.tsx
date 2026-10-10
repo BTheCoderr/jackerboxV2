@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, memo } from "react";
+import { useState, useCallback, memo } from "react";
 import { format } from "date-fns";
 import dynamic from "next/dynamic";
 import { CalendarIcon } from "lucide-react";
