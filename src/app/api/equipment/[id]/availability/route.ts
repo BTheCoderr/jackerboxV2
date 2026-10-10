@@ -217,7 +217,7 @@ export async function POST(
 // DELETE endpoint to remove an availability period
 export async function DELETE(
   req: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params: _params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await getCurrentUser();

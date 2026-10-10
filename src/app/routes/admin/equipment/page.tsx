@@ -82,7 +82,7 @@ export default async function AdminEquipmentPage({ searchParams }: AdminEquipmen
   // Convert to serializable format
   const serializedStats = moderationStats.map(stat => ({
     moderationStatus: stat.moderationStatus,
-    count: stat._count._all,
+    _count: stat._count,
   }));
   
   // Convert equipment to serializable format

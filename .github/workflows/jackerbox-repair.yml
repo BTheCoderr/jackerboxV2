@@ -1,9 +1,6 @@
 name: JackerBox repair checks
 
 on:
-  push:
-    branches:
-      - audit/security-and-rental-hardening-2026-10
   pull_request:
     branches:
       - main
