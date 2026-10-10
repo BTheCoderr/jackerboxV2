@@ -203,7 +203,7 @@ export default async function RentalDetailPage({ params }: RentalDetailPageProps
                           key={star}
                           xmlns="http://www.w3.org/2000/svg"
                           className={`h-5 w-5 ${
-                            star <= rental.review.rating
+                            star <= (rental.review?.rating ?? 0)
                               ? "text-yellow-400"
                               : "text-gray-300"
                           }`}

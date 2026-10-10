@@ -46,7 +46,7 @@ export default async function RentalReviewPage({ params }: RentalReviewPageProps
   }
   
   // Check if the rental is completed
-  if (rental.status !== "Completed") {
+  if (rental.status !== "COMPLETED") {
     redirect(`/routes/rentals/${params.id}`);
   }
   

@@ -123,7 +123,6 @@ export function PaymentFormWrapper({
       {stripePromise && (
         <Elements stripe={stripePromise} options={{ clientSecret }}>
           <PaymentForm
-            clientSecret={clientSecret}
             rentalId={rentalId}
             amount={amount}
             securityDeposit={securityDeposit}
@@ -139,7 +138,6 @@ export function PaymentFormWrapper({
 
 interface InnerPaymentFormProps {
   rentalId: string;
-  clientSecret: string;
   amount: number;
   securityDeposit?: number;
   currency: string;
@@ -149,7 +147,6 @@ interface InnerPaymentFormProps {
 
 function PaymentForm({
   rentalId,
-  clientSecret,
   amount,
   securityDeposit,
   currency,
