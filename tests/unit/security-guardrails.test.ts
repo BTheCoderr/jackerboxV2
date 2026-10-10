@@ -88,4 +88,11 @@ describe('JackerBox security regression checks', () => {
     const route = content('src/app/api/upload/presigned-url/route.ts');
     expect(route).toContain('users/${user.id}');
   });
+  test('only canonical NextAuth config is exported; never compare plaintext passwords', () => {
+    const entry = content('src/lib/auth.ts');
+    expect(entry).toContain("export { authOptions } from './auth/auth-options'");
+    expect(entry).not.toContain('user.password === credentials.password');
+    const canonical = content('src/lib/auth/auth-options.ts');
+    expect(canonical).toContain('await compare(');
+  });
 });
