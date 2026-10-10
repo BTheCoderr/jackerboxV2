@@ -37,6 +37,7 @@ export function SocketTester() {
         unsubscribe();
       };
     }
+    return undefined;
   }, [socket, subscribe]);
   
   const addMessage = (msg: string) => {

@@ -25,7 +25,7 @@ interface MessagesInboxContentProps {
 
 export function MessagesInboxContent({ 
   conversationsWithDetails, 
-  currentUserId 
+  currentUserId: _currentUserId 
 }: MessagesInboxContentProps) {
   const [activeFilter, setActiveFilter] = useState<'all' | 'unread'>('all');
   

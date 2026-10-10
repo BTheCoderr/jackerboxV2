@@ -61,14 +61,6 @@ export function AvailabilityCalendar({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [availability, setAvailability] = useState<Availability | null>(null);
-  const [selectedDates, setSelectedDates] = useState<{
-    from: Date | undefined;
-    to: Date | undefined;
-  }>({
-    from: undefined,
-    to: undefined,
-  });
-  
   // New state for recurring availability
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurrenceType, setRecurrenceType] = useState<string>("weekly");
@@ -136,6 +128,11 @@ export function AvailabilityCalendar({
   // Handle selecting a date range on the calendar
   const handleSelectSlot = ({ start, end }: { start: Date; end: Date }) => {
     if (!isOwner) return; // Only owners can modify availability
+    if (isDateUnavailable(start) || isDateUnavailable(end)) {
+      setError('Selected period overlaps a blocked or booked day');
+      return;
+    }
+    onDateSelect?.(start, end);
     
     // Adjust end date to be inclusive (end of day)
     const adjustedEnd = new Date(end);
@@ -344,17 +341,10 @@ export function AvailabilityCalendar({
     const isBooked = availability.bookings.some(booking => {
       const bookingStart = parseISO(booking.startDate);
       const bookingEnd = parseISO(booking.endDate);
-      return date >= bookingStart && date <= bookingEnd;
+      return date >= bookingStart && date < bookingEnd;
     });
 
     return isBooked;
-  };
-
-  const handleSelect = (dates: { from: Date | undefined; to: Date | undefined }) => {
-    setSelectedDates(dates);
-    if (dates.from && dates.to && onDateSelect) {
-      onDateSelect(dates.from, dates.to);
-    }
   };
 
   if (isLoading) {

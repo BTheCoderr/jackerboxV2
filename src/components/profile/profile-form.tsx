@@ -74,7 +74,7 @@ export function ProfileForm({ user }: ProfileFormProps) {
     }
   };
   
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (_e: React.ChangeEvent<HTMLInputElement>) => {
     // This is a placeholder for image upload functionality
     // In a real implementation, you would upload the image to a service like Cloudinary
     console.log("Image upload not implemented yet");

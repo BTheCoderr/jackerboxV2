@@ -62,7 +62,7 @@ if (typeof window !== 'undefined') {
     // Ensure Q is callable as a function and as an object
     const originalQ = window.Q;
     const newQ = Object.assign(
-      function Q(value) { return originalQ(value); },
+      function Q(value: unknown) { return originalQ(value); },
       originalQ
     );
     window.Q = newQ;

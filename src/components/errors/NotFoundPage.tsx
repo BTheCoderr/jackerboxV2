@@ -10,7 +10,7 @@ import { useEffect, useState } from 'react';
  */
 export function NotFoundPage() {
   // Use a state to ensure consistent rendering after hydration
-  const [isHydrated, setIsHydrated] = useState(false);
+  const [, setIsHydrated] = useState(false);
   
   useEffect(() => {
     setIsHydrated(true);
