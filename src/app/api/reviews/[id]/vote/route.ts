@@ -11,7 +11,7 @@ const voteSchema = z.object({
 // POST endpoint to vote on a review
 export async function POST(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await getCurrentUser();
@@ -23,7 +23,7 @@ export async function POST(
       );
     }
     
-    const reviewId = await Promise.resolve(params.id);
+    const reviewId = (await params).id;
     
     // Check if review exists
     const review = await db.review.findUnique({
@@ -145,7 +145,7 @@ export async function POST(
 // DELETE endpoint to remove a vote
 export async function DELETE(
   _req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await getCurrentUser();
@@ -157,7 +157,7 @@ export async function DELETE(
       );
     }
     
-    const reviewId = await Promise.resolve(params.id);
+    const reviewId = (await params).id;
     
     // Check if review exists
     const review = await db.review.findUnique({

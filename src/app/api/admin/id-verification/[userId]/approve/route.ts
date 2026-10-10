@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 
 export async function POST(
   _req: Request,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
     const admin = await getCurrentUser();
@@ -16,7 +16,7 @@ export async function POST(
       );
     }
     
-    const { userId } = params;
+    const { userId } = await params;
     
     // Check if user exists
     const user = await db.user.findUnique({

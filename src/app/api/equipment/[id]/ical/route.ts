@@ -3,10 +3,10 @@ import { generateICalFeed } from "@/lib/calendar-sync/calendar-service";
 
 export async function GET(
   _req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const equipmentId = await Promise.resolve(params.id);
+    const equipmentId = (await params).id;
     
     // Generate iCal feed
     const icalContent = await generateICalFeed(equipmentId);

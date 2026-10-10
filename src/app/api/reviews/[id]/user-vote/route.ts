@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/auth/auth-utils";
 
 export async function GET(
   _req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await getCurrentUser();
@@ -16,7 +16,7 @@ export async function GET(
       );
     }
     
-    const reviewId = await Promise.resolve(params.id);
+    const reviewId = (await params).id;
     
     // Check if review exists
     const review = await db.review.findUnique({
