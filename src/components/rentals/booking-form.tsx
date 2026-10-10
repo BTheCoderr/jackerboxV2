@@ -5,9 +5,21 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useRouter } from "next/navigation";
-import type { Equipment } from "../../../prisma/generated/client";
+import type { Equipment } from '@/lib/prisma-client';
 import { formatCurrency, formatDateRange } from "@/lib/utils/format";
-import { differenceInDays, differenceInHours, addDays } from "date-fns";
+import { addDays } from "date-fns";
+
+// The optional calendar widget shares its selection with this form.
+declare global {
+  interface Window {
+    calendarState?: {
+      startDate: string;
+      endDate: string;
+      setStartDate: (value: string) => void;
+      setEndDate: (value: string) => void;
+    };
+  }
+}
 
 // Define the minimum booking schema
 const bookingSchema = z.object({
@@ -113,6 +125,7 @@ export function BookingForm({ equipment }: BookingFormProps) {
         }
       };
     }
+    return undefined;
   }, [setValue]);
 
   // Update calendar when form values change
@@ -145,7 +158,7 @@ export function BookingForm({ equipment }: BookingFormProps) {
           const days = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / 86400000));
           price = days * equipment.dailyRate;
         } else if (rentalType === "weekly" && equipment.weeklyRate) {
-          const days = differenceInDays(end, start);
+          const days = Math.ceil((end.getTime() - start.getTime()) / 86400000);
           const weeks = Math.max(1, Math.ceil(days / 7));
           price = weeks * equipment.weeklyRate;
         }

@@ -55,6 +55,7 @@ export default async function AdminDashboardPage() {
   
   // Calculate total revenue (simplified)
   const totalRevenue = await db.rental.aggregate({
+    where: { payment: { is: { status: 'COMPLETED' } } },
     _sum: {
       totalPrice: true
     }
@@ -63,11 +64,11 @@ export default async function AdminDashboardPage() {
   // Get rental status counts
   const rentalStatusCounts = await Promise.all([
     db.rental.count({ where: { status: "PENDING" } }),
-    db.rental.count({ where: { status: "CONFIRMED" } }),
-    db.rental.count({ where: { status: "IN_PROGRESS" } }),
+    db.rental.count({ where: { status: "PAID" } }),
+    db.rental.count({ where: { status: "ACTIVE" } }),
     db.rental.count({ where: { status: "COMPLETED" } }),
     db.rental.count({ where: { status: "CANCELLED" } }),
-    db.rental.count({ where: { status: "DISPUTED" } })
+    db.rental.count({ where: { status: "PAYMENT_FAILED" } })
   ]);
   
   return (
