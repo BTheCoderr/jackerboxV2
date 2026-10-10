@@ -31,6 +31,7 @@ export function PaymentFormWrapper({
   onSuccess,
   onCancel,
 }: PaymentFormProps) {
+  const router = useRouter();
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
