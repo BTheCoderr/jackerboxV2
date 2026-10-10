@@ -7,7 +7,7 @@ import { EquipmentGrid, EquipmentGridSkeleton } from '@/components/equipment';
 // Import the client component wrapper for EquipmentSearch
 import ClientEquipmentSearch from '@/components/search/ClientEquipmentSearch';
 
-// Define skeleton loaders with exact dimensions to p// Define metadata for better SEO
+// Define metadata for better SEO
 export const metadata: Metadata = {
   title: 'Browse Equipment | Jackerbox',
   description: 'Find and rent equipment from people in your area. Browse our selection of tools, cameras, and more.',
