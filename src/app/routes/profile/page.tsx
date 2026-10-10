@@ -1,7 +1,6 @@
 // Add dynamic export to ensure proper data fetching
 export const dynamic = 'force-dynamic';
 
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { requireAuth } from "@/lib/auth/auth-utils";
 import { db } from "@/lib/db";
@@ -228,9 +227,9 @@ export default async function ProfilePage() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-2 py-1 text-xs rounded-full ${
-                            rental.status === "Approved"
+                            rental.status === "ACTIVE"
                               ? "bg-green-100 text-green-800"
-                              : rental.status === "Pending"
+                              : rental.status === "PENDING"
                               ? "bg-yellow-100 text-yellow-800"
                               : rental.status === "Completed"
                               ? "bg-blue-100 text-blue-800"
