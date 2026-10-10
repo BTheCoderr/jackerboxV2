@@ -75,7 +75,7 @@ export function CloudinaryUpload({
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: {
+    accept: { [acceptedFileTypes]: [],
       'image/*': ['.jpeg', '.jpg', '.png', '.gif', '.webp']
     },
     multiple,

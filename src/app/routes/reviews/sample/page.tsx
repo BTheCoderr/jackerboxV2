@@ -92,7 +92,7 @@ const sampleReviews = [
 
 export default function SampleReviewsPage() {
   const [isOwner, setIsOwner] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState('owner1');
+  const currentUserId = 'owner1';
 
   return (
     <div className="container mx-auto py-8 px-4">

@@ -6,13 +6,6 @@ test.describe('User Journey Tests', () => {
   test.setTimeout(120000);
   test.describe.configure({ retries: 2, timeout: 60000 });
 
-  // Configure test options
-  const testConfig = {
-    trace: 'retain-on-failure',
-    screenshot: 'only-on-failure',
-    video: 'retain-on-failure'
-  };
-
   // Helper function to handle viewport setup
   async function setupViewport(page: any, isMobile = false) {
     if (isMobile) {
