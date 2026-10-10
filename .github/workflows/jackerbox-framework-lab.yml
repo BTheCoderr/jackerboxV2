@@ -30,6 +30,7 @@ jobs:
         env:
           NEXT_TELEMETRY_DISABLED: '1'
       - name: Audit runtime vulnerabilities
+        if: always()
         run: npm audit --omit=dev --audit-level=high
       - name: Record compatible upgrade lockfile on isolated branch
         run: |
