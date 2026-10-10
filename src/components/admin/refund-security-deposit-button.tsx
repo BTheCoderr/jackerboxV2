@@ -34,11 +34,9 @@ export function RefundSecurityDepositButton({
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || "Failed to refund security deposit");
+        throw new Error(error.message || error.error || "Failed to refund security deposit");
       }
 
-      const data = await response.json();
-      
       toast.success("Security deposit refunded successfully");
       router.refresh();
     } catch (error) {
