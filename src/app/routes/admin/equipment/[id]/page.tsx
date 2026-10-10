@@ -222,8 +222,8 @@ export default async function AdminEquipmentDetailPage({ params }: AdminEquipmen
                       </div>
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                         rental.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
-                        rental.status === 'CONFIRMED' ? 'bg-blue-100 text-blue-800' :
-                        rental.status === 'IN_PROGRESS' ? 'bg-purple-100 text-purple-800' :
+                        rental.status === 'PAID' ? 'bg-blue-100 text-blue-800' :
+                        rental.status === 'ACTIVE' ? 'bg-purple-100 text-purple-800' :
                         rental.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
                         rental.status === 'CANCELLED' ? 'bg-gray-100 text-gray-800' :
                         'bg-red-100 text-red-800'

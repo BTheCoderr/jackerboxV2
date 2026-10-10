@@ -110,8 +110,8 @@ export default async function AdminRentalsPage({ searchParams }: AdminRentalsPag
             >
               <option value="">All Statuses</option>
               <option value="PENDING">Pending</option>
-              <option value="CONFIRMED">Confirmed</option>
-              <option value="IN_PROGRESS">In Progress</option>
+              <option value="PAID">Paid</option>
+              <option value="ACTIVE">Active</option>
               <option value="COMPLETED">Completed</option>
               <option value="CANCELLED">Cancelled</option>
               <option value="DISPUTED">Disputed</option>
@@ -206,8 +206,8 @@ export default async function AdminRentalsPage({ searchParams }: AdminRentalsPag
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                         rental.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
-                        rental.status === 'CONFIRMED' ? 'bg-blue-100 text-blue-800' :
-                        rental.status === 'IN_PROGRESS' ? 'bg-purple-100 text-purple-800' :
+                        rental.status === 'PAID' ? 'bg-blue-100 text-blue-800' :
+                        rental.status === 'ACTIVE' ? 'bg-purple-100 text-purple-800' :
                         rental.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
                         rental.status === 'CANCELLED' ? 'bg-gray-100 text-gray-800' :
                         'bg-red-100 text-red-800'

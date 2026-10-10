@@ -153,15 +153,15 @@ export default async function AdminReportsPage() {
                       ${payment.status === 'COMPLETED' ? 'bg-green-100 text-green-800' : 
                         payment.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' : 
                         payment.status === 'FAILED' ? 'bg-red-100 text-red-800' : 
-                        payment.status === 'DISPUTED' ? 'bg-purple-100 text-purple-800' : 
+                        payment.status === 'REFUNDED' ? 'bg-purple-100 text-purple-800' : 
                         'bg-gray-100 text-gray-800'}`}>
                       {payment.status}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600 hover:underline">
-                    <Link href={`/routes/rentals/${payment.rentalId}`}>
+                    {payment.rentalId ? <Link href={`/routes/rentals/${payment.rentalId}`}>
                       {payment.rentalId.substring(0, 8)}...
-                    </Link>
+                    </Link> : <span className="text-gray-500">N/A</span>}
                   </td>
                 </tr>
               ))}

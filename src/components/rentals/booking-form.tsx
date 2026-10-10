@@ -44,13 +44,7 @@ const bookingSchema = z.object({
 type BookingFormValues = z.infer<typeof bookingSchema>;
 
 interface BookingFormProps {
-  equipment: Equipment & {
-    owner: {
-      id: string;
-      name: string | null;
-      image: string | null;
-    };
-  };
+  equipment: Pick<Equipment, 'id' | 'dailyRate' | 'hourlyRate' | 'weeklyRate' | 'securityDeposit'>;
 }
 
 export function BookingForm({ equipment }: BookingFormProps) {

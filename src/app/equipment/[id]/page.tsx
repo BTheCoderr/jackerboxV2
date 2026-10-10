@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { EquipmentActions } from "@/components/equipment/equipment-actions";
