@@ -187,8 +187,8 @@ export default async function AdminDashboardPage() {
                   </svg>
                 </div>
                 <div>
-                  <p className="font-medium">Disputed Rentals</p>
-                  <p className="text-sm">{rentalStatusCounts[5]} rentals in dispute</p>
+                  <p className="font-medium">Payment Failures</p>
+                  <p className="text-sm">{rentalStatusCounts[5]} rentals with failed payments</p>
                 </div>
               </Link>
               
@@ -225,7 +225,7 @@ export default async function AdminDashboardPage() {
               </div>
               
               <div className="flex justify-between items-center">
-                <span className="text-sm font-medium">Confirmed</span>
+                <span className="text-sm font-medium">Paid</span>
                 <span className="text-sm text-gray-500">{rentalStatusCounts[1]}</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2.5">
@@ -233,7 +233,7 @@ export default async function AdminDashboardPage() {
               </div>
               
               <div className="flex justify-between items-center">
-                <span className="text-sm font-medium">In Progress</span>
+                <span className="text-sm font-medium">Active</span>
                 <span className="text-sm text-gray-500">{rentalStatusCounts[2]}</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2.5">
@@ -257,7 +257,7 @@ export default async function AdminDashboardPage() {
               </div>
               
               <div className="flex justify-between items-center">
-                <span className="text-sm font-medium">Disputed</span>
+                <span className="text-sm font-medium">Payment Failed</span>
                 <span className="text-sm text-gray-500">{rentalStatusCounts[5]}</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2.5">
