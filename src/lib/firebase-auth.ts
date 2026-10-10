@@ -1,12 +1,12 @@
 // Import Firebase modules
 // @ts-ignore - Ignore TypeScript errors for Firebase imports
-import { initializeApp } from 'firebase/app';
+import { initializeApp, type FirebaseApp } from 'firebase/app';
 // @ts-ignore - Ignore TypeScript errors for Firebase imports
 import { 
   getAuth, 
   RecaptchaVerifier, 
   signInWithPhoneNumber, 
-  PhoneAuthProvider 
+  type Auth
 } from 'firebase/auth';
 import { isTestMode, isTestPhoneNumber, TEST_VERIFICATION_CODE } from './test-utils';
 
@@ -21,8 +21,8 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-let app;
-let auth;
+let app: FirebaseApp | undefined;
+let auth: Auth | undefined;
 
 try {
   app = initializeApp(firebaseConfig);

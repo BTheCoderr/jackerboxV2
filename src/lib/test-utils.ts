@@ -8,8 +8,8 @@
  */
 export function isTestMode(): boolean {
   // Check for test mode environment variable
-  return process.env.NODE_ENV !== 'production' || 
-         process.env.NEXT_PUBLIC_TEST_MODE === 'true';
+  return process.env.NODE_ENV === 'test' ||
+    (process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_TEST_MODE === 'true');
 }
 
 /**

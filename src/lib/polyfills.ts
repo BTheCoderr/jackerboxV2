@@ -18,9 +18,9 @@ if (typeof window !== 'undefined') {
   console.log('Setting up Q promise library polyfill');
   
   // Simple implementation of the Q promise library using native Promises
-  window.Q = function(value) {
+  window.Q = (function(value: unknown) {
     return Promise.resolve(value);
-  };
+  }) as unknown as typeof window.Q;
   
   // Add common Q methods
   window.Q.defer = function(): Deferred {
@@ -52,7 +52,7 @@ if (typeof window !== 'undefined') {
 
     window.Q.nfcall = function(fn, ...args) {
       return new Promise((resolve, reject) => {
-        fn(...args, (err, ...result) => {
+        fn(...args, (err: unknown, ...result: unknown[]) => {
           if (err) reject(err);
           else resolve(result.length === 1 ? result[0] : result);
         });

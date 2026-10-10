@@ -63,10 +63,10 @@ export async function syncWithGoogleCalendar(
       const events = response.data.items?.map((event) => ({
         id: event.id || uuidv4(),
         summary: event.summary || "Untitled Event",
-        description: event.description,
+        description: event.description ?? undefined,
         start: new Date(event.start?.dateTime || event.start?.date || ""),
         end: new Date(event.end?.dateTime || event.end?.date || ""),
-        location: event.location,
+        location: event.location ?? undefined,
         status: event.status || "confirmed",
       })) || [];
 
@@ -122,7 +122,7 @@ export async function syncWithGoogleCalendar(
     console.error("Error syncing with Google Calendar:", error);
     return {
       success: false,
-      message: `Error syncing with Google Calendar: ${error.message}`,
+      message: `Error syncing with Google Calendar: ${error instanceof Error ? error.message : String(error)}`,
     };
   }
 }
@@ -175,7 +175,7 @@ export async function syncWithICal(
     console.error("Error syncing with iCal:", error);
     return {
       success: false,
-      message: `Error syncing with iCal: ${error.message}`,
+      message: `Error syncing with iCal: ${error instanceof Error ? error.message : String(error)}`,
     };
   }
 }
@@ -358,7 +358,7 @@ export async function saveCalendarSyncSettings(
     console.error("Error saving calendar sync settings:", error);
     return {
       success: false,
-      message: `Error saving calendar sync settings: ${error.message}`,
+      message: `Error saving calendar sync settings: ${error instanceof Error ? error.message : String(error)}`,
     };
   }
 } 
