@@ -26,15 +26,54 @@ export async function POST(request: Request) {
         throw new Error('Stripe payment amount does not match the stored charge');
       }
 
+      if (payment.status === 'COMPLETED') return NextResponse.json({ received: true });
+
+      // A payment confirmed after a reservation expired or after another rental
+      // took the same dates must be returned, not activated as a double booking.
+      const rental = await db.rental.findUnique({ where: { id: payment.rentalId } });
+      if (!rental) throw new Error('Rental missing for paid intent');
+      const confirmedAt = new Date(event.created * 1000);
+      const expired = confirmedAt.getTime() - rental.createdAt.getTime() > 30 * 60 * 1000;
+      const conflicting = await db.rental.findFirst({
+        where: {
+          id: { not: rental.id },
+          equipmentId: rental.equipmentId,
+          startDate: { lt: rental.endDate },
+          endDate: { gt: rental.startDate },
+          status: { in: ['PAID', 'ACTIVE'] },
+        },
+        select: { id: true },
+      });
+      if (rental.status !== 'PENDING' || expired || conflicting) {
+        await stripe.refunds.create({ payment_intent: intent.id }, {
+          idempotencyKey: `jackerbox-invalid-booking-${intent.id}`,
+        });
+        await db.payment.update({ where: { id: payment.id }, data: { status: 'REFUNDED', refundedAt: new Date() } });
+        await db.rental.updateMany({ where: { id: rental.id, status: 'PENDING' }, data: { status: 'REFUNDED' } });
+        return NextResponse.json({ received: true });
+      }
+
       await db.$transaction(async (tx) => {
+        const conflict = await tx.rental.findFirst({
+          where: {
+            id: { not: rental.id },
+            equipmentId: rental.equipmentId,
+            startDate: { lt: rental.endDate },
+            endDate: { gt: rental.startDate },
+            status: { in: ['PAID', 'ACTIVE'] },
+          },
+          select: { id: true },
+        });
+        if (conflict) throw new Error('Booking conflict during payment confirmation');
         await tx.payment.update({
           where: { id: payment.id },
-          data: { status: 'COMPLETED', paidAt: new Date(), metadata: intent.metadata },
+          data: { status: 'COMPLETED', paidAt: confirmedAt, metadata: intent.metadata },
         });
-        await tx.rental.updateMany({
-          where: { id: payment.rentalId!, status: 'PENDING' },
+        const result = await tx.rental.updateMany({
+          where: { id: rental.id, status: 'PENDING' },
           data: { status: 'PAID' },
         });
+        if (result.count !== 1) throw new Error('Rental state changed during payment confirmation');
       });
     } else if (event.type === 'payment_intent.payment_failed') {
       const intent = event.data.object;

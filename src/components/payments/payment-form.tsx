@@ -54,7 +54,7 @@ export function PaymentFormWrapper({
 
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(errorData.message || "Failed to create payment intent");
+          throw new Error(errorData.message || errorData.error || "Failed to create payment intent");
         }
 
         const data = await response.json();
@@ -106,7 +106,7 @@ export function PaymentFormWrapper({
           Unable to initialize payment. Please try again later.
         </p>
         <button
-          onClick={onCancel}
+          onClick={onCancel || (() => router.push("/routes/rentals"))}
           className="mt-4 px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
         >
           Go Back
@@ -123,6 +123,7 @@ export function PaymentFormWrapper({
         <Elements stripe={stripePromise} options={{ clientSecret }}>
           <PaymentForm
             clientSecret={clientSecret}
+            rentalId={rentalId}
             amount={amount}
             securityDeposit={securityDeposit}
             currency={currency}
@@ -136,6 +137,7 @@ export function PaymentFormWrapper({
 }
 
 interface InnerPaymentFormProps {
+  rentalId: string;
   clientSecret: string;
   amount: number;
   securityDeposit?: number;
@@ -145,6 +147,7 @@ interface InnerPaymentFormProps {
 }
 
 function PaymentForm({
+  rentalId,
   clientSecret,
   amount,
   securityDeposit,
@@ -173,7 +176,7 @@ function PaymentForm({
       const { error, paymentIntent } = await stripe.confirmPayment({
         elements,
         confirmParams: {
-          return_url: `${window.location.origin}/routes/rentals/payment-success`,
+          return_url: `${window.location.origin}/routes/rentals/${rentalId}`,
         },
         redirect: "if_required",
       });
@@ -185,7 +188,7 @@ function PaymentForm({
         if (onSuccess) {
           onSuccess();
         } else {
-          router.push("/routes/rentals/payment-success");
+          router.push(`/routes/rentals/${rentalId}`);
         }
       } else {
         setErrorMessage("Payment status unknown. Please contact support.");
@@ -213,7 +216,7 @@ function PaymentForm({
         <h2 className="text-xl font-semibold mb-2">Complete your payment</h2>
         <div className="flex flex-col space-y-2">
           <p className="text-gray-600">
-            Rental amount: {formatCurrency(amount - (securityDeposit || 0), currency)}
+            Rental amount: {formatCurrency(amount, currency)}
           </p>
           {securityDeposit && securityDeposit > 0 && (
             <p className="text-gray-600">

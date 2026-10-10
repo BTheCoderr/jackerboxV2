@@ -15,7 +15,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   try {
     const rental = await db.rental.findUnique({
       where: { id },
-      include: { equipment: { select: { ownerId: true } }, payment: { select: { status: true } } },
+      include: { equipment: { select: { ownerId: true } }, payment: { select: { status: true, stripePaymentIntentId: true } } },
     });
     if (!rental) return NextResponse.json({ message: 'Rental not found' }, { status: 404 });
 
@@ -24,7 +24,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (!isOwner && !isRenter) return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
 
     const target = result.data.status;
-    const valid = (target === 'CANCELLED' && rental.status === 'PENDING' && (isOwner || isRenter)) ||
+    const valid = (target === 'CANCELLED' && rental.status === 'PENDING' && !rental.payment?.stripePaymentIntentId && (isOwner || isRenter)) ||
       (target === 'ACTIVE' && isOwner && rental.status === 'PAID' && rental.payment?.status === 'COMPLETED') ||
       (target === 'COMPLETED' && isOwner && rental.status === 'ACTIVE' && rental.payment?.status === 'COMPLETED');
 
