@@ -33,7 +33,7 @@ export default async function MessagesInboxPage() {
             image: true,
           },
         },
-        receiver: {
+        recipient: {
           select: {
             id: true,
             name: true,
