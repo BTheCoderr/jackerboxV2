@@ -24,7 +24,7 @@ describe('JackerBox security regression checks', () => {
 
   test('browser-supplied rental pricing is not trusted', () => {
     const route = content('src/app/api/rentals/route.ts');
-    expect(route).toContain('Math.round(rate * units * 100)');
+    expect(route).toContain('calculateRentalPrice(rate, start, end, rentalType)');
     expect(route).toContain('TransactionIsolationLevel.Serializable');
     expect(route).not.toContain('parseFloat(totalPrice)');
   });

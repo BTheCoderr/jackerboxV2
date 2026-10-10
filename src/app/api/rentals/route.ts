@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { Prisma } from '../../../../prisma/generated/client';
 import { db } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth/session';
+import { calculateRentalPrice } from '@/lib/rentals/pricing';
 
 const DAY = 24 * 60 * 60 * 1000;
 const PENDING_HOLD_MS = 30 * 60 * 1000;
@@ -65,10 +66,7 @@ export async function POST(request: NextRequest) {
       if (rate == null || !Number.isFinite(rate) || rate <= 0) {
         throw new ConflictError('The selected rental rate is unavailable');
       }
-      const duration = end.getTime() - start.getTime();
-      const units = rentalType === 'hourly' ? Math.ceil(duration / (60 * 60 * 1000))
-        : rentalType === 'weekly' ? Math.ceil(duration / (7 * DAY)) : Math.ceil(duration / DAY);
-      const totalPrice = Math.round(rate * units * 100) / 100;
+      const totalPrice = calculateRentalPrice(rate, start, end, rentalType);
       if (!Number.isFinite(totalPrice) || totalPrice <= 0) throw new ConflictError('Invalid rental price');
 
       // Block date-level blackout days, including any part of the requested rental window.
