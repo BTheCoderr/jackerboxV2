@@ -6,19 +6,18 @@ import { formatCurrency, formatDateRange } from "@/lib/utils/format";
 import { RentalActions } from "@/components/rentals/rental-actions";
 
 interface RentalDetailPageProps {
-  params: {
-    id: string;
-  };
+  params: Promise<{ id: string }>;
 }
 
 export default async function RentalDetailPage({ params }: RentalDetailPageProps) {
   // Ensure user is authenticated
   const user = await requireAuth();
   
+  const { id } = await params;
   // Fetch the rental
   const rental = await db.rental.findUnique({
     where: {
-      id: params.id,
+      id,
     },
     include: {
       equipment: {
@@ -81,11 +80,11 @@ export default async function RentalDetailPage({ params }: RentalDetailPageProps
             <h1 className="text-2xl font-bold">Rental Details</h1>
             <span
               className={`px-3 py-1 text-sm rounded-full ${
-                rental.status === "Approved"
+                rental.status === "ACTIVE"
                   ? "bg-green-100 text-green-800"
-                  : rental.status === "Pending"
+                  : rental.status === "PENDING"
                   ? "bg-yellow-100 text-yellow-800"
-                  : rental.status === "Completed"
+                  : rental.status === "COMPLETED"
                   ? "bg-blue-100 text-blue-800"
                   : "bg-red-100 text-red-800"
               }`}
@@ -170,7 +169,7 @@ export default async function RentalDetailPage({ params }: RentalDetailPageProps
                 <div>
                   <h3 className="font-medium text-gray-600">Payment Status</h3>
                   <p className="mt-1">
-                    {rental.payment ? (
+                    {rental.payment?.status === "COMPLETED" ? (
                       <span className="text-green-600">Paid</span>
                     ) : (
                       <span className="text-red-600">Unpaid</span>
@@ -181,7 +180,7 @@ export default async function RentalDetailPage({ params }: RentalDetailPageProps
             </div>
             
             {/* Review Section */}
-            {rental.status === "Completed" && !rental.review && !isOwner && (
+            {rental.status === "COMPLETED" && !rental.review && !isOwner && (
               <div className="border-t pt-6">
                 <h2 className="text-xl font-medium mb-4">Leave a Review</h2>
                 <Link

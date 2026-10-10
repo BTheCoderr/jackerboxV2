@@ -13,7 +13,7 @@ import { differenceInDays, differenceInHours, addDays } from "date-fns";
 const bookingSchema = z.object({
   startDate: z.string().refine((val) => {
     const date = new Date(val);
-    return !isNaN(date.getTime()) && date >= new Date(new Date().setHours(0, 0, 0, 0));
+    return !isNaN(date.getTime()) && date >= new Date(new Date().toISOString().slice(0, 10));
   }, "Start date must be today or later"),
   endDate: z.string().refine((val) => {
     const date = new Date(val);
@@ -139,10 +139,10 @@ export function BookingForm({ equipment }: BookingFormProps) {
         let price = 0;
 
         if (rentalType === "hourly" && equipment.hourlyRate) {
-          const hours = Math.max(1, differenceInHours(end, start));
+          const hours = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / 3600000));
           price = hours * equipment.hourlyRate;
         } else if (rentalType === "daily" && equipment.dailyRate) {
-          const days = Math.max(1, differenceInDays(end, start));
+          const days = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / 86400000));
           price = days * equipment.dailyRate;
         } else if (rentalType === "weekly" && equipment.weeklyRate) {
           const days = differenceInDays(end, start);
@@ -170,8 +170,6 @@ export function BookingForm({ equipment }: BookingFormProps) {
           startDate: data.startDate,
           endDate: data.endDate,
           rentalType: data.rentalType,
-          totalPrice: totalPrice,
-          securityDeposit: equipment.securityDeposit,
         }),
       });
 
@@ -183,7 +181,7 @@ export function BookingForm({ equipment }: BookingFormProps) {
       const responseData = await response.json();
       
       // Redirect to the payment page with the rental ID
-      router.push(`/routes/payments/checkout?rentalId=${responseData.rental.id}`);
+      router.push(`/routes/rentals/${responseData.rental.id}/payment`);
     } catch (error) {
       if (error instanceof Error) {
         setError(error.message);

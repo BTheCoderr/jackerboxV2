@@ -141,7 +141,7 @@ export function BasicIdVerificationForm({ user }: BasicIdVerificationFormProps) 
         if (responseData.needsManualReview) {
           setSuccess("Your ID has been submitted for manual review. We'll notify you once it's verified.");
         } else if (responseData.isValid) {
-          setSuccess("Your ID has been verified successfully!");
+          setSuccess("Your document was received for review. Verification is pending.");
         } else {
           setError(responseData.message || "ID verification failed. Please try again with a clearer image.");
         }
