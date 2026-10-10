@@ -1,243 +1,91 @@
-/* Global CSS - Make sure this file is properly imported in layout.tsx */
-/* This file is essential for Next.js to generate the CSS bundle correctly */
-
 @import "tailwindcss";
 @config "../../tailwind.config.js";
 
-/* Root variables */
+/* Unified JackerBox palette: blue actions, orange accents, neutral surfaces. */
 :root {
-  --font-sans: var(--font-inter), system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 250, 250, 250;
-  --background-end-rgb: 255, 255, 255;
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-/* Force light mode styles regardless of system preference */
-/* Remove the dark mode media query to ensure consistent colors */
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
   color-scheme: light;
+  --jb-page: #f7fafc;
+  --jb-card: #ffffff;
+  --jb-text: #172b40;
+  --jb-muted: #526578;
+  --jb-border: #dce5ed;
+  --jb-focus: #216c99;
+  --jb-link: #216c99;
 }
-
-/* Optimize content visibility for below-the-fold content */
-.content-visibility-auto {
-  content-visibility: auto;
-  contain-intrinsic-size: 0 500px;
+html.dark {
+  color-scheme: dark;
+  --jb-page: #0d1d2b;
+  --jb-card: #17293b;
+  --jb-text: #f0f5fa;
+  --jb-muted: #bdcbd9;
+  --jb-border: #3b5065;
+  --jb-focus: #80c0eb;
+  --jb-link: #80c0eb;
 }
-
-/* Optimize layout shifts */
-img, video {
-  max-width: 100%;
-  height: auto;
-  display: block;
+/* Semantic colors for shadcn/Radix; never override all headings or paragraphs. */
+@theme inline {
+  --color-background: var(--jb-card);
+  --color-foreground: var(--jb-text);
+  --color-card: var(--jb-card);
+  --color-card-foreground: var(--jb-text);
+  --color-popover: var(--jb-card);
+  --color-popover-foreground: var(--jb-text);
+  --color-primary: #216c99;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #eaf3f9;
+  --color-secondary-foreground: #174866;
+  --color-accent: #eaf3f9;
+  --color-accent-foreground: #174866;
+  --color-muted: #eff4f8;
+  --color-muted-foreground: #526578;
+  --color-border: var(--jb-border);
+  --color-input: var(--jb-border);
+  --color-ring: var(--jb-focus);
+  --color-destructive: #b42318;
+  --color-destructive-foreground: #ffffff;
 }
-
-/* Optimize font display */
-@media (prefers-reduced-motion: reduce) {
-  * {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-}
-
-/* Optimize for slow connections */
-.slow-connection img:not([loading="eager"]):not([fetchpriority="high"]) {
-  content-visibility: auto;
-}
-
-.slow-connection .defer-load {
-  display: none;
-}
-
-body {
-  min-height: 100vh;
-  background-color: rgb(249, 250, 251);
-  font-family: var(--font-sans);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  color: var(--foreground);
-}
-
-/* PWA Animations */
-@keyframes slide-up {
-  from {
-    transform: translateY(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-.animate-slide-up {
-  animation: slide-up 0.3s ease-out forwards;
-}
-
-/* Fix for infinite CSS loading loop */
-html {
-  visibility: visible;
-  opacity: 1;
-}
-
-/* Base text colors - with !important to override browser defaults */
 @layer base {
+  html { visibility: visible; opacity: 1; }
   body {
-    @apply text-gray-900 bg-white;
-    color: #171717 !important;
-    background-color: #ffffff !important;
+    min-height: 100vh;
+    color: var(--jb-text);
+    background: var(--jb-page);
+    font-family: var(--font-inter), Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
-  
   input, textarea, select {
-    @apply text-gray-900 bg-white;
-    color: #171717 !important;
+    color: var(--jb-text);
+    background: var(--jb-card);
+    border-color: var(--jb-border);
   }
-  
-  label {
-    @apply text-gray-700;
-    color: #374151 !important;
-  }
-  
-  h1, h2, h3, h4, h5, h6 {
-    @apply text-gray-900;
-    color: #171717 !important;
-  }
-  
-  p {
-    @apply text-gray-700;
-    color: #374151 !important;
-  }
-
-  /* Force text colors for specific elements */
-  .text-white {
-    color: #ffffff !important;
-  }
-  
-  .text-black {
-    color: #000000 !important;
+  :is(a, button, input, textarea, select):focus-visible {
+    outline: 2px solid var(--jb-focus);
+    outline-offset: 2px;
   }
 }
-
-/* Form styles with enforced colors */
+html.dark .bg-white { background-color: var(--jb-card); }
+html.dark .bg-gray-50 { background-color: var(--jb-page); }
+html.dark .bg-gray-100 { background-color: #20364a; }
+html.dark .text-gray-900,
+html.dark .text-gray-800,
+html.dark .text-gray-700 { color: var(--jb-text); }
+html.dark .text-gray-600,
+html.dark .text-gray-500 { color: var(--jb-muted); }
+html.dark .border-gray-200 { border-color: var(--jb-border); }
+html.dark .text-jacker-blue { color: var(--jb-link); }
+html.dark .text-jacker-orange { color: #f7b75b; }
 @layer components {
-  .form-input {
-    @apply w-full p-2 border rounded-md;
-    color: #171717 !important;
-    background-color: #ffffff !important;
-  }
-  
-  .form-label {
-    @apply block text-sm font-medium;
-    color: #374151 !important;
-  }
+  .form-input { @apply w-full rounded-md border p-2; color: var(--jb-text); background: var(--jb-card); border-color: var(--jb-border); }
+  .form-label { @apply block text-sm font-medium; color: var(--jb-muted); }
 }
-
-/* Ensure buttons with white text stay white */
-button[class*="text-white"], 
-a[class*="text-white"] {
-  color: #ffffff !important;
+.content-visibility-auto { content-visibility: auto; contain-intrinsic-size: 0 500px; }
+img, video { max-width: 100%; height: auto; display: block; }
+.slow-connection img:not([loading="eager"]):not([fetchpriority="high"]) { content-visibility: auto; }
+.slow-connection .defer-load { display: none; }
+@keyframes slide-up { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.animate-slide-up { animation: slide-up 0.3s ease-out forwards; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 }
-
-/* Fix for Safari */
-@supports (-webkit-touch-callout: none) {
-  .min-h-screen {
-    min-height: -webkit-fill-available;
-  }
-}
-
-/* Fix for Firefox */
-@-moz-document url-prefix() {
-  select {
-    color: #171717 !important;
-    background-color: #ffffff !important;
-  }
-}
-
-/* Update text color rules */
-.text-primary {
-  color: #333333 !important;
-}
-
-.text-secondary {
-  color: #666666 !important;
-}
-
-.text-white {
-  color: #ffffff !important;
-}
-
-/* Only use white text on dark backgrounds */
-.bg-dark .text-primary,
-.bg-primary .text-primary,
-.bg-secondary .text-primary {
-  color: #ffffff !important;
-}
-
-/* Default text color */
-body {
-  color: #333333;
-  background-color: #ffffff;
-}
-
-/* Dark mode support */
-@media (prefers-color-scheme: dark) {
-  body {
-    color: #ffffff;
-    background-color: #333333;
-  }
-}
-
-/* Navigation styles */
-nav, 
-[role="navigation"],
-.navbar,
-.nav-menu {
-  background-color: #ffffff;
-  color: #171717;
-  z-index: 50;
-  position: relative;
-}
-
-/* Dark backgrounds should have white text */
-.bg-dark nav,
-.bg-primary nav,
-.bg-secondary nav,
-nav.bg-dark,
-nav.bg-primary,
-nav.bg-secondary {
-  color: #ffffff;
-}
-
-/* Mobile navigation */
-.mobile-nav,
-[data-testid="mobile-nav"],
-[data-testid="bottom-nav"] {
-  background-color: #ffffff;
-  color: #171717;
-  z-index: 50;
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  border-top: 1px solid #e5e7eb;
-}
-
-/* Navigation links */
-nav a,
-.nav-link,
-.navbar a {
-  color: inherit;
-  text-decoration: none;
-}
-
-/* Active navigation items */
-nav a.active,
-.nav-link.active,
-.navbar a.active {
-  color: #2563eb;
-}
+@supports (-webkit-touch-callout: none) { .min-h-screen { min-height: -webkit-fill-available; } }

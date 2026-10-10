@@ -50,7 +50,7 @@ export default async function ProfilePage() {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-gray-300 text-gray-600 text-xl font-bold">
+                  <div className="w-full h-full flex items-center justify-center bg-jacker-blue-soft text-jacker-blue text-xl font-bold">
                     {user.name ? user.name.charAt(0).toUpperCase() : "U"}
                   </div>
                 )}
@@ -67,7 +67,7 @@ export default async function ProfilePage() {
               
               <Link 
                 href="/routes/profile/edit" 
-                className="block w-full py-2 px-4 bg-gray-100 text-center rounded-md hover:bg-gray-200 transition-colors"
+                className="block w-full py-2 px-4 bg-jacker-blue-soft text-jacker-blue text-center rounded-md hover:bg-blue-100 transition-colors"
               >
                 Edit Profile
               </Link>
@@ -83,7 +83,7 @@ export default async function ProfilePage() {
               <h2 className="text-xl font-medium">My Equipment Listings</h2>
               <Link 
                 href="/routes/equipment/new" 
-                className="text-sm py-2 px-4 bg-black text-white rounded-md hover:bg-opacity-80"
+                className="text-sm py-2 px-4 bg-jacker-blue text-white rounded-md hover:bg-blue-700 transition-colors"
               >
                 Add New Equipment
               </Link>
@@ -94,7 +94,7 @@ export default async function ProfilePage() {
                 <p className="text-gray-500">You haven't listed any equipment yet.</p>
                 <Link 
                   href="/routes/equipment/new" 
-                  className="mt-4 inline-block text-sm py-2 px-4 bg-black text-white rounded-md hover:bg-opacity-80"
+                  className="mt-4 inline-block text-sm py-2 px-4 bg-jacker-blue text-white rounded-md hover:bg-blue-700 transition-colors"
                 >
                   List Your First Equipment
                 </Link>
@@ -187,7 +187,7 @@ export default async function ProfilePage() {
                 <p className="text-gray-500">You haven't rented any equipment yet.</p>
                 <Link 
                   href="/routes/equipment"
-                  className="mt-4 inline-block text-sm py-2 px-4 bg-black text-white rounded-md hover:bg-opacity-80"
+                  className="mt-4 inline-block text-sm py-2 px-4 bg-jacker-blue text-white rounded-md hover:bg-blue-700 transition-colors"
                 >
                   Browse Equipment
                 </Link>

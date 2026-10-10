@@ -10,8 +10,20 @@ module.exports = {
     extend: {
       colors: {
         // Jackerbox brand colors
-        'jacker-blue': '#2980b9',
-        'jacker-orange': '#f39c12',
+        'jacker-blue': '#216c99',
+        'jacker-blue-soft': '#eaf3f9',
+        'jacker-orange': '#b85f07',
+        'jacker-orange-hover': '#914902',
+        'jacker-orange-soft': '#fff1df',
+        'jacker-surface': '#f7fafc',
+        'jacker-ink': '#172b40',
+        // Map legacy blue utilities to the JackerBox hue.
+        blue: {
+          50: '#edf6fb', 100: '#d9eaf6', 200: '#b7d9ed',
+          300: '#8dc3df', 400: '#559fcb', 500: '#2980b9',
+          600: '#216c99', 700: '#195778', 800: '#17415b',
+          900: '#142e45', 950: '#0c1b2c',
+        },
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'sans-serif'],

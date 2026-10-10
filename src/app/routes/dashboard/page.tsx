@@ -476,7 +476,7 @@ export default async function DashboardPage({
                 </p>
                 <Link
                   href="/routes/equipment"
-                  className="inline-block px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+                  className="inline-block px-4 py-2 bg-jacker-blue text-white rounded-md hover:bg-blue-700"
                 >
                   Browse Equipment
                 </Link>
@@ -490,14 +490,14 @@ export default async function DashboardPage({
                 {userType === "renter" ? (
                   <Link
                     href="/routes/profile/settings"
-                    className="inline-block px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600"
+                    className="inline-block px-4 py-2 bg-jacker-blue text-white rounded-md hover:bg-blue-700"
                   >
                     Update Profile to List
                   </Link>
                 ) : (
                   <Link
                     href="/routes/equipment/new"
-                    className="inline-block px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600"
+                    className="inline-block px-4 py-2 bg-jacker-blue text-white rounded-md hover:bg-blue-700"
                   >
                     List Equipment
                   </Link>

@@ -141,12 +141,12 @@ export function EquipmentCard({ equipment, priority = false }: EquipmentCardProp
   return (
     <Link
       href={`/routes/equipment/${equipment.id}`}
-      className="group block rounded-lg overflow-hidden border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all duration-200 bg-white dark:bg-gray-800 dark:border-gray-700 dark:hover:border-blue-500"
+      className="group block rounded-lg overflow-hidden border border-gray-200 hover:border-jacker-blue hover:shadow-md transition-all duration-200 bg-white dark:bg-gray-800 dark:border-gray-700 dark:hover:border-jacker-blue"
     >
       <div className="relative w-full h-48 overflow-hidden bg-gray-100 dark:bg-gray-700">
         {isLoading ? (
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-jacker-blue"></div>
           </div>
         ) : (
           <Image
@@ -160,7 +160,7 @@ export function EquipmentCard({ equipment, priority = false }: EquipmentCardProp
           />
         )}
         {equipment.isVerified && (
-          <div className="absolute top-2 right-2 bg-blue-500 text-white text-xs px-2 py-1 rounded-full">
+          <div className="absolute top-2 right-2 bg-jacker-blue text-white text-xs px-2 py-1 rounded-full">
             Verified
           </div>
         )}
@@ -168,7 +168,7 @@ export function EquipmentCard({ equipment, priority = false }: EquipmentCardProp
       
       <div className="p-4">
         <div className="flex justify-between items-start">
-          <h3 className="font-medium text-lg truncate text-jacker-blue group-hover:text-blue-600 dark:group-hover:text-blue-400">{equipment.title}</h3>
+          <h3 className="font-medium text-lg truncate text-jacker-blue group-hover:text-blue-700 dark:group-hover:text-blue-300">{equipment.title}</h3>
           <span className={`text-sm font-medium px-2 py-1 rounded-full ${
             equipment.condition === 'Like New' ? 'bg-green-100 text-green-800' :
             equipment.condition === 'Good' ? 'bg-blue-100 text-blue-800' :

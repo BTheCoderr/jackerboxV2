@@ -108,7 +108,7 @@ const EquipmentCard = ({ equipment }: EquipmentCardProps) => {
           className="object-cover w-full h-full transition-transform hover:scale-105"
         />
         {equipment.distance && (
-          <Badge className="absolute top-2 right-2 bg-black bg-opacity-70">
+          <Badge className="absolute top-2 right-2 bg-jacker-blue/90">
             <MapPin className="w-3 h-3 mr-1" />
             {formatDistance(equipment.distance)}
           </Badge>
@@ -138,7 +138,7 @@ const EquipmentCard = ({ equipment }: EquipmentCardProps) => {
         )}
       </CardContent>
       <CardFooter className="p-4 pt-2 flex justify-between items-center border-t">
-        <div className="font-semibold">
+        <div className="font-semibold text-jacker-orange">
           {formatPrice(primaryPrice)}
           <span className="text-xs text-gray-500 font-normal">{priceLabel}</span>
         </div>
