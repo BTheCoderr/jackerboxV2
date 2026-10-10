@@ -1,17 +1,13 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { Prisma } from "@/lib/prisma-client";
 
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/auth-utils";
 import { EQUIPMENT_CATEGORIES, EQUIPMENT_CONDITIONS } from "@/lib/constants";
 
 // Minimum number of required images
-const MIN_REQUIRED_IMAGES = 3;
-
-// Cache control headers for GET requests
-const CACHE_CONTROL_HEADERS = {
-  'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300'
-};
+const MIN_REQUIRED_IMAGES = 5;
 
 const equipmentSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters"),
@@ -55,20 +51,6 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { message: "Unauthorized" },
         { status: 401 }
-      );
-    }
-    
-    // Check if user is a renter (has rental history)
-    const userRentals = await db.rental.count({
-      where: {
-        renterId: user.id
-      }
-    });
-    
-    if (userRentals > 0) {
-      return NextResponse.json(
-        { message: "Renters cannot create equipment listings. Please use a separate owner account." },
-        { status: 403 }
       );
     }
     
@@ -116,56 +98,49 @@ export async function POST(req: Request) {
 }
 
 export async function GET(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const query = searchParams.get('query') || '';
-    const category = searchParams.get('category') || '';
-    const location = searchParams.get('location') || '';
-    const minPrice = searchParams.get('minPrice') ? Number(searchParams.get('minPrice')) : undefined;
-    const maxPrice = searchParams.get('maxPrice') ? Number(searchParams.get('maxPrice')) : undefined;
-
-    // Build where clause based on filters
-    const where = {
-      AND: [
-        {
-          OR: [
-            { title: { contains: query, mode: 'insensitive' } },
-            { description: { contains: query, mode: 'insensitive' } },
-          ],
-        },
-        category ? { category } : {},
-        location ? { location: { contains: location, mode: 'insensitive' } } : {},
-        minPrice ? { dailyRate: { gte: minPrice } } : {},
-        maxPrice ? { dailyRate: { lte: maxPrice } } : {},
-        { isAvailable: true },
-        { moderationStatus: 'APPROVED' },
-      ],
+  const params = new URL(request.url).searchParams;
+  const query = (params.get('query') ?? '').trim();
+  const category = (params.get('category') ?? '').trim();
+  const location = (params.get('location') ?? '').trim();
+  const minRaw = params.get('priceMin') ?? params.get('minPrice');
+  const maxRaw = params.get('priceMax') ?? params.get('maxPrice');
+  const minPrice = minRaw == null || minRaw === '' ? undefined : Number(minRaw);
+  const maxPrice = maxRaw == null || maxRaw === '' ? undefined : Number(maxRaw);
+  if (query.length > 120 || category.length > 80 || location.length > 100 ||
+      [minPrice, maxPrice].some(n => n !== undefined && (!Number.isFinite(n) || n < 0)) ||
+      (minPrice !== undefined && maxPrice !== undefined && minPrice > maxPrice)) {
+    return NextResponse.json({ message: 'Invalid search filters' }, { status: 400 });
+  }
+  const where: Prisma.EquipmentWhereInput = {
+    moderationStatus: 'APPROVED',
+    isAvailable: true,
+    ...(category ? { category } : {}),
+    ...(location ? { location: { contains: location, mode: 'insensitive' } } : {}),
+  };
+  const filters: Prisma.EquipmentWhereInput[] = [];
+  if (query) filters.push({ OR: [
+    { title: { contains: query, mode: 'insensitive' } },
+    { description: { contains: query, mode: 'insensitive' } },
+  ] });
+  if (minPrice !== undefined || maxPrice !== undefined) {
+    const rate = {
+      ...(minPrice !== undefined ? { gte: minPrice } : {}),
+      ...(maxPrice !== undefined ? { lte: maxPrice } : {}),
     };
-
+    filters.push({ OR: [{ dailyRate: rate }, { hourlyRate: rate }, { weeklyRate: rate }] });
+  }
+  if (filters.length) where.AND = filters;
+  try {
     const equipment = await db.equipment.findMany({
       where,
-      include: {
-        owner: {
-          select: {
-            id: true,
-            name: true,
-            image: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      include: { owner: { select: { id: true, name: true, image: true } } },
+      orderBy: { createdAt: 'desc' },
       take: 50,
     });
-
     return NextResponse.json({ equipment });
   } catch (error) {
-    console.error('Error fetching equipment:', error);
-    return NextResponse.json(
-      { message: 'Failed to fetch equipment' },
-      { status: 500 }
-    );
+    console.error('Equipment retrieval failed', error);
+    return NextResponse.json({ message: 'Unable to load equipment' }, { status: 500 });
   }
 }
 
