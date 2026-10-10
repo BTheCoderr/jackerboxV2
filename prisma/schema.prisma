@@ -155,10 +155,10 @@ model Message {
   content     String
   senderId    String
   recipientId String
-  equipmentId String
+  equipmentId String?
   bookingId   String?
   booking     Booking?  @relation(fields: [bookingId], references: [id])
-  equipment   Equipment @relation(fields: [equipmentId], references: [id])
+  equipment   Equipment? @relation(fields: [equipmentId], references: [id])
   recipient   User      @relation("ReceivedMessages", fields: [recipientId], references: [id])
   sender      User      @relation("SentMessages", fields: [senderId], references: [id])
 
