@@ -1,4 +1,5 @@
 import { Twilio } from 'twilio';
+import { randomInt } from 'node:crypto';
 import { sendSmsViaEmail } from './email-to-sms';
 
 // Initialize Twilio client
@@ -9,13 +10,12 @@ const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_T
     )
   : null;
 
-const VERIFICATION_CODE_EXPIRY = 10 * 60 * 1000; // 10 minutes in milliseconds
 
 /**
  * Generates a random 6-digit verification code
  */
 export function generateVerificationCode(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  return randomInt(100000, 1000000).toString();
 }
 
 /**

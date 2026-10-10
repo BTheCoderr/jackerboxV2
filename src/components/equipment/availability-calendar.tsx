@@ -5,7 +5,6 @@ import { Calendar, dateFnsLocalizer } from "react-big-calendar";
 import { format, parse, startOfWeek, getDay, addDays, addWeeks, addMonths, isSameDay, parseISO } from "date-fns";
 import { enUS } from "date-fns/locale";
 import "react-big-calendar/lib/css/react-big-calendar.css";
-import { toast } from 'sonner';
 
 // Set up the localizer for the calendar
 const locales = {

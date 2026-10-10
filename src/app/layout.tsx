@@ -12,7 +12,6 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import Script from 'next/script';
 import { InstallPrompt } from '@/components/pwa/InstallPrompt';
 import { SessionStateManager } from '@/lib/auth/session-fix';
-import { cn } from '@/lib/utils';
 import { ClientStatusIndicators } from '@/components/ClientStatusIndicators';
 import { ClientOnly } from "@/lib/utils/hydration-safe";
 import { Inter } from 'next/font/google';

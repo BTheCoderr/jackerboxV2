@@ -1,5 +1,4 @@
 // Mock implementation to replace Statsig
-import { FEATURE_FLAGS } from './statsig-config';
 
 // Mock StatsigUser type
 export type StatsigUser = {
