@@ -55,8 +55,8 @@ function createPrismaClient() {
     return client;
   } catch (error) {
     console.error("Failed to create Prisma client:", error);
-    // Return a mock client that returns empty data instead of crashing
-    return createMockPrismaClient();
+    // Never fake successful database operations when the real client fails.
+    throw error;
   }
 }
 
@@ -75,42 +75,6 @@ function isRetryableError(error: any): boolean {
     return true;
   }
   return false;
-}
-
-// Create a mock client for when the database is unavailable
-function createMockPrismaClient() {
-  console.warn("Using mock Prisma client due to database connection issues");
-  
-  const handler = {
-    get: (target: any, prop: string) => {
-      // Return empty arrays/objects for common methods
-      if (prop === '$connect' || prop === '$disconnect') {
-        return async () => {};
-      }
-      
-      // For all model operations, return an empty result proxy
-      return new Proxy({}, {
-        get: (target: any, operation: string) => {
-          // Handle common Prisma operations
-          if (['findMany', 'findFirst', 'findUnique', 'findFirstOrThrow', 'findUniqueOrThrow'].includes(operation)) {
-            return async () => operation.includes('Many') ? [] : null;
-          }
-          
-          if (['create', 'update', 'upsert'].includes(operation)) {
-            return async () => ({});
-          }
-          
-          if (['delete', 'deleteMany', 'updateMany', 'count'].includes(operation)) {
-            return async () => ({ count: 0 });
-          }
-          
-          return async () => null;
-        }
-      });
-    }
-  };
-  
-  return new Proxy({}, handler);
 }
 
 // Export only once

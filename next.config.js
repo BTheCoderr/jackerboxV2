@@ -12,6 +12,7 @@ const config = {
     // Dangerously allow production builds to successfully complete even if
     // your project has type errors.
     // !! WARN !!
+    // Existing type debt must be fixed before re-enabling blocking type checks.
     ignoreBuildErrors: true,
   },
   output: 'standalone',
@@ -130,21 +131,7 @@ const config = {
       },
     ];
   },
-  env: {
-    // Only explicitly list allowed environment variables
-    NEXT_PUBLIC_DISABLE_SOCKET: 'false',
-    NEXTAUTH_URL: 'http://localhost:3001',
-    NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
-    GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
-    GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
-    DATABASE_URL: process.env.DATABASE_URL,
-    // Upstash Redis configuration
-    KV_URL: process.env.KV_URL || 'rediss://default:AVL4AAIjcDExMjE2ZjY5ZTdmMmQ0NWI5OTg4YzNmYzU3NGEwNTdhYnAxMA@prime-ostrich-21240.upstash.io:6379',
-    KV_REST_API_TOKEN: process.env.KV_REST_API_TOKEN || 'AVL4AAIjcDExMjE2ZjY5ZTdmMmQ0NWI5OTg4YzNmYzU3NGEwNTdhYnAxMA',
-    KV_REST_API_READ_ONLY_TOKEN: process.env.KV_REST_API_READ_ONLY_TOKEN || 'AlL4AAIgcDG6Ii1i0y-BbpQgbe6Wwr6fZst5dlrMknb4_VXgvw9CGw',
-    KV_REST_API_URL: process.env.KV_REST_API_URL || 'https://prime-ostrich-21240.upstash.io',
-    REDIS_URL: process.env.REDIS_URL || 'rediss://default:AVL4AAIjcDExMjE2ZjY5ZTdmMmQ0NWI5OTg4YzNmYzU3NGEwNTdhYnAxMA@prime-ostrich-21240.upstash.io:6379',
-  },
+  // Secrets belong only in the hosting provider's server-side environment.
 };
 
 module.exports = config; 

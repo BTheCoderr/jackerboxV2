@@ -5,13 +5,7 @@
 [build.environment]
   NEXT_TELEMETRY_DISABLED = "1"
   NODE_VERSION = "20"
-  SECRETS_SCAN_ENABLED = "false"
-
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
-# Handle client-side routing
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
+# Next.js routes are handled by the Netlify Next.js runtime, not an SPA fallback.

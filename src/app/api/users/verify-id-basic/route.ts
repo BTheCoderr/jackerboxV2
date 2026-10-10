@@ -39,14 +39,14 @@ export async function POST(req: Request) {
       where: { id: user.id },
       data: {
         idDocumentType: documentType,
-        idVerificationStatus: verificationResult.needsManualReview ? "pending" : (verificationResult.isValid ? "approved" : "rejected"),
-        idVerified: verificationResult.isValid && !verificationResult.needsManualReview,
+        idVerificationStatus: verificationResult.isValid || verificationResult.needsManualReview ? "pending" : "rejected",
+        idVerified: false, // A user-submitted document is never proof of completed verification.
         idVerificationDate: new Date(),
       },
     });
     
     // If manual review is needed, create a notification for admins
-    if (verificationResult.needsManualReview) {
+    if (verificationResult.isValid || verificationResult.needsManualReview) {
       // Find admin users
       const admins = await db.user.findMany({
         where: { isAdmin: true },
@@ -74,7 +74,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       success: true,
       ...verificationResult,
-      status: verificationResult.needsManualReview ? "pending" : (verificationResult.isValid ? "approved" : "rejected"),
+      status: verificationResult.isValid || verificationResult.needsManualReview ? "pending" : "rejected",
     });
   } catch (error) {
     if (error instanceof z.ZodError) {

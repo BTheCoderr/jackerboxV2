@@ -16,6 +16,8 @@ export const fetchCache = 'force-no-store';
  */
 export async function GET(req: NextRequest) {
   const isDev = process.env.NODE_ENV === 'development';
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   // Set up SSE headers
   const responseHeaders = new Headers({
@@ -82,11 +84,14 @@ export async function OPTIONS(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
+    const user = await getCurrentUser();
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const body = await req.json().catch(() => ({}));
     const { clientId, action, topic, enabled } = body;
 
     // Handle debug mode toggle
     if (action === 'debug') {
+      if (!user.isAdmin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       if (typeof enabled === 'boolean') {
         const result = toggleDebugMode(enabled);
         return NextResponse.json({ success: true, debugMode: result });
@@ -119,6 +124,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: result, action, topic });
       
       case 'stats':
+        if (!user.isAdmin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         result = getStats();
         return NextResponse.json(result);
       
