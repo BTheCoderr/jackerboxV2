@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
 import { db } from '@/lib/db';
+import { Prisma } from '../../../../../prisma/generated/client';
 
 export async function POST(request: Request) {
   const signature = request.headers.get('stripe-signature');
@@ -18,7 +19,8 @@ export async function POST(request: Request) {
     if (event.type === 'payment_intent.succeeded') {
       const intent = event.data.object;
       const payment = await db.payment.findUnique({ where: { stripePaymentIntentId: intent.id } });
-      if (!payment || !payment.rentalId || payment.id !== intent.metadata.paymentId) {
+      if (!payment || !payment.rentalId || payment.id !== intent.metadata.paymentId ||
+          payment.rentalId !== intent.metadata.rentalId) {
         // An unknown payment should not be falsely marked as completed.
         throw new Error('Payment record missing or metadata mismatch');
       }
@@ -74,11 +76,11 @@ export async function POST(request: Request) {
           data: { status: 'PAID' },
         });
         if (result.count !== 1) throw new Error('Rental state changed during payment confirmation');
-      });
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     } else if (event.type === 'payment_intent.payment_failed') {
       const intent = event.data.object;
       const payment = await db.payment.findUnique({ where: { stripePaymentIntentId: intent.id } });
-      if (payment && payment.status !== 'COMPLETED') {
+      if (payment && payment.status === 'PENDING') {
         await db.$transaction(async (tx) => {
           await tx.payment.update({ where: { id: payment.id }, data: {
             status: 'FAILED', failedAt: new Date(), blockReason: intent.last_payment_error?.message,
