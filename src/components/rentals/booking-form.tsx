@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useRouter } from "next/navigation";
-import { Equipment } from "@prisma/client";
+import type { Equipment } from "../../../prisma/generated/client";
 import { formatCurrency, formatDateRange } from "@/lib/utils/format";
 import { differenceInDays, differenceInHours, addDays } from "date-fns";
 
