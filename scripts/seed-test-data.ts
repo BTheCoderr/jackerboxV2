@@ -1,19 +1,10 @@
-import { PrismaClient, ModerationStatus } from '@prisma/client';
+import { PrismaClient, ModerationStatus, RentalStatus } from '../prisma/generated/client';
 import { hash } from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
-// Define RentalStatus constants instead of enum
-const RentalStatus = {
-  PENDING: 'PENDING',
-  APPROVED: 'APPROVED',
-  ACTIVE: 'ACTIVE',
-  COMPLETED: 'COMPLETED',
-  CANCELED: 'CANCELED',
-  DISPUTED: 'DISPUTED'
-} as const;
-
 async function main() {
+  if (process.env.NODE_ENV === 'production') throw new Error('Demo data seeding is disabled in production');
   console.log('🌱 Starting to seed test data...');
 
   // Clean up existing data (optional - comment out if you want to keep existing data)
@@ -406,7 +397,7 @@ async function main() {
     data: {
       startDate: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000), // 20 days ago
       endDate: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000), // 15 days ago
-      status: RentalStatus.CANCELED,
+      status: RentalStatus.CANCELLED,
       totalPrice: 95, // Added required field
       securityDeposit: 1200,
       equipmentId: videoCamera.id,
