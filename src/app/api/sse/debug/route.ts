@@ -1,38 +1,18 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
+import { getCurrentUser } from '@/lib/auth/auth-utils';
 import { toggleDebugMode, getDebugMode } from '@/lib/sse/sse-manager';
 
 export const dynamic = 'force-dynamic';
-export const runtime = 'nodejs';
 
-/**
- * Get current debug mode status
- */
-export async function GET(req: NextRequest) {
-  try {
-    const debugMode = getDebugMode();
-    return NextResponse.json({ debugMode });
-  } catch (error) {
-    console.error('Error getting SSE debug mode:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
+export async function GET() {
+  const user = await getCurrentUser();
+  if (!user?.isAdmin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  return NextResponse.json({ debugMode: getDebugMode() });
 }
-
-/**
- * Toggle debug mode
- */
-export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json().catch(() => ({}));
-    const { enabled } = body;
-
-    if (typeof enabled !== 'boolean') {
-      return NextResponse.json({ error: 'Enabled parameter must be a boolean' }, { status: 400 });
-    }
-
-    const result = toggleDebugMode(enabled);
-    return NextResponse.json({ success: true, debugMode: result });
-  } catch (error) {
-    console.error('Error toggling SSE debug mode:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
-} 
+export async function POST(req: Request) {
+  const user = await getCurrentUser();
+  if (!user?.isAdmin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  const data = await req.json().catch(() => null);
+  if (!data || typeof data.enabled !== 'boolean') return NextResponse.json({ error: 'Boolean enabled required' }, { status: 400 });
+  return NextResponse.json({ debugMode: toggleDebugMode(data.enabled) });
+}

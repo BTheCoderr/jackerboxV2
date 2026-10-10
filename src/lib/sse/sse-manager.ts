@@ -183,6 +183,10 @@ export function removeClient(clientId: string): boolean {
 /**
  * Subscribe a client to a topic
  */
+export function isSSEClientOwnedBy(clientId: string, userId: string): boolean {
+  return clients.get(clientId)?.userId === userId;
+}
+
 export function subscribe(clientId: string, topic: string): boolean {
   try {
     if (!clients.has(clientId)) {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSSEConnection, subscribe, unsubscribe, getStats, toggleDebugMode } from '@/lib/sse/sse-manager';
+import { createSSEConnection, subscribe, unsubscribe, getStats, toggleDebugMode, isSSEClientOwnedBy } from '@/lib/sse/sse-manager';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth-options';
 import { getCurrentUser } from '@/lib/auth/session';
@@ -99,11 +99,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Action is required' }, { status: 400 });
     }
 
+    if (typeof clientId !== 'string' || !isSSEClientOwnedBy(clientId, user.id)) {
+      return NextResponse.json({ error: 'SSE connection not found or not owned by this user' }, { status: 403 });
+    }
+
     // Topic is required for subscribe/unsubscribe
     if ((action === 'subscribe' || action === 'unsubscribe') && !topic) {
       return NextResponse.json({ error: 'Topic is required' }, { status: 400 });
     }
 
+    if (typeof topic !== 'string' && (action === 'subscribe' || action === 'unsubscribe')) {
+      return NextResponse.json({ error: 'Invalid topic' }, { status: 400 });
+    }
+    if ((action === 'subscribe' || action === 'unsubscribe') &&
+        !user.isAdmin && topic !== `user:${user.id}` && !topic.startsWith('public:')) {
+      return NextResponse.json({ error: 'Cannot subscribe to a restricted topic' }, { status: 403 });
+    }
     let result;
     switch (action) {
       case 'subscribe':
@@ -127,7 +138,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ 
       error: 'Internal server error',
       code: 'INTERNAL_ERROR',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: 'Request failed'
     }, { status: 500 });
   }
 } 
