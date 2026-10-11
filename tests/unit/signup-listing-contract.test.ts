@@ -38,3 +38,21 @@ describe('JackerBox signup and listing regression contracts', () => {
     expect(oldForm).toContain('return null;');
   });
 });
+
+
+describe('Rental booking quote consistency', () => {
+  test('the client reuses the server pricing function instead of duplicating it', () => {
+    const form = read('src/components/rentals/booking-form.tsx');
+    const route = read('src/app/api/rentals/route.ts');
+    expect(form).toContain('calculateRentalPrice(rate, start, end, rentalType)');
+    expect(route).toContain('calculateRentalPrice(rate, start, end, rentalType)');
+    expect(form).not.toContain('Math.ceil(days / 7)');
+    expect(form).toContain('setTotalPrice(null)');
+  });
+
+  test('the renter cannot set the charged amount in the booking request', () => {
+    const form = read('src/components/rentals/booking-form.tsx');
+    expect(form).toContain('rentalType: data.rentalType');
+    expect(form).not.toContain('totalPrice: totalPrice');
+  });
+});
