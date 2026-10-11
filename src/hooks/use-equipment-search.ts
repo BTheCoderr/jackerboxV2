@@ -24,6 +24,7 @@ function useDebounce<T>(value: T, delay: number): T {
 export interface EquipmentSearchParams {
   query?: string;
   category?: string;
+  location?: string;
   subcategory?: string;
   lat?: number;
   lng?: number;
@@ -108,6 +109,7 @@ export function useEquipmentSearch(
     // Get parameters from URL
     const query = urlSearchParams.get('query');
     const category = urlSearchParams.get('category');
+    const location = urlSearchParams.get('location');
     const subcategory = urlSearchParams.get('subcategory');
     const lat = urlSearchParams.get('lat');
     const lng = urlSearchParams.get('lng');
@@ -121,6 +123,7 @@ export function useEquipmentSearch(
     // Set parameters if they exist in the URL
     if (query) params.query = query;
     if (category) params.category = category;
+    if (location) params.location = location;
     if (subcategory) params.subcategory = subcategory;
     if (lat) params.lat = parseFloat(lat);
     if (lng) params.lng = parseFloat(lng);
@@ -158,6 +161,7 @@ export function useEquipmentSearch(
     
     if (params.query) urlParams.set('query', params.query);
     if (params.category) urlParams.set('category', params.category);
+    if (params.location) urlParams.set('location', params.location);
     if (params.subcategory) urlParams.set('subcategory', params.subcategory);
     if (params.lat) urlParams.set('lat', params.lat.toString());
     if (params.lng) urlParams.set('lng', params.lng.toString());
