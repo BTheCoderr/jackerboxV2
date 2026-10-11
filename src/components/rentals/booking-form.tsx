@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import type { Equipment } from '@/lib/prisma-client';
 import { formatCurrency, formatDateRange } from "@/lib/utils/format";
 import { addDays } from "date-fns";
+import { calculateRentalPrice } from "@/lib/rentals/pricing";
 
 // The optional calendar widget shares its selection with this form.
 declare global {
@@ -136,29 +137,34 @@ export function BookingForm({ equipment }: BookingFormProps) {
     }
   }, [startDate, endDate]);
 
-  // Calculate total price when form values change
+  // Use exactly the same quote calculation as the server, including rounding.
+  // The server still recalculates the price from its stored equipment rates.
   useEffect(() => {
-    if (startDate && endDate) {
-      const start = new Date(startDate);
-      const end = new Date(endDate);
+    if (!startDate || !endDate) {
+      setTotalPrice(null);
+      return;
+    }
 
-      if (end > start) {
-        let price = 0;
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const rate = rentalType === "hourly" ? equipment.hourlyRate
+      : rentalType === "weekly" ? equipment.weeklyRate
+      : equipment.dailyRate;
 
-        if (rentalType === "hourly" && equipment.hourlyRate) {
-          const hours = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / 3600000));
-          price = hours * equipment.hourlyRate;
-        } else if (rentalType === "daily" && equipment.dailyRate) {
-          const days = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / 86400000));
-          price = days * equipment.dailyRate;
-        } else if (rentalType === "weekly" && equipment.weeklyRate) {
-          const days = Math.ceil((end.getTime() - start.getTime()) / 86400000);
-          const weeks = Math.max(1, Math.ceil(days / 7));
-          price = weeks * equipment.weeklyRate;
-        }
+    if (!rate || !Number.isFinite(start.getTime()) ||
+        !Number.isFinite(end.getTime()) || end <= start) {
+      setTotalPrice(null);
+      return;
+    }
 
-        setTotalPrice(price);
-      }
+    try {
+      setTotalPrice(calculateRentalPrice(rate, start, end, rentalType));
+    } catch {
+      setTotalPrice(null);
+    }
+  }, [startDate, endDate, rentalType, equipment.hourlyRate, equipment.dailyRate, equipment.weeklyRate]);
+
+  }
     }
   }, [startDate, endDate, rentalType, equipment]);
 
