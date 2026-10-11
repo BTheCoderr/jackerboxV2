@@ -10,7 +10,8 @@ import { EQUIPMENT_CATEGORIES, EQUIPMENT_CONDITIONS } from "@/lib/constants";
 import { useCloudinaryUpload } from "@/hooks/use-cloudinary-upload";
 
 // Minimum number of required images
-const MIN_REQUIRED_IMAGES = 5;
+const MIN_REQUIRED_IMAGES = 3;
+const MAX_ALLOWED_IMAGES = 5;
 
 const equipmentSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters"),
@@ -211,6 +212,12 @@ export function EquipmentForm({
     if (!e.target.files || e.target.files.length === 0) return;
     
     const newFiles = Array.from(e.target.files);
+    if (images.length + newFiles.length > MAX_ALLOWED_IMAGES) {
+      setError(`Upload no more than ${MAX_ALLOWED_IMAGES} photos in total.`);
+      e.target.value = "";
+      return;
+    }
+    setError(null);
     setIsLoading(true);
     
     try {
@@ -235,14 +242,20 @@ export function EquipmentForm({
           return result.secureUrl;
         } catch (error) {
           console.error(`Error uploading image ${index}:`, error);
-          // Return a placeholder image on error
-          return `https://source.unsplash.com/random/800x600?equipment,${index}`;
+          // Never substitute a random photo for equipment the owner has not uploaded.
+          return null;
         }
       });
       
-      const uploadedUrls = await Promise.all(uploadPromises);
-      
-      // Add the new images to the existing ones
+      const uploadResults = await Promise.all(uploadPromises);
+      const uploadedUrls = uploadResults.filter(
+        (url): url is string => typeof url === "string" && url.startsWith("https://")
+      );
+      if (uploadedUrls.length !== newFiles.length) {
+        setError(`${newFiles.length - uploadedUrls.length} photo(s) failed to upload. Try them again; no replacement images were added.`);
+      }
+
+      // Only persist real HTTPS uploads, never mocked or placeholder images.
       setImages(prev => [...prev, ...uploadedUrls]);
       setVerificationStatus({
         inProgress: false,
