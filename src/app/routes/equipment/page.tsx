@@ -1,8 +1,4 @@
-import { Suspense } from 'react';
 import { Metadata } from 'next';
-
-// Fix the import to use named import
-import { EquipmentGrid, EquipmentGridSkeleton } from '@/components/equipment';
 
 // Import the client component wrapper for EquipmentSearch
 import ClientEquipmentSearch from '@/components/search/ClientEquipmentSearch';
@@ -46,12 +42,7 @@ export default async function EquipmentPage({ searchParams }: EquipmentPageProps
       {/* Use the client wrapper component */}
       <ClientEquipmentSearch defaultValues={searchValues} />
       
-      {/* Render equipment grid with suspense */}
-      <div className="mt-8">
-        <Suspense fallback={<EquipmentGridSkeleton />}>
-          <EquipmentGrid />
-        </Suspense>
-      </div>
+    </div>
     </div>
   );
 } 
