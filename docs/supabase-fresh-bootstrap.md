@@ -53,6 +53,20 @@ and test-mode payment workflows have been verified.
 Supabase RLS reference:
 https://supabase.com/docs/guides/database/postgres/row-level-security
 
+## Registration rate limiting (configuration required)
+The signup route uses `@upstash/ratelimit` backed by a shared Redis instance.
+Configure `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` as
+Netlify **site secrets** in the deploy-preview Functions context.
+Legacy `KV_REST_API_URL` and `KV_REST_API_TOKEN` are also supported when
+already configured, but do not reuse any credential previously committed
+to Git. Old Redis tokens in source history must be revoked and replaced.
+
+Limits: 8 signup attempts per Netlify-reported client IP per hour, and
+3 per normalized email per hour. When the shared rate limiter is absent
+or unavailable, the endpoint returns 503 rather than silently allowing
+unlimited signups. Do not launch registration until these values are set
+and 429/503 behavior is tested in the preview.
+
 ## Netlify preview connection (NOT DONE)
 Netlify's site credentials were not changed by this database bootstrap.
 The preview is **not yet connected** to this Supabase project.
@@ -95,6 +109,7 @@ The preview is **not yet connected** to this Supabase project.
   and `npx prisma migrate deploy` is idempotent.
 - Server-side integration tests for signup, owner/listing/renter workflows pass.
 - Actual test-mode Stripe webhook, payment and refund flows pass.
+- Upstash Redis signup limiter configured with **new** credentials; old token rotated.
 - Identity provider callback URLs and secret rotation verified.
 - Only then merge/release PR #2; there is no automatic production publish here.
 
