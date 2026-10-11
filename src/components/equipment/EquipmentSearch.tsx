@@ -19,7 +19,6 @@ import {
   Loader2,
   MapPin,
   ArrowUpDown,
-  RadioTower
 } from "lucide-react";
 import Link from "next/link";
 import { 
@@ -43,27 +42,19 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Pagination } from "@/components/ui/pagination";
 import { Label } from "@/components/ui/label";
+import { EQUIPMENT_CATEGORIES as VALID_CATEGORIES } from "@/lib/constants";
 
-// Equipment categories for dropdown
+// Match the exact categories accepted by the listing API.
 const EQUIPMENT_CATEGORIES = [
   { value: "all", label: "All Categories" },
-  { value: "tools", label: "Tools" },
-  { value: "cameras", label: "Cameras" },
-  { value: "audio", label: "Audio Equipment" },
-  { value: "vehicles", label: "Vehicles" },
-  { value: "camping", label: "Camping" },
-  { value: "sports", label: "Sports & Recreation" },
-  { value: "electronics", label: "Electronics" },
-  { value: "party", label: "Party & Events" },
-  { value: "other", label: "Other" },
+  ...VALID_CATEGORIES.map(name => ({ value: name, label: name })),
 ];
 
 // Sort options
 const SORT_OPTIONS = [
   { value: "relevance", label: "Relevance" },
-  { value: "distance", label: "Distance (nearest)" },
-  { value: "price_asc", label: "Price (low to high)" },
-  { value: "price_desc", label: "Price (high to low)" },
+  { value: "price_asc", label: "Daily rate (low to high)" },
+  { value: "price_desc", label: "Daily rate (high to low)" },
   { value: "newest", label: "Newest first" },
 ];
 
@@ -155,8 +146,6 @@ export function EquipmentSearch() {
   // State for filters UI
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 500]);
-  const [useLocation, setUseLocation] = useState(false);
-  const [locationStatus, setLocationStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
 
   // Use our custom hook for equipment search
   const {
@@ -187,45 +176,10 @@ export function EquipmentSearch() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // Use browser geolocation
-  const handleLocationToggle = () => {
-    const newUseLocation = !useLocation;
-    setUseLocation(newUseLocation);
-    
-    if (newUseLocation) {
-      setLocationStatus("loading");
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          updateParams({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-            maxDistance: 50, // 50 km radius by default
-          });
-          setLocationStatus("success");
-        },
-        (error) => {
-          console.error("Geolocation error:", error);
-          setUseLocation(false);
-          setLocationStatus("error");
-        }
-      );
-    } else {
-      // Clear location params
-      updateParams({
-        lat: undefined,
-        lng: undefined,
-        maxDistance: undefined,
-      });
-      setLocationStatus("idle");
-    }
-  };
-
   // Clear all filters
   const handleClearFilters = () => {
     resetSearch();
     setPriceRange([0, 500]);
-    setUseLocation(false);
-    setLocationStatus("idle");
     setFiltersOpen(false);
   };
 
@@ -299,53 +253,19 @@ export function EquipmentSearch() {
                   />
                 </div>
                 
-                {/* Location based search */}
+                {/* Location text filtering works with existing listing city/state data.
+                    Distance searching will require geocoded listing coordinates. */}
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="location">Use My Location</Label>
-                    <Button
-                      id="location"
-                      variant={useLocation ? "default" : "outline"}
-                      size="sm"
-                      onClick={handleLocationToggle}
-                      disabled={locationStatus === "loading"}
-                      className="flex items-center gap-1"
-                    >
-                      {locationStatus === "loading" ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : useLocation ? (
-                        <RadioTower className="w-4 h-4" />
-                      ) : (
-                        <MapPin className="w-4 h-4" />
-                      )}
-                      {useLocation ? "Active" : "Off"}
-                    </Button>
-                  </div>
-                  
-                  {useLocation && locationStatus === "success" && (
-                    <div className="mt-2 space-y-2">
-                      <Label htmlFor="maxDistance">Maximum Distance (km)</Label>
-                      <Slider
-                        id="maxDistance"
-                        min={1}
-                        max={200}
-                        step={1}
-                        defaultValue={[searchParams.maxDistance || 50]}
-                        onValueChange={(value) => updateParams({ maxDistance: value[0] })}
-                      />
-                      <div className="text-sm text-right text-gray-500">
-                        {searchParams.maxDistance || 50} km
-                      </div>
-                    </div>
-                  )}
-                  
-                  {locationStatus === "error" && (
-                    <p className="text-sm text-red-500 mt-1">
-                      Unable to access your location. Please check your browser permissions.
-                    </p>
-                  )}
+                  <Label htmlFor="city-filter">City or state</Label>
+                  <Input
+                    id="city-filter"
+                    value={searchParams.location || ""}
+                    onChange={(event) => updateParams({ location: event.target.value })}
+                    placeholder="e.g. Providence, RI"
+                    maxLength={100}
+                  />
                 </div>
-                
+
                 {/* Sort options */}
                 <div className="space-y-2">
                   <Label htmlFor="sort">Sort Results</Label>
@@ -411,7 +331,7 @@ export function EquipmentSearch() {
         {(searchParams.category && searchParams.category !== "all" || 
           searchParams.priceMin || 
           searchParams.priceMax || 
-          useLocation) && (
+          searchParams.location) && (
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm text-gray-500">Active filters:</span>
             
@@ -438,20 +358,15 @@ export function EquipmentSearch() {
               </Badge>
             )}
             
-            {useLocation && (
+            {searchParams.location && (
               <Badge variant="secondary" className="flex items-center gap-1">
                 <MapPin className="w-3 h-3" />
-                Within {searchParams.maxDistance || 50}km
-                <X
-                  className="w-3 h-3 ml-1 cursor-pointer"
-                  onClick={() => {
-                    updateParams({ lat: undefined, lng: undefined, maxDistance: undefined });
-                    setUseLocation(false);
-                  }}
-                />
+                {searchParams.location}
+                <X className="w-3 h-3 ml-1 cursor-pointer"
+                  onClick={() => updateParams({ location: undefined })} />
               </Badge>
             )}
-            
+
             <Button
               variant="ghost"
               size="sm"
@@ -499,7 +414,7 @@ export function EquipmentSearch() {
           </div>
           
           {results.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" data-testid="equipment-grid">
               {results.map((equipment) => (
                 <EquipmentCard key={equipment.id} equipment={equipment} />
               ))}
