@@ -60,17 +60,30 @@ The preview is **not yet connected** to this Supabase project.
 1. In the Supabase dashboard, open **Connect** and copy the **actual**
    connection strings for this project. Never guess pooler hostname or
    paste passwords into Git, issues or chat.
-2. Set `DATABASE_URL` to a serverless-compatible pooled transaction connection
-   URI (Supavisor transaction mode, when supported by Prisma 6).
-3. Set `DIRECT_DATABASE_URL` to the Supabase direct/session connection URI
-   suitable for migrations. Check network IPv4/IPv6 compatibility.
-4. Add both to **Netlify site environment variables**, using the
-   `deploy-preview` context first; do not overwrite production variables.
+2. Set `DATABASE_URL` to the **transaction-pooling** URI from Supabase
+   Connect (port 6543), with `pgbouncer=true` added to its query parameters.
+   This disables prepared statements that the transaction pooler does not
+   support. If other query parameters are present, use `&pgbouncer=true`.
+   Do not guess the pooler hostname or password.
+3. Set `DIRECT_DATABASE_URL` to the **session pooler** URI (port 5432) from
+   Supabase Connect for migrations on IPv4-only hosts. A native direct URI
+   is also suitable when the executing host supports IPv6. Don't append
+   `pgbouncer=true` to the migrations URL.
+4. In Netlify `jackerbox` → **Project configuration → Environment variables**,
+   add both variables as **secret values scoped to deploy previews**, with
+   **Builds and Functions** scopes as required by the Next.js runtime.
+   Also set `JACKERBOX_SUPABASE_PROJECT_REF=gjqrubvipnhpnnpvodsv`
+   as a non-secret deploy-preview environment variable for the safety test.
+   Do not overwrite existing production variables or set them in GitHub.
 5. Keep `NEXTAUTH_SECRET` server-only, and configure the preview URL and
    OAuth redirects for the test environment. Rotate previously exposed secrets.
-6. Redeploy the preview to load changed environment variables, then verify
-   `GET /api/equipment`, registration/login, equipment write/read,
-   protected routes, and booking/rental operations against the **new project**.
+6. Trigger a **new deploy preview** after the environment changes.
+   Build-time and runtime secrets will not update in an already-built deploy.
+   With the preview environment loaded into a secure shell, run
+   `npm run db:verify:supabase` to check host identity, schema, RLS and
+   migration history without writing any data. Do not paste the script's
+   database URL into chat. Next, check `GET /api/equipment`, signup/login,
+   equipment write/read, protected routes, and booking/rental operations.
 7. Use Stripe **test mode only** for payment acceptance tests. Do not run live
    captures/refunds/payouts until explicitly verified.
 
@@ -87,3 +100,6 @@ The preview is **not yet connected** to this Supabase project.
 
 Supabase Prisma reference:
 https://supabase.com/docs/guides/database/prisma
+
+Supabase Prisma pooling troubleshooting:
+https://supabase.com/docs/guides/database/prisma/prisma-troubleshooting
