@@ -41,8 +41,6 @@ export default async function EquipmentPage({ searchParams }: EquipmentPageProps
       
       {/* Use the client wrapper component */}
       <ClientEquipmentSearch defaultValues={searchValues} />
-      
-    </div>
     </div>
   );
 } 
