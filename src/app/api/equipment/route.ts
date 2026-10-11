@@ -97,6 +97,16 @@ export async function POST(req: Request) {
   }
 }
 
+function parseStoredStrings(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  try {
+    const value: unknown = JSON.parse(raw);
+    return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
 export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
   const query = (params.get('query') ?? '').trim();
@@ -106,42 +116,84 @@ export async function GET(request: Request) {
   const maxRaw = params.get('priceMax') ?? params.get('maxPrice');
   const minPrice = minRaw == null || minRaw === '' ? undefined : Number(minRaw);
   const maxPrice = maxRaw == null || maxRaw === '' ? undefined : Number(maxRaw);
-  if (query.length > 120 || category.length > 80 || location.length > 100 ||
+  const pageRaw = Number(params.get('page') || '1');
+  const limitRaw = Number(params.get('limit') || '20');
+  const sortBy = params.get('sortBy') || 'relevance';
+  const validSort = ['relevance', 'newest', 'price_asc', 'price_desc'];
+
+  if (query.length > 120 || location.length > 100 ||
+      (category && category !== 'all' && !EQUIPMENT_CATEGORIES.includes(category)) ||
+      !Number.isSafeInteger(pageRaw) || pageRaw < 1 || pageRaw > 10000 ||
+      !Number.isSafeInteger(limitRaw) || limitRaw < 1 || limitRaw > 50 ||
+      !validSort.includes(sortBy) ||
       [minPrice, maxPrice].some(n => n !== undefined && (!Number.isFinite(n) || n < 0)) ||
       (minPrice !== undefined && maxPrice !== undefined && minPrice > maxPrice)) {
     return NextResponse.json({ message: 'Invalid search filters' }, { status: 400 });
   }
+
+  // Geographic-radius searching is not supported until listings store coordinates.
+  // Reject it instead of returning unfiltered results pretending they are nearby.
+  if (['lat', 'lng', 'maxDistance'].some(key => params.has(key))) {
+    return NextResponse.json({ message: 'Distance filtering is not available yet. Search by city instead.' }, { status: 400 });
+  }
+
   const where: Prisma.EquipmentWhereInput = {
     moderationStatus: 'APPROVED',
     isAvailable: true,
-    ...(category ? { category } : {}),
+    ...(category && category !== 'all' ? { category } : {}),
     ...(location ? { location: { contains: location, mode: 'insensitive' } } : {}),
   };
+
   const filters: Prisma.EquipmentWhereInput[] = [];
-  if (query) filters.push({ OR: [
-    { title: { contains: query, mode: 'insensitive' } },
-    { description: { contains: query, mode: 'insensitive' } },
-  ] });
+  if (query) {
+    filters.push({ OR: [
+      { title: { contains: query, mode: 'insensitive' } },
+      { description: { contains: query, mode: 'insensitive' } },
+    ] });
+  }
   if (minPrice !== undefined || maxPrice !== undefined) {
-    const rate = {
+    const range = {
       ...(minPrice !== undefined ? { gte: minPrice } : {}),
       ...(maxPrice !== undefined ? { lte: maxPrice } : {}),
     };
-    filters.push({ OR: [{ dailyRate: rate }, { hourlyRate: rate }, { weeklyRate: rate }] });
+    filters.push({ OR: [{ dailyRate: range }, { hourlyRate: range }, { weeklyRate: range }] });
   }
   if (filters.length) where.AND = filters;
+
+  const orderBy: Prisma.EquipmentOrderByWithRelationInput[] =
+    sortBy === 'price_asc' ? [{ dailyRate: { sort: 'asc', nulls: 'last' } }, { createdAt: 'desc' }] :
+    sortBy === 'price_desc' ? [{ dailyRate: { sort: 'desc', nulls: 'last' } }, { createdAt: 'desc' }] :
+    [{ createdAt: 'desc' }];
+
   try {
-    const equipment = await db.equipment.findMany({
-      where,
-      include: { owner: { select: { id: true, name: true, image: true } } },
-      orderBy: { createdAt: 'desc' },
-      take: 50,
+    const [total, rows] = await Promise.all([
+      db.equipment.count({ where }),
+      db.equipment.findMany({
+        where,
+        include: { owner: { select: { id: true, name: true, image: true } } },
+        orderBy,
+        take: limitRaw,
+        skip: (pageRaw - 1) * limitRaw,
+      }),
+    ]);
+    const equipment = rows.map(item => ({
+      ...item,
+      images: parseStoredStrings(item.imagesJson),
+      tags: parseStoredStrings(item.tagsJson),
+    }));
+    return NextResponse.json({
+      equipment,
+      pagination: {
+        total,
+        page: pageRaw,
+        limit: limitRaw,
+        pages: Math.ceil(total / limitRaw),
+      },
     });
-    return NextResponse.json({ equipment });
   } catch (error) {
     console.error('Equipment retrieval failed', error);
     return NextResponse.json({ message: 'Unable to load equipment' }, { status: 500 });
   }
 }
 
-export const dynamic = 'force-dynamic'; 
+export const dynamic = 'force-dynamic';
