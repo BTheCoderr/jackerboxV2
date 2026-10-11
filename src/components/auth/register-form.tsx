@@ -44,6 +44,7 @@ export function RegisterForm() {
   });
   
   const onSubmit = async (data: RegisterFormValues) => {
+    let accountCreated = false;
     setIsLoading(true);
     setError(null);
     
@@ -54,35 +55,45 @@ export function RegisterForm() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          name: data.name,
-          email: data.email,
-          phone: data.phone,
+          name: data.name.trim(),
+          email: data.email.trim().toLowerCase(),
+          phone: data.phone?.trim() || undefined,
           password: data.password,
           userType: data.userType,
         }),
       });
       
-      const responseData = await response.json();
+      const responseData = await response.json().catch(() => ({}));
       
       if (!response.ok) {
         throw new Error(responseData.message || "Failed to register");
       }
       
-      // Sign in the user after successful registration
-      await signIn("credentials", {
-        email: data.email,
+      accountCreated = true;
+
+      // Do not show the dashboard unless authentication actually succeeded.
+      // Credentials failures can happen after account creation due to auth setup.
+      const signInResult = await signIn("credentials", {
+        email: data.email.trim().toLowerCase(),
         password: data.password,
         redirect: false,
       });
-      
-      router.push("/");
+
+      if (!signInResult?.ok || signInResult.error) {
+        router.replace("/auth/login?registered=1");
+        return;
+      }
+
+      router.replace("/routes/dashboard");
       router.refresh();
     } catch (error) {
-      if (error instanceof Error) {
-        setError(error.message);
-      } else {
-        setError("Something went wrong. Please try again.");
-      }
+      setError(
+        accountCreated
+          ? "Your account was created, but automatic sign-in failed. Please use Log in below."
+          : error instanceof Error
+            ? error.message
+            : "Something went wrong. Please try again."
+      );
     } finally {
       setIsLoading(false);
     }
