@@ -27,6 +27,7 @@ export function EquipmentGrid() {
       try {
         const response = await fetch('/api/equipment');
         const data = await response.json();
+        if (!response.ok || !Array.isArray(data.equipment)) throw new Error('Unable to load equipment');
         setEquipment(data.equipment);
       } catch (error) {
         console.error('Error fetching equipment:', error);
@@ -59,7 +60,7 @@ export function EquipmentGrid() {
         return (
           <Link
             key={item.id}
-            href={`/equipment/${item.id}`}
+            href={`/routes/equipment/${item.id}`}
             className="group block bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md hover:border-jacker-blue transition-all"
             data-testid={`equipment-item-${item.id}`}
           >
