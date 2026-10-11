@@ -31,36 +31,24 @@ entries, and the current phone-OTP, message-recipient and payment metadata
 columns. Do not run `prisma db push --force-reset`, `prisma migrate reset`,
 or any destructive migration on a hosted database.
 
-## Access control BLOCKER (approval required)
-Supabase's built-in `anon` and `authenticated` roles currently inherit
-access to new public-schema tables, including `User`, `Payment` and `Message`.
-There are no customer records yet, but do **not** accept signups or payments
-until database access has been locked down and validated.
+## Access control completed and verified
+Supabase project `gjqrubvipnhpnnpvodsv` has had the server-only access
+policy applied as a tracked Supabase migration named
+`jackerbox_server_only_rls_and_api_role_lockdown`.
 
-Recommended initial policy for the existing Prisma/NextAuth architecture:
-server-side access only; no direct Supabase Data API access from the browser.
-After owner approval, enable RLS on **all** JackerBox public tables and revoke
-direct privileges from `anon` and `authenticated`. No direct-client policies
-are needed unless a future feature intentionally calls Supabase from the client.
+Verified after migration:
+- All 20 public-schema tables have RLS enabled.
+- Zero tables remain with RLS disabled.
+- Neither the `anon` nor `authenticated` Supabase API role has data
+  privileges (SELECT / INSERT / UPDATE / DELETE) on those tables.
+- The existing `postgres` backend database role retains read access to all 20.
+- No client-facing RLS policies have been added. Supabase's remaining
+  informational `rls_enabled_no_policy` notices are intentional for this
+  Prisma/NextAuth server-only architecture.
 
-Proposed SQL (do not run before owner approval):
-
-```sql
-DO $$
-DECLARE t record;
-BEGIN
-  FOR t IN SELECT tablename FROM pg_tables WHERE schemaname = 'public'
-  LOOP
-    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t.tablename);
-    EXECUTE format('REVOKE ALL ON TABLE public.%I FROM anon, authenticated', t.tablename);
-  END LOOP;
-END $$;
-```
-
-After applying, verify there are zero public tables with RLS disabled, verify
-`anon` and `authenticated` cannot SELECT private tables, and confirm the
-backend Prisma database role still has access. Do not introduce `USING (true)`
-policies on user, identity, messaging, rental or payment tables.
+The Netlify runtime/database connection is NOT YET configured or tested.
+Do not publish the new environment until credentials, runtime DB operations,
+and test-mode payment workflows have been verified.
 
 Supabase RLS reference:
 https://supabase.com/docs/guides/database/postgres/row-level-security
@@ -87,7 +75,7 @@ The preview is **not yet connected** to this Supabase project.
    captures/refunds/payouts until explicitly verified.
 
 ## Release gates
-- Supabase access controls and security advisor findings resolved.
+- Supabase public-table RLS and API role privileges secured and verified. The `rls_enabled_no_policy` informational findings are expected.
 - Netlify preview database URLs point at this specific project and are isolated
   from production.
 - `npx prisma migrate status` against that URL reports no pending migration,
