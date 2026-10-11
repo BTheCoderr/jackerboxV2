@@ -58,7 +58,8 @@
     "test:security": "npm audit && snyk test || true",
     "test:all": "npm run test:unit && npm run test:integration && npm run test:e2e",
     "test:smoke": "npm run test-full",
-    "test:critical": "npm run test:unit && npm run test:smoke"
+    "test:critical": "npm run test:unit && npm run test:smoke",
+    "db:verify:supabase": "prisma generate && node scripts/verify-supabase-preview.mjs"
   },
   "dependencies": {
     "@arcjet/next": "^1.0.0-beta.2",
