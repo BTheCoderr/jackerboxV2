@@ -1,5 +1,5 @@
 [build]
-  command = "npx prisma generate --schema=./prisma/schema.prisma && npm run build"
+  command = "node scripts/assert-netlify-build.mjs && npx prisma generate --schema=./prisma/schema.prisma && npm run build"
   publish = ".next"
 
 [build.environment]
