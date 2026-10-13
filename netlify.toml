@@ -17,3 +17,13 @@
 
 [context.branch-deploy]
   command = "node scripts/assert-staging-env.mjs && npx prisma generate --schema=./prisma/schema.prisma && npm run build"
+
+# Non-secret markers are pinned in source rather than dependent on Netlify UI
+# variable creation, which could not be confirmed via the connected API.
+[context.deploy-preview.environment]
+  JACKERBOX_SUPABASE_PROJECT_REF = "gjqrubvipnhpnnpvodsv"
+  NEXT_PUBLIC_JACKERBOX_STAGING_PREVIEW = "true"
+
+[context.branch-deploy.environment]
+  JACKERBOX_SUPABASE_PROJECT_REF = "gjqrubvipnhpnnpvodsv"
+  NEXT_PUBLIC_JACKERBOX_STAGING_PREVIEW = "true"
