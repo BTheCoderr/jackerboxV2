@@ -164,10 +164,6 @@ export function BookingForm({ equipment }: BookingFormProps) {
     }
   }, [startDate, endDate, rentalType, equipment.hourlyRate, equipment.dailyRate, equipment.weeklyRate]);
 
-  }
-    }
-  }, [startDate, endDate, rentalType, equipment]);
-
   const onSubmit = async (data: BookingFormValues) => {
     setIsLoading(true);
     setError(null);
