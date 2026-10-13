@@ -19,6 +19,12 @@ describe('JackerBox preview runtime freeze', () => {
     expect(isStagingPreviewBlocked('deploy-preview-2--jackerbox.netlify.app', 'true', 'true')).toBe(false);
   });
 
+  test('independent staging site and deploy aliases remain closed until approved', () => {
+    expect(isStagingPreviewBlocked('jackerbox-staging.netlify.app', undefined, undefined)).toBe(true);
+    expect(isStagingPreviewBlocked('abc123--jackerbox-staging.netlify.app', undefined, undefined)).toBe(true);
+    expect(isStagingPreviewBlocked('jackerbox-staging.netlify.app', undefined, 'true')).toBe(false);
+  });
+
   test('normal production host is unaffected', () => {
     expect(isStagingPreviewBlocked('jackerbox.app', undefined, undefined)).toBe(false);
     expect(isStagingPreviewBlocked('main--jackerbox.netlify.app', undefined, undefined)).toBe(false);
