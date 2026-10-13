@@ -67,9 +67,9 @@ or unavailable, the endpoint returns 503 rather than silently allowing
 unlimited signups. Do not launch registration until these values are set
 and 429/503 behavior is tested in the preview.
 
-## Netlify preview connection (NOT DONE)
+## Netlify preview connection (BLOCKED ON ISOLATED CREDENTIALS)
 Netlify's site credentials were not changed by this database bootstrap.
-The preview is **not yet connected** to this Supabase project.
+A PR #2 deploy-preview URL exists, but **the preview runtime is not yet connected to this Supabase project** and is not approved for rental/payment testing. Netlify SSO currently protects non-production access. New preview builds intentionally fail closed until the staging credentials are configured and reviewed. Runtime requests also fail closed with HTTP 503 when the preview is not approved.
 
 1. In the Supabase dashboard, open **Connect** and copy the **actual**
    connection strings for this project. Never guess pooler hostname or
@@ -86,22 +86,24 @@ The preview is **not yet connected** to this Supabase project.
 4. In Netlify `jackerbox` → **Project configuration → Environment variables**,
    add both variables as **secret values scoped to deploy previews**, with
    **Builds and Functions** scopes as required by the Next.js runtime.
-   Also set `JACKERBOX_SUPABASE_PROJECT_REF=gjqrubvipnhpnnpvodsv`
-   as a non-secret deploy-preview environment variable for the safety test.
+   The non-secret `JACKERBOX_SUPABASE_PROJECT_REF=gjqrubvipnhpnnpvodsv` value and preview identification marker are already pinned for non-production builds in `netlify.toml`. Do not try to create duplicate values through the Netlify UI.
    Do not overwrite existing production variables or set them in GitHub.
-5. Keep `NEXTAUTH_SECRET` server-only, and configure the preview URL and
-   OAuth redirects for the test environment. Rotate previously exposed secrets.
-6. Trigger a **new deploy preview** after the environment changes.
+5. Create a fresh, preview-only `NEXTAUTH_SECRET`, and override `NEXTAUTH_URL` with the actual deploy-preview hostname. Configure separate test OAuth redirect URLs. Rotate previously exposed secrets. Shared `all`-context provider settings are not staging isolation: scope test-only Stripe and storage/communications services to `deploy-preview`, or disable those integrations until isolated.
+6. Configure a preview-only Stripe `sk_test_...` secret and matching `pk_test_...` publishable key, a webhook `whsec_...` secret for the preview endpoint, and a fresh shared Redis instance for `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`. Set `JACKERBOX_STAGING_READY=true` in **deploy-preview only** after an operator verifies all staging service isolation. Do not set this flag to bypass a failing build.
+7. Trigger a **new deploy preview** after the environment changes.
    Build-time and runtime secrets will not update in an already-built deploy.
    With the preview environment loaded into a secure shell, run
    `npm run db:verify:supabase` to check host identity, schema, RLS and
    migration history without writing any data. Do not paste the script's
    database URL into chat. Next, check `GET /api/equipment`, signup/login,
    equipment write/read, protected routes, and booking/rental operations.
-7. Use Stripe **test mode only** for payment acceptance tests. Do not run live
+8. Use Stripe **test mode only** for payment acceptance tests. Do not run live
    captures/refunds/payouts until explicitly verified.
 
 ## Release gates
+- The legacy published production site remains unchanged; do not merge or promote the repair branch while checks are incomplete.
+- CI on the repair PR must pass `staging-preview.test.ts` and `staging-env-guard.test.mjs` as well as the migration/build/security gates.
+
 - Supabase public-table RLS and API role privileges secured and verified. The `rls_enabled_no_policy` informational findings are expected.
 - Netlify preview database URLs point at this specific project and are isolated
   from production.
