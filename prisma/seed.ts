@@ -1,9 +1,10 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from './generated/client';
 import { hash } from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
 async function main() {
+  if (process.env.NODE_ENV === 'production') throw new Error('Demo data seeding is disabled in production');
   // Clear existing data
   await prisma.equipment.deleteMany();
   await prisma.user.deleteMany();

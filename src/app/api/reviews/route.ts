@@ -67,7 +67,7 @@ export async function POST(req: Request) {
         );
       }
       
-      if (rental.status !== "Completed") {
+      if (rental.status !== "COMPLETED") {
         return NextResponse.json(
           { message: "You can only review completed rentals" },
           { status: 400 }

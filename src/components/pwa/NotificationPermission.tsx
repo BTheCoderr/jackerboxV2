@@ -9,11 +9,16 @@ export function NotificationPermission() {
   const [showPrompt, setShowPrompt] = useState(false);
   const [permissionState, setPermissionState] = useState<NotificationPermission | null>(null);
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
+    if (localStorage.getItem('notification-prompt-dismissed') === 'true') {
+      setDismissed(true);
+      return undefined;
+    }
     // Check if the browser supports notifications
     if (!('Notification' in window)) {
-      return;
+      return undefined;
     }
 
     // Get the current permission state
@@ -37,6 +42,7 @@ export function NotificationPermission() {
 
       return () => clearTimeout(timer);
     }
+    return undefined;
   }, []);
 
   const requestPermission = async () => {
@@ -67,12 +73,13 @@ export function NotificationPermission() {
     setShowPrompt(false);
     // Remember that the user dismissed the prompt
     localStorage.setItem('notification-prompt-dismissed', 'true');
+    setDismissed(true);
   };
 
   // Don't show if the prompt was previously dismissed or permission is already set
   // or if already subscribed to push notifications
   if (!showPrompt || 
-      localStorage.getItem('notification-prompt-dismissed') === 'true' || 
+      dismissed || 
       permissionState === 'granted' || 
       permissionState === 'denied' ||
       isSubscribed) {

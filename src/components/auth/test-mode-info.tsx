@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { isTestMode, TEST_PHONE_NUMBERS, TEST_VERIFICATION_CODE } from '@/lib/test-utils';
+import { TEST_PHONE_NUMBERS, TEST_VERIFICATION_CODE } from '@/lib/test-utils';
 
 export function TestModeInfo() {
   const [showTestInfo, setShowTestInfo] = useState(false);
@@ -10,8 +10,7 @@ export function TestModeInfo() {
     // Only show in non-production environments
     setShowTestInfo(
       typeof window !== 'undefined' && 
-      (process.env.NODE_ENV !== 'production' || 
-       process.env.NEXT_PUBLIC_TEST_MODE === 'true')
+      (process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_TEST_MODE === 'true')
     );
   }, []);
   

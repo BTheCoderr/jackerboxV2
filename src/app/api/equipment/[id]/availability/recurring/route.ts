@@ -2,14 +2,6 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/auth-utils";
-import { PaperclipIcon } from 'lucide-react';
-
-// Define a type for date ranges
-interface DateRange {
-  startDate: Date;
-  endDate: Date;
-}
-
 
 // Define a type for date ranges
 interface DateRange {
@@ -20,9 +12,9 @@ interface DateRange {
 // Schema for creating recurring availability
 const recurringAvailabilitySchema = z.object({
   dates: z.array(z.object({
-    startDate: z.date(),
-    endDate: z.date(),
-  })),
+    startDate: z.coerce.date(),
+    endDate: z.coerce.date(),
+  })).min(1).max(90),
   recurrenceType: z.enum(["daily", "weekly", "monthly"]),
   recurrenceInterval: z.number().min(1),
   recurrenceEndDate: z.string().refine((val) => {
@@ -35,7 +27,7 @@ const recurringAvailabilitySchema = z.object({
 // POST endpoint to add recurring availability periods
 export async function POST(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await getCurrentUser();
@@ -47,21 +39,7 @@ export async function POST(
       );
     }
     
-    // Check if user is a renter (has rental history)
-    const userRentals = await db.rental.count({
-      where: {
-        renterId: user.id
-      }
-    });
-    
-    if (userRentals > 0) {
-      return NextResponse.json(
-        { message: "Renters cannot manage equipment. Please use a separate owner account." },
-        { status: 403 }
-      );
-    }
-    
-    const equipmentId = await Promise.resolve(params.id);
+    const equipmentId = (await params).id;
     
     // Check if equipment exists and user is the owner
     const equipment = await db.equipment.findUnique({
@@ -104,7 +82,7 @@ export async function POST(
         where: {
           equipmentId,
           status: {
-            in: ["Pending", "Approved"],
+            in: ["PENDING", "PAID", "ACTIVE"],
           },
           OR: [
             {

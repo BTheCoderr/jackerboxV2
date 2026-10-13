@@ -1,40 +1,18 @@
-import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { NextRequest, NextResponse } from 'next/server';
+import { POST as sendMessage } from '../route';
 
-export async function POST(req: Request) {
-  try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user) {
-      return new NextResponse('Unauthorized', { status: 401 });
-    }
-
-    const body = await req.json();
-    const { recipientId, equipmentId, message } = body;
-
-    if (!recipientId || !equipmentId || !message) {
-      return new NextResponse('Missing required fields', { status: 400 });
-    }
-
-    const newMessage = await prisma.message.create({
-      data: {
-        senderId: session.user.id,
-        recipientId,
-        equipmentId,
-        content: message,
-      },
-    });
-
-    // Notify recipient through WebSocket if online
-    // This will be handled by the socket server
-
-    return NextResponse.json(newMessage);
-  } catch (error) {
-    console.error('Error creating message:', error);
-    return new NextResponse('Internal Server Error', { status: 500 });
-  }
+export async function POST(req: NextRequest) {
+  const data = await req.json().catch(() => null);
+  if (!data) return NextResponse.json({ message: 'Invalid message request' }, { status: 400 });
+  const adapted = new NextRequest(req.url, {
+    method: 'POST',
+    headers: req.headers,
+    body: JSON.stringify({
+      equipmentId: data.equipmentId,
+      recipientId: data.recipientId,
+      content: data.message,
+    }),
+  });
+  return sendMessage(adapted);
 }
-
-export const dynamic = 'force-dynamic'; 
+export const dynamic = 'force-dynamic';

@@ -5,9 +5,7 @@ import { db } from "@/lib/db";
 import { ReviewForm } from "@/components/reviews/review-form";
 
 interface RentalReviewPageProps {
-  params: {
-    id: string;
-  };
+  params: Promise<{ id: string }>;
 }
 
 export default async function RentalReviewPage({ params }: RentalReviewPageProps) {
@@ -20,7 +18,7 @@ export default async function RentalReviewPage({ params }: RentalReviewPageProps
   // Fetch the rental with equipment details
   const rental = await db.rental.findUnique({
     where: {
-      id: params.id,
+      id: (await params).id,
       renterId: user.id, // Ensure the user is the renter
     },
     include: {
@@ -46,20 +44,20 @@ export default async function RentalReviewPage({ params }: RentalReviewPageProps
   }
   
   // Check if the rental is completed
-  if (rental.status !== "Completed") {
-    redirect(`/routes/rentals/${params.id}`);
+  if (rental.status !== "COMPLETED") {
+    redirect(`/routes/rentals/${(await params).id}`);
   }
   
   // Check if the user has already reviewed this rental
   const existingReview = await db.review.findFirst({
     where: {
-      rentalId: params.id,
+      rentalId: (await params).id,
       authorId: user.id,
     },
   });
   
   if (existingReview) {
-    redirect(`/routes/rentals/${params.id}`);
+    redirect(`/routes/rentals/${(await params).id}`);
   }
   
   // Parse equipment images
@@ -75,7 +73,7 @@ export default async function RentalReviewPage({ params }: RentalReviewPageProps
     <div className="max-w-3xl mx-auto px-4 py-8">
       <div className="mb-6">
         <Link
-          href={`/routes/rentals/${params.id}`}
+          href={`/routes/rentals/${(await params).id}`}
           className="text-blue-500 hover:underline flex items-center"
         >
           <svg

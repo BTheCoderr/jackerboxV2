@@ -29,7 +29,7 @@ interface ReviewListProps {
   onReviewUpdated?: () => void;
 }
 
-export function ReviewList({ reviews, isOwner = false, currentUserId, onReviewUpdated }: ReviewListProps) {
+export function ReviewList({ reviews, isOwner = false, currentUserId: _currentUserId, onReviewUpdated }: ReviewListProps) {
   const [expandedReviews, setExpandedReviews] = useState<Record<string, boolean>>({});
   const [respondingTo, setRespondingTo] = useState<string | null>(null);
   

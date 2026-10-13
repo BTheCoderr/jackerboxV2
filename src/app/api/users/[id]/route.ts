@@ -3,8 +3,8 @@ import { getCurrentUser } from "@/lib/auth/auth-utils";
 import { db } from "@/lib/db";
 
 export async function GET(
-  req: Request,
-  { params }: { params: { id: string } }
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const currentUser = await getCurrentUser();
@@ -16,7 +16,7 @@ export async function GET(
       );
     }
     
-    const userId = params.id;
+    const userId = (await params).id;
     
     const user = await db.user.findUnique({
       where: { id: userId },

@@ -1,14 +1,25 @@
 import Stripe from 'stripe';
 
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error('STRIPE_SECRET_KEY is not defined');
+let stripeClient: Stripe | undefined;
+
+function getStripeClient(): Stripe {
+  if (stripeClient) return stripeClient;
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) throw new Error('Stripe payments are not configured on this server');
+  stripeClient = new Stripe(key, {
+    apiVersion: '2025-02-24.acacia' as Stripe.LatestApiVersion,
+    appInfo: { name: 'Jackerbox', version: '1.0.0' },
+  });
+  return stripeClient;
 }
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: '2025-02-24.acacia' as Stripe.LatestApiVersion, // Use the latest supported API version
-  appInfo: {
-    name: 'Jackerbox',
-    version: '1.0.0',
+// Preserve the existing SDK API without creating a client during route imports.
+// A missing Stripe secret still fails closed on the first actual Stripe operation.
+export const stripe: Stripe = new Proxy({} as Stripe, {
+  get(_target, property) {
+    const client = getStripeClient();
+    const value = Reflect.get(client, property, client);
+    return typeof value === 'function' ? value.bind(client) : value;
   },
 });
 

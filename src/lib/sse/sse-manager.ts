@@ -48,99 +48,63 @@ export function getDebugMode(): boolean {
 /**
  * Create a new SSE connection
  */
-export function createSSEConnection(userId?: string): ReadableStream {
-  try {
-    // Clean up inactive clients first
-    cleanupInactiveClients();
-    
-    // Create a new client ID
-    const clientId = `client-${uuidv4()}`;
-    const encoder = new TextEncoder();
-    
-    // Create the SSE stream
-    return new ReadableStream({
-      start(controller) {
-        try {
-          // Register the client
-          clients.set(clientId, {
-            id: clientId,
-            userId,
-            controller,
-            topics: new Set(),
-            lastActivity: Date.now(),
-            encoder,
-          });
-          
-          // Increment total connections
-          totalConnections++;
-          
-          if (debugMode) {
-            console.log(`New client connected: ${clientId}. Total connections: ${totalConnections}`);
-          }
-          
-          // Send initial connection message
-          const initialMessage = JSON.stringify({ 
-            type: 'connected', 
-            clientId,
-            timestamp: Date.now()
-          });
-          controller.enqueue(encoder.encode(`data: ${initialMessage}\n\n`));
-          
-          // Set up heartbeat with error handling
-          const heartbeatInterval = setInterval(() => {
-            try {
-              const client = clients.get(clientId);
-              if (client && !client.controller.desiredSize) {
-                const heartbeat = JSON.stringify({ 
-                  type: 'heartbeat',
-                  timestamp: Date.now()
-                });
-                client.controller.enqueue(encoder.encode(`data: ${heartbeat}\n\n`));
-                client.lastActivity = Date.now();
-              } else {
-                clearInterval(heartbeatInterval);
-                removeClient(clientId);
-              }
-            } catch (err) {
-              console.error(`Heartbeat error for client ${clientId}:`, err);
-              clearInterval(heartbeatInterval);
-              removeClient(clientId);
-            }
-          }, HEARTBEAT_INTERVAL);
-          
-          // Clean up on stream end
-          return () => {
-            try {
-              clearInterval(heartbeatInterval);
-              removeClient(clientId);
-              if (debugMode) {
-                console.log(`Stream ended for client ${clientId}`);
-              }
-            } catch (err) {
-              console.error(`Error cleaning up client ${clientId}:`, err);
-            }
-          };
-        } catch (err) {
-          console.error('Error in SSE stream start:', err);
-          controller.error(err);
-        }
-      },
-      
-      cancel() {
-        try {
-          removeClient(clientId);
-          if (debugMode) {
-            console.log(`Stream cancelled for client ${clientId}`);
-          }
-        } catch (err) {
-          console.error(`Error cancelling stream for client ${clientId}:`, err);
-        }
-      }
-    });
-  } catch (err) {
-    console.error('Error creating SSE connection:', err);
-    throw err;
+export function createSSEConnection(userId?: string): ReadableStream<Uint8Array> {
+  cleanupInactiveClients();
+  if (!userId) throw new Error('Authenticated user required for SSE');
+  if (Array.from(clients.values()).filter(client => client.userId === userId).length >= MAX_CLIENTS_PER_USER) {
+    throw new Error('Too many active SSE connections');
   }
+
+  const clientId = `client-${uuidv4()}`;
+  const encoder = new TextEncoder();
+  let heartbeatInterval: ReturnType<typeof setInterval> | undefined;
+
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      try {
+        clients.set(clientId, {
+          id: clientId,
+          userId,
+          controller,
+          topics: new Set(),
+          lastActivity: Date.now(),
+          encoder,
+        });
+        totalConnections++;
+
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+          type: 'connected', clientId, timestamp: Date.now(),
+        })}\n\n`));
+
+        heartbeatInterval = setInterval(() => {
+          const client = clients.get(clientId);
+          if (!client) {
+            if (heartbeatInterval) clearInterval(heartbeatInterval);
+            return;
+          }
+          try {
+            if ((client.controller.desiredSize ?? 0) > 0) {
+              client.controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+                type: 'heartbeat', timestamp: Date.now(),
+              })}\n\n`));
+              client.lastActivity = Date.now();
+            }
+          } catch (error) {
+            console.error('SSE heartbeat failed', error);
+            if (heartbeatInterval) clearInterval(heartbeatInterval);
+            removeClient(clientId);
+          }
+        }, HEARTBEAT_INTERVAL);
+      } catch (error) {
+        removeClient(clientId);
+        controller.error(error);
+      }
+    },
+    cancel() {
+      if (heartbeatInterval) clearInterval(heartbeatInterval);
+      removeClient(clientId);
+    },
+  });
 }
 
 /**
@@ -183,6 +147,10 @@ export function removeClient(clientId: string): boolean {
 /**
  * Subscribe a client to a topic
  */
+export function isSSEClientOwnedBy(clientId: string, userId: string): boolean {
+  return clients.get(clientId)?.userId === userId;
+}
+
 export function subscribe(clientId: string, topic: string): boolean {
   try {
     if (!clients.has(clientId)) {

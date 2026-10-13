@@ -3,23 +3,12 @@ export const dynamic = 'force-dynamic';
 import { Metadata } from "next";
 import { getCurrentUser } from "@/lib/auth/auth-utils";
 import { redirect } from "next/navigation";
-import { db } from "@/lib/db";
-import { CreditCard, CheckCircle, AlertCircle, ExternalLink } from "lucide-react";
-import Link from "next/link";
-import { ConnectStripeButton } from "@/components/stripe/connect-stripe-button";
 import { StripeConnectSetup } from "@/components/dashboard/stripe-connect-setup";
 
 export const metadata: Metadata = {
   title: "Stripe Connect Setup | Jackerbox",
   description: "Connect your Stripe account to receive payments",
 };
-
-interface StripeConnectPageProps {
-  searchParams: {
-    success?: string;
-    error?: string;
-  };
-}
 
 export default async function StripeConnectPage() {
   const user = await getCurrentUser();

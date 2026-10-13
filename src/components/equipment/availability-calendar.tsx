@@ -5,7 +5,6 @@ import { Calendar, dateFnsLocalizer } from "react-big-calendar";
 import { format, parse, startOfWeek, getDay, addDays, addWeeks, addMonths, isSameDay, parseISO } from "date-fns";
 import { enUS } from "date-fns/locale";
 import "react-big-calendar/lib/css/react-big-calendar.css";
-import { toast } from 'sonner';
 
 // Set up the localizer for the calendar
 const locales = {
@@ -62,14 +61,6 @@ export function AvailabilityCalendar({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [availability, setAvailability] = useState<Availability | null>(null);
-  const [selectedDates, setSelectedDates] = useState<{
-    from: Date | undefined;
-    to: Date | undefined;
-  }>({
-    from: undefined,
-    to: undefined,
-  });
-  
   // New state for recurring availability
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurrenceType, setRecurrenceType] = useState<string>("weekly");
@@ -110,14 +101,14 @@ export function AvailabilityCalendar({
         }));
 
         // Convert existing bookings to calendar events
-        const bookingEvents = existingBookings.map((booking) => ({
+        const bookingEvents = (data.bookings?.length ? data.bookings.map((r: any) => ({ id: r.id, title: "Reserved", start: r.startDate, end: r.endDate, status: r.status })) : existingBookings).map((booking: any) => ({
           id: booking.id,
           title: `Booked: ${booking.title}`,
           start: new Date(booking.start),
           end: new Date(booking.end),
           status: booking.status,
           allDay: true,
-          className: booking.status === "Approved" ? "bg-red-200" : "bg-yellow-200",
+          className: ["PAID", "ACTIVE"].includes(booking.status) ? "bg-red-200" : "bg-yellow-200",
         }));
 
         // Combine both types of events
@@ -137,6 +128,11 @@ export function AvailabilityCalendar({
   // Handle selecting a date range on the calendar
   const handleSelectSlot = ({ start, end }: { start: Date; end: Date }) => {
     if (!isOwner) return; // Only owners can modify availability
+    if (isDateUnavailable(start) || isDateUnavailable(end)) {
+      setError('Selected period overlaps a blocked or booked day');
+      return;
+    }
+    onDateSelect?.(start, end);
     
     // Adjust end date to be inclusive (end of day)
     const adjustedEnd = new Date(end);
@@ -345,17 +341,10 @@ export function AvailabilityCalendar({
     const isBooked = availability.bookings.some(booking => {
       const bookingStart = parseISO(booking.startDate);
       const bookingEnd = parseISO(booking.endDate);
-      return date >= bookingStart && date <= bookingEnd;
+      return date >= bookingStart && date < bookingEnd;
     });
 
     return isBooked;
-  };
-
-  const handleSelect = (dates: { from: Date | undefined; to: Date | undefined }) => {
-    setSelectedDates(dates);
-    if (dates.from && dates.to && onDateSelect) {
-      onDateSelect(dates.from, dates.to);
-    }
   };
 
   if (isLoading) {

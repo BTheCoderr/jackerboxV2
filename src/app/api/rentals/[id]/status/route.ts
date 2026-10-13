@@ -1,130 +1,43 @@
-import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth/auth-utils";
-import { db } from "@/lib/db";
-import { z } from "zod";
+import { NextResponse } from 'next/server';
+import { z } from 'zod';
+import { db } from '@/lib/db';
+import { getCurrentUser } from '@/lib/auth/auth-utils';
 
-// Define the status update schema
-const statusUpdateSchema = z.object({
-  status: z.enum([
-    "Pending",
-    "Approved",
-    "Rejected",
-    "Cancelled",
-    "InProgress",
-    "Completed",
-  ]),
-});
+const schema = z.object({ status: z.enum(['ACTIVE', 'COMPLETED', 'CANCELLED']) });
 
-export async function PATCH(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  const result = schema.safeParse(await req.json().catch(() => null));
+  if (!result.success) return NextResponse.json({ message: 'Invalid rental status' }, { status: 400 });
+  const { id } = await params;
+
   try {
-    // Get the current user
-    const user = await getCurrentUser();
-    
-    if (!user || !user.id) {
-      return NextResponse.json(
-        { message: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-    
-    // Parse the request body
-    const body = await req.json();
-    
-    // Validate the request body
-    const validatedData = statusUpdateSchema.parse(body);
-    
-    // Extract the rental ID using the newer approach for safety
-    const rentalId = params.id;
-    
-    // Check if the rental exists
     const rental = await db.rental.findUnique({
-      where: {
-        id: rentalId,
-      },
-      include: {
-        equipment: true,
-      },
+      where: { id },
+      include: { equipment: { select: { ownerId: true } }, payment: { select: { status: true, stripePaymentIntentId: true } } },
     });
-    
-    if (!rental) {
-      return NextResponse.json(
-        { message: "Rental not found" },
-        { status: 404 }
-      );
-    }
-    
-    // Check if the user is the renter or the owner
-    const isRenter = rental.renterId === user.id;
+    if (!rental) return NextResponse.json({ message: 'Rental not found' }, { status: 404 });
+
     const isOwner = rental.equipment.ownerId === user.id;
-    
-    if (!isRenter && !isOwner) {
-      return NextResponse.json(
-        { message: "You are not authorized to update this rental" },
-        { status: 403 }
-      );
-    }
-    
-    // Validate status transitions
-    const currentStatus = rental.status;
-    const newStatus = validatedData.status;
-    
-    // Owner-only status changes
-    if (newStatus === "Approved" && !isOwner) {
-      return NextResponse.json(
-        { message: "Only the owner can approve a rental" },
-        { status: 403 }
-      );
-    }
-    
-    if (newStatus === "Rejected" && !isOwner) {
-      return NextResponse.json(
-        { message: "Only the owner can reject a rental" },
-        { status: 403 }
-      );
-    }
-    
-    // Invalid transitions
-    if (currentStatus === "Completed" || currentStatus === "Cancelled") {
-      return NextResponse.json(
-        { message: `Cannot change status from ${currentStatus}` },
-        { status: 400 }
-      );
-    }
-    
-    if (currentStatus === "Rejected" && newStatus !== "Cancelled") {
-      return NextResponse.json(
-        { message: "Rejected rentals can only be cancelled" },
-        { status: 400 }
-      );
-    }
-    
-    // Update the rental status
-    const updatedRental = await db.rental.update({
-      where: {
-        id: rentalId,
-      },
-      data: {
-        status: validatedData.status,
-      },
+    const isRenter = rental.renterId === user.id;
+    if (!isOwner && !isRenter) return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
+
+    const target = result.data.status;
+    const valid = (target === 'CANCELLED' && rental.status === 'PENDING' && !rental.payment?.stripePaymentIntentId && (isOwner || isRenter)) ||
+      (target === 'ACTIVE' && isOwner && rental.status === 'PAID' && rental.payment?.status === 'COMPLETED') ||
+      (target === 'COMPLETED' && isOwner && rental.status === 'ACTIVE' && rental.payment?.status === 'COMPLETED');
+
+    if (!valid) return NextResponse.json({ message: 'Invalid status transition. Paid cancellations require refund review.' }, { status: 409 });
+
+    const changed = await db.rental.updateMany({
+      where: { id, status: rental.status },
+      data: { status: target },
     });
-    
-    return NextResponse.json(updatedRental);
+    if (changed.count !== 1) return NextResponse.json({ message: 'Rental was updated elsewhere. Refresh and retry.' }, { status: 409 });
+    return NextResponse.json({ success: true, status: target });
   } catch (error) {
-    console.error("Error updating rental status:", error);
-    
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { message: "Invalid data", errors: error.errors },
-        { status: 400 }
-      );
-    }
-    
-    return NextResponse.json(
-      { message: "Failed to update rental status" },
-      { status: 500 }
-    );
+    console.error('Rental status update failed', error);
+    return NextResponse.json({ message: 'Unable to update rental' }, { status: 500 });
   }
-} 
+}

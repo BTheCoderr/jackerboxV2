@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from 'next/navigation';
 import { ModerationStatus } from '../../../prisma/generated/client';
 import { toast } from "sonner";
 

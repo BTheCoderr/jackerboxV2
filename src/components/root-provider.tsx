@@ -1,6 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import { clearExpiredCache } from '@/lib/caching';
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 
 // Context type
@@ -32,11 +30,10 @@ export const useRootContext = () => useContext(RootContext);
 
 // Main provider component
 export default function RootProvider({ children }: { children: ReactNode }) {
-  const router = useRouter();
   const [isPageChanging, setIsPageChanging] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState({
-    socket: 'connecting' as const,
-    sse: 'connecting' as const
+  const [connectionStatus, setConnectionStatus] = useState<RootContextType['connectionStatus']>({
+    socket: 'connecting',
+    sse: 'connecting'
   });
   
   // Refs to track previous status and prevent infinite updates
@@ -45,32 +42,11 @@ export default function RootProvider({ children }: { children: ReactNode }) {
   const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [toastShown, setToastShown] = useState(false);
 
-  // Clean expired cache periodically
-  useEffect(() => {
-    // Clean on initial load
-    clearExpiredCache();
-    
-    // Set up interval to clean expired cache items
-    const interval = setInterval(() => {
-      clearExpiredCache();
-    }, 5 * 60 * 1000); // Every 5 minutes
-    
-    return () => clearInterval(interval);
-  }, []);
-
   // Monitor page transitions to reduce unnecessary API calls
   useEffect(() => {
     // Function to handle the start of a route change
     const handleRouteChangeStart = () => {
       setIsPageChanging(true);
-    };
-
-    // Function to handle the completion of a route change
-    const handleRouteChangeComplete = () => {
-      // Small delay to ensure components have time to mount before we mark transition as complete
-      setTimeout(() => {
-        setIsPageChanging(false);
-      }, 100);
     };
 
     // Add event listeners for route changes
@@ -82,7 +58,7 @@ export default function RootProvider({ children }: { children: ReactNode }) {
     return () => {
       window.removeEventListener('beforeunload', handleRouteChangeStart);
     };
-  }, [router]);
+  }, []);
 
   // Manage connection statuses with debounced toasts
   useEffect(() => {
@@ -97,8 +73,7 @@ export default function RootProvider({ children }: { children: ReactNode }) {
 
       if (socketStatus === 'error' || sseStatus === 'error') {
         if (!toastShown) {
-          toast({
-            title: 'Connection error',
+          toast.error('Connection error', {
             description: 'There was a problem connecting to the server. Some features may not work properly.',
             duration: 3000
           });
@@ -107,8 +82,7 @@ export default function RootProvider({ children }: { children: ReactNode }) {
       } else if (socketStatus === 'disconnected' || sseStatus === 'disconnected') {
         toastTimeoutRef.current = setTimeout(() => {
           if (!toastShown) {
-            toast({
-              title: 'Connection lost',
+            toast.warning('Connection lost', {
               description: 'Attempting to reconnect...',
               duration: 3000
             });
@@ -116,8 +90,7 @@ export default function RootProvider({ children }: { children: ReactNode }) {
           }
         }, 2000); // Wait 2 seconds before showing to avoid flickering
       } else if ((socketStatus === 'connected' && sseStatus === 'connected') && toastShown) {
-        toast({
-          title: 'Connection restored',
+        toast.success('Connection restored', {
           description: 'You are back online.',
           duration: 3000
         });
@@ -148,7 +121,7 @@ export default function RootProvider({ children }: { children: ReactNode }) {
       
       setConnectionStatus(prev => ({
         ...prev,
-        [type]: status
+        [type]: status as RootContextType['connectionStatus'][typeof type],
       }));
     }
   }, []);

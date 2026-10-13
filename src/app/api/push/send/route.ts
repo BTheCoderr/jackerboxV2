@@ -69,13 +69,23 @@ export async function POST(req: NextRequest) {
       select: { isAdmin: true }
     });
     
-    if (sendToAll && !currentUser?.isAdmin) {
+    if (!currentUser?.isAdmin) {
       return NextResponse.json(
-        { error: 'Admin privileges required to send to all users' },
+        { error: 'Admin privileges required to send push messages' },
         { status: 403 }
       );
     }
     
+    if ((!sendToAll && (typeof userId !== 'string' || !userId)) ||
+        (sendToAll && userId)) {
+      return NextResponse.json({ error: 'Choose all users or one target user' }, { status: 400 });
+    }
+    if (typeof title !== 'string' || title.length > 120 || typeof body !== 'string' || body.length > 500 ||
+        (url !== undefined && (typeof url !== 'string' || !url.startsWith('/') || url.startsWith('//'))) ||
+        !Array.isArray(actions) || actions.length > 2) {
+      return NextResponse.json({ error: 'Invalid push payload' }, { status: 400 });
+    }
+
     // If no VAPID keys are configured, return an error
     if (!vapidPublicKey || !formattedPrivateKey) {
       return NextResponse.json(
@@ -134,7 +144,8 @@ export async function POST(req: NextRequest) {
           return { status: 'success', endpoint: subscription.endpoint };
         } catch (error) {
           // If the subscription is no longer valid, remove it
-          if (error.statusCode === 404 || error.statusCode === 410) {
+          const failure = error as { statusCode?: number; message?: string };
+          if (failure.statusCode === 404 || failure.statusCode === 410) {
             await db.pushSubscription.delete({
               where: { endpoint: subscription.endpoint }
             });
@@ -143,19 +154,21 @@ export async function POST(req: NextRequest) {
           return { 
             status: 'error', 
             endpoint: subscription.endpoint, 
-            error: error.message 
+            error: failure.message || 'Push service failed' 
           };
         }
       })
     );
     
     // Count successes and failures
-    const succeeded = results.filter(r => r.status === 'fulfilled').length;
-    const failed = results.filter(r => r.status === 'rejected').length;
+    const succeeded = results.filter(r => r.status === 'fulfilled' && r.value.status === 'success').length;
+    const failed = results.filter(r => r.status === 'rejected' ||
+      (r.status === 'fulfilled' && r.value.status === 'error')).length;
+    const skipped = results.filter(r => r.status === 'fulfilled' && r.value.status === 'skipped').length;
     
     return NextResponse.json({
-      success: true,
-      message: `Sent ${succeeded} notifications, ${failed} failed`,
+      success: failed === 0,
+      message: `Sent ${succeeded} notifications, ${failed} failed, ${skipped} skipped`,
       results
     });
   } catch (error) {

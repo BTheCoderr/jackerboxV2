@@ -6,42 +6,43 @@ import { EQUIPMENT_CATEGORIES } from "@/lib/constants";
 import Link from "next/link";
 import { EquipmentBulkActions } from "@/components/admin/equipment-bulk-actions";
 import { ContentModerationPanel } from "@/components/admin/content-moderation-panel";
-import { Prisma, ModerationStatus } from "@prisma/client";
+import { Prisma, ModerationStatus } from "@/lib/prisma-client";
 import { EquipmentFilters } from "@/components/admin/equipment-filters";
 
 interface AdminEquipmentPageProps {
-  searchParams: {
+  searchParams: Promise<{
     category?: string;
     status?: string;
     moderation?: string;
     page?: string;
-  };
+  }>;
 }
 
 export default async function AdminEquipmentPage({ searchParams }: AdminEquipmentPageProps) {
+  const resolvedSearchParams = (await searchParams) ?? {};
   const user = await getCurrentUser();
   
   if (!user?.isAdmin) {
     throw new Error("Unauthorized");
   }
   
-  const page = Number(searchParams.page) || 1;
+  const page = Number(resolvedSearchParams.page) || 1;
   const pageSize = 20;
   const skip = (page - 1) * pageSize;
   
   // Build where clause based on filters
   let whereClause: Prisma.EquipmentWhereInput = {};
   
-  if (searchParams.category) {
-    whereClause.category = searchParams.category;
+  if (resolvedSearchParams.category) {
+    whereClause.category = resolvedSearchParams.category;
   }
   
-  if (searchParams.status) {
-    whereClause.isAvailable = searchParams.status === "available";
+  if (resolvedSearchParams.status) {
+    whereClause.isAvailable = resolvedSearchParams.status === "available";
   }
   
-  if (searchParams.moderation) {
-    whereClause.moderationStatus = searchParams.moderation.toUpperCase() as ModerationStatus;
+  if (resolvedSearchParams.moderation) {
+    whereClause.moderationStatus = resolvedSearchParams.moderation.toUpperCase() as ModerationStatus;
   }
   
   // Fetch equipment with pagination
@@ -82,7 +83,7 @@ export default async function AdminEquipmentPage({ searchParams }: AdminEquipmen
   // Convert to serializable format
   const serializedStats = moderationStats.map(stat => ({
     moderationStatus: stat.moderationStatus,
-    count: stat._count,
+    _count: stat._count,
   }));
   
   // Convert equipment to serializable format
@@ -122,7 +123,7 @@ export default async function AdminEquipmentPage({ searchParams }: AdminEquipmen
       
       {/* Filters */}
       <EquipmentFilters 
-        searchParams={searchParams} 
+        searchParams={resolvedSearchParams} 
         categories={EQUIPMENT_CATEGORIES} 
       />
       
@@ -234,7 +235,7 @@ export default async function AdminEquipmentPage({ searchParams }: AdminEquipmen
                   href={{
                     pathname: "/routes/admin/equipment",
                     query: {
-                      ...searchParams,
+                      ...resolvedSearchParams,
                       page: pageNum,
                     },
                   }}

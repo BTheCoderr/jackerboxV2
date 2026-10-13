@@ -10,7 +10,7 @@ const responseSchema = z.object({
 
 export async function POST(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await getCurrentUser();
@@ -22,7 +22,7 @@ export async function POST(
       );
     }
     
-    const reviewId = await Promise.resolve(params.id);
+    const reviewId = (await params).id;
     
     // Check if review exists
     const review = await db.review.findUnique({

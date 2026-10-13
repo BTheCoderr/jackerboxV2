@@ -1,178 +1,59 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-
-import { stripe, formatAmountForStripe } from '@/lib/stripe';
+import { stripe } from '@/lib/stripe';
 import { db } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth/session';
-import { sendNotification, NotificationType } from '@/lib/notifications/notification-service';
 
-// Schema for validating the request body
-const payoutSchema = z.object({
-  rentalId: z.string(),
-});
+const schema = z.object({ rentalId: z.string().min(1) });
 
 export async function POST(req: Request) {
+  const admin = await getCurrentUser();
+  if (!admin?.isAdmin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  const parsed = schema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+
   try {
-    // Get the current user (must be an admin)
-    const currentUser = await getCurrentUser();
-    if (!currentUser || !currentUser.isAdmin) {
-      return new NextResponse('Unauthorized', { status: 401 });
-    }
-
-    // Parse and validate the request body
-    const body = await req.json();
-    const validationResult = payoutSchema.safeParse(body);
-    
-    if (!validationResult.success) {
-      return new NextResponse('Invalid request data', { status: 400 });
-    }
-    
-    const { rentalId } = validationResult.data;
-
-    // Get the rental with related data
     const rental = await db.rental.findUnique({
-      where: {
-        id: rentalId,
-        status: 'COMPLETED', // Only process payouts for completed rentals
-      },
-      include: {
-        equipment: {
-          include: {
-            owner: true,
-          },
-        },
-        payment: true,
-      },
+      where: { id: parsed.data.rentalId },
+      include: { payment: true, equipment: { include: { owner: true } } },
     });
+    if (!rental || rental.status !== 'COMPLETED' || rental.payment?.status !== 'COMPLETED') {
+      return NextResponse.json({ error: 'Rental and payment must both be completed' }, { status: 409 });
+    }
+    const ownerAccount = rental.equipment.owner.stripeConnectAccountId;
+    if (!ownerAccount) return NextResponse.json({ error: 'Owner needs a Stripe Connect account' }, { status: 409 });
 
-    if (!rental) {
-      return new NextResponse('Rental not found or not completed', { status: 404 });
+    const previous = rental.payment.metadata && typeof rental.payment.metadata === 'object' && !Array.isArray(rental.payment.metadata)
+      ? rental.payment.metadata : {};
+    if ('ownerPayoutTransferId' in previous || 'legacyOwnerPayoutRecorded' in previous) {
+      return NextResponse.json({ error: 'Owner payout already recorded' }, { status: 409 });
     }
 
-    if (!rental.payment || rental.payment.status !== 'COMPLETED') {
-      return new NextResponse('Payment not completed', { status: 400 });
-    }
+    // Exclude the refundable security deposit from the owner payout.
+    const feeCents = Math.round(rental.totalPrice * 100 * 0.10);
+    const ownerCents = Math.round(rental.totalPrice * 100) - feeCents;
+    if (ownerCents <= 0) return NextResponse.json({ error: 'Invalid payout amount' }, { status: 400 });
 
-    // Check if payout has already been processed
-    if (rental.payment.ownerPaidOut) {
-      return new NextResponse('Payout already processed', { status: 400 });
-    }
+    const transfer = await stripe.transfers.create({
+      amount: ownerCents,
+      currency: 'usd',
+      destination: ownerAccount,
+      transfer_group: `RENTAL_${rental.id}`,
+      metadata: { rentalId: rental.id, paymentId: rental.payment.id },
+    }, { idempotencyKey: `jackerbox-owner-transfer-${rental.id}-v1` });
 
-    // ---- TEMPORARILY DISABLED FOR SIMPLIFIED ONBOARDING ----
-    // Check if the owner has a Stripe Connect account
-    // if (!rental.equipment.owner.stripeConnectAccountId) {
-    //   return new NextResponse('Equipment owner does not have a Stripe Connect account', { status: 400 });
-    // }
-
-    // Calculate platform fee (e.g., 10% of rental amount)
-    const platformFeePercentage = 0.10; // 10%
-    const rentalAmount = rental.payment.rentalAmount || rental.totalPrice;
-    const platformFee = rentalAmount * platformFeePercentage;
-    const ownerAmount = rentalAmount - platformFee;
-
-    // ---- SIMPLIFIED DEVELOPMENT MODE - MOCK PAYOUT ----
-    if (process.env.NODE_ENV === 'development') {
-      console.log('🚀 MOCK PAYOUT PROCESSED:', {
-        rentalId: rental.id,
-        ownerAmount,
-        platformFee,
-        ownerId: rental.equipment.owner.id
-      });
-
-      // Update the payment record (mock payout)
-      await db.payment.update({
-        where: {
-          id: rental.payment.id,
-        },
-        data: {
-          ownerPaidOut: true,
-          ownerPaidOutAmount: ownerAmount,
-          platformFee: platformFee,
-          stripeTransferId: 'mock_transfer_dev_' + Date.now(), // Mock transfer ID
-        },
-      });
-
-      // Send notification to the owner
-      if (rental.equipment.owner.id) {
-        await sendNotification({
-          userId: rental.equipment.owner.id,
-          type: NotificationType.PAYOUT_PROCESSED,
-          data: {
-            amount: ownerAmount,
-            propertyName: rental.equipment.name,
-            checkIn: rental.startDate,
-            checkOut: rental.endDate,
-            transferId: 'mock_transfer_dev'
-          },
-        });
-      }
-
-      // Return success response
-      return NextResponse.json({
-        success: true,
-        rentalId: rental.id,
-        ownerAmount,
-        platformFee,
-        transferId: 'mock_transfer_dev_' + Date.now(),
-        mode: 'development_mock'
-      });
-    }
-
-    // ---- PRODUCTION STRIPE CONNECT PAYOUT (COMMENTED OUT) ----
-    // Process the payout using Stripe Connect
-    // const transfer = await stripe.transfers.create({
-    //   amount: formatAmountForStripe(ownerAmount, 'USD'),
-    //   currency: 'usd',
-    //   destination: rental.equipment.owner.stripeConnectAccountId,
-    //   transfer_group: rental.id,
-    //   metadata: {
-    //     rentalId: rental.id,
-    //     paymentId: rental.payment.id,
-    //     equipmentId: rental.equipment.id,
-    //     ownerId: rental.equipment.owner.id
-    //   },
-    //   description: `Payout for rental of ${rental.equipment.name} from ${new Date(rental.startDate).toLocaleDateString()} to ${new Date(rental.endDate).toLocaleDateString()}`
-    // });
-
-    // // Update the payment record
-    // await db.payment.update({
-    //   where: {
-    //     id: rental.payment.id,
-    //   },
-    //   data: {
-    //     ownerPaidOut: true,
-    //     ownerPaidOutAmount: ownerAmount,
-    //     platformFee: platformFee,
-    //     stripeTransferId: transfer.id, // Store the transfer ID for reference
-    //   },
-    // });
-
-    // // Send notification to the owner
-    // if (rental.equipment.owner.id) {
-    //   await sendNotification({
-    //     userId: rental.equipment.owner.id,
-    //     type: NotificationType.PAYOUT_PROCESSED,
-    //     data: {
-    //       amount: ownerAmount,
-    //       propertyName: rental.equipment.name,
-    //       checkIn: rental.startDate,
-    //       checkOut: rental.endDate,
-    //       transferId: transfer.id
-    //     },
-    //   });
-    // }
-
-    // // Return success response
-    // return NextResponse.json({
-    //   success: true,
-    //   rentalId: rental.id,
-    //   ownerAmount,
-    //   platformFee,
-    //   transferId: transfer.id
-    // });
-
+    await db.payment.update({
+      where: { id: rental.payment.id },
+      data: { metadata: {
+        ...previous,
+        ownerPayoutTransferId: transfer.id,
+        ownerPayoutCents: ownerCents,
+        platformFeeCents: feeCents,
+      } },
+    });
+    return NextResponse.json({ success: true, transferId: transfer.id });
   } catch (error) {
-    console.error('Error processing payout:', error);
-    return new NextResponse('Error processing payout', { status: 500 });
+    console.error('Owner payout failed', error);
+    return NextResponse.json({ error: 'Payout failed. Review Stripe before retrying.' }, { status: 500 });
   }
-} 
+}

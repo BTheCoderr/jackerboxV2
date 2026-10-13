@@ -2,7 +2,6 @@
 export const dynamic = 'force-dynamic';
 
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth/auth-utils";
 import { db } from "@/lib/db";
 import { formatCurrency } from "@/lib/utils/format";
@@ -12,7 +11,7 @@ import { ImageGallery } from "@/components/equipment/image-gallery";
 import Image from "next/image";
 import { ContactOwnerButton } from "@/components/equipment/contact-owner-button";
 import { Suspense } from "react";
-import type { Metadata, ResolvingMetadata } from "next";
+import type { Metadata } from "next";
 
 // Import components normally instead of using dynamic imports
 // We'll use Suspense boundaries for lazy loading
@@ -20,18 +19,15 @@ import { DualCalendarSystem } from "@/components/equipment/dual-calendar-system"
 import { ReviewsSection } from "@/components/reviews/reviews-section";
 
 interface EquipmentDetailPageProps {
-  params: {
-    id: string;
-  };
+  params: Promise<{ id: string }>;
 }
 
 // Generate metadata for better SEO
 export async function generateMetadata(
-  { params }: EquipmentDetailPageProps,
-  parent: ResolvingMetadata
+  { params }: EquipmentDetailPageProps
 ): Promise<Metadata> {
   // Get the id from params - safely
-  const equipmentId = String(params.id);
+  const equipmentId = (await params).id;
   
   // Fetch the equipment with owner details
   const equipment = await db.equipment.findUnique({
@@ -84,7 +80,7 @@ export default async function EquipmentDetailPage({
   params,
 }: EquipmentDetailPageProps) {
   // Get the id from params safely - without using await on params
-  const equipmentId = String(params.id);
+  const equipmentId = (await params).id;
   
   const user = await getCurrentUser();
   

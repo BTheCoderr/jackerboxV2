@@ -3,8 +3,8 @@ import { getCurrentUser } from '@/lib/auth/session';
 import { db } from '@/lib/db';
 
 export async function POST(
-  req: Request,
-  { params }: { params: { id: string } }
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const currentUser = await getCurrentUser();
@@ -13,8 +13,8 @@ export async function POST(
       return new NextResponse('Unauthorized', { status: 401 });
     }
 
-    // Use params.id directly without awaiting
-    const notificationId = params.id;
+    // Use (await params).id directly without awaiting
+    const notificationId = (await params).id;
 
     // Verify the notification belongs to the current user
     const notification = await db.notification.findUnique({

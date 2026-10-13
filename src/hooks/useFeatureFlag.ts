@@ -1,6 +1,5 @@
 'use client';
 
-import { FEATURE_FLAGS } from '@/lib/statsig-config';
 
 /**
  * Mock implementation of feature flags
@@ -39,7 +38,7 @@ export function useExperimentParam<T>(
  */
 export function useConfig(_configKey: string) {
   return {
-    get: <T>(key: string, defaultValue: T): T => defaultValue
+    get: <T>(_key: string, defaultValue: T): T => defaultValue
   };
 }
 
@@ -51,7 +50,7 @@ export function useConfig(_configKey: string) {
  */
 export function useLayer(_layerKey: string) {
   return {
-    get: <T>(key: string, defaultValue: T): T => defaultValue
+    get: <T>(_key: string, defaultValue: T): T => defaultValue
   };
 }
 

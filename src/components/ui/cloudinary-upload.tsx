@@ -1,14 +1,14 @@
 "use client";
 
-import React, { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { cn } from '@/lib/utils';
 
 interface CloudinaryUploadProps {
   onUploadSuccess?: (result: any) => void;
-  onUploadError?: (error: any) => void;
+  onUploadError?: (error: Error) => void;
   buttonText?: string;
-  uploadPreset?: string;
+  uploadPreset?: string; // Legacy prop retained for calling components; never used client-side
   className?: string;
   buttonClassName?: string;
   multiple?: boolean;
@@ -17,99 +17,51 @@ interface CloudinaryUploadProps {
 }
 
 export function CloudinaryUpload({
-  onUploadSuccess,
-  onUploadError,
-  buttonText = 'Upload Image',
-  uploadPreset = 'jackerbox_uploads',
-  className,
-  buttonClassName,
-  multiple = false,
-  maxFiles = 10,
+  onUploadSuccess, onUploadError, buttonText = 'Upload Image',
+  className, buttonClassName, multiple = false, maxFiles = 10,
   acceptedFileTypes = 'image/*',
 }: CloudinaryUploadProps) {
-  const onDrop = useCallback(async (acceptedFiles: File[]) => {
-    if (acceptedFiles.length === 0) return;
-    
+  const [busy, setBusy] = useState(false);
+  const onDrop = useCallback(async (files: File[]) => {
+    if (!files.length || busy) return;
+    setBusy(true);
     try {
-      const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-      if (!cloudName) {
-        throw new Error('Cloudinary cloud name is not defined');
+      const results = [];
+      for (const file of files) {
+        const body = new FormData();
+        body.append('file', file);
+        const response = await fetch('/api/upload/images', { method: 'POST', body });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data.url) throw new Error(data.message || 'Unable to save image');
+        results.push({ secure_url: data.url, public_id: data.publicId });
       }
-
-      const uploads = acceptedFiles.map(async (file) => {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('upload_preset', uploadPreset);
-
-        const response = await fetch(
-          `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
-          {
-            method: 'POST',
-            body: formData,
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error(`Upload failed: ${response.statusText}`);
-        }
-
-        return await response.json();
-      });
-
-      const results = await Promise.all(uploads);
-      
-      if (onUploadSuccess) {
-        if (multiple) {
-          onUploadSuccess(results);
-        } else {
-          onUploadSuccess(results[0]);
-        }
-      }
-    } catch (error) {
-      console.error('Error uploading to Cloudinary:', error);
-      if (onUploadError) {
-        onUploadError(error);
-      }
+      onUploadSuccess?.(multiple ? results : results[0]);
+    } catch (cause) {
+      onUploadError?.(cause instanceof Error ? cause : new Error('Upload failed'));
+    } finally {
+      setBusy(false);
     }
-  }, [onUploadSuccess, onUploadError, uploadPreset, multiple]);
+  }, [onUploadSuccess, onUploadError, multiple, busy]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: {
-      'image/*': ['.jpeg', '.jpg', '.png', '.gif', '.webp']
-    },
+    accept: { [acceptedFileTypes]: [] },
+    disabled: busy,
+    maxSize: 5 * 1024 * 1024,
     multiple,
-    maxFiles
+    maxFiles: multiple ? maxFiles : 1,
   });
 
-  return (
-    <div
-      {...getRootProps()}
-      className={cn(
-        'border-2 border-dashed rounded-lg p-6 cursor-pointer transition-colors',
-        isDragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400',
-        className
-      )}
-    >
-      <input {...getInputProps()} />
-      <div className="text-center">
-        {isDragActive ? (
-          <p>Drop the files here ...</p>
-        ) : (
-          <>
-            <p className="mb-2">Drag & drop files here, or click to select</p>
-            <button 
-              type="button"
-              className={cn(
-                "px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700",
-                buttonClassName
-              )}
-            >
-              {buttonText}
-            </button>
-          </>
-        )}
-      </div>
-    </div>
-  );
+  return <div {...getRootProps()} className={cn(
+    'cursor-pointer rounded-lg border-2 border-dashed p-6 text-center',
+    isDragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400',
+    busy && 'cursor-wait opacity-60',
+    className
+  )}>
+    <input {...getInputProps()} />
+    <button type="button" disabled={busy}
+      className={cn('rounded bg-jacker-blue px-4 py-2 text-white disabled:opacity-50', buttonClassName)}>
+      {busy ? 'Uploading…' : buttonText}
+    </button>
+  </div>;
 }

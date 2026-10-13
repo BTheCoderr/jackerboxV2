@@ -17,7 +17,7 @@ const calendarSyncSchema = z.object({
 
 export async function POST(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await getCurrentUser();
@@ -29,7 +29,7 @@ export async function POST(
       );
     }
     
-    const equipmentId = await Promise.resolve(params.id);
+    const equipmentId = (await params).id;
     
     // Check if equipment exists and user is the owner
     const equipment = await db.equipment.findUnique({

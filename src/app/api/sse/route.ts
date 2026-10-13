@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSSEConnection, subscribe, unsubscribe, getStats, toggleDebugMode } from '@/lib/sse/sse-manager';
+import { createSSEConnection, subscribe, unsubscribe, getStats, toggleDebugMode, isSSEClientOwnedBy } from '@/lib/sse/sse-manager';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth-options';
-import { headers } from 'next/headers';
 import { getCurrentUser } from '@/lib/auth/session';
 
 export const dynamic = 'force-dynamic';
@@ -14,8 +13,10 @@ export const fetchCache = 'force-no-store';
 /**
  * Handle SSE connection requests
  */
-export async function GET(req: NextRequest) {
+export async function GET() {
   const isDev = process.env.NODE_ENV === 'development';
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   // Set up SSE headers
   const responseHeaders = new Headers({
@@ -30,15 +31,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Get user session if available
-    let userId: string | undefined = undefined;
-    try {
-      const session = await getServerSession(authOptions);
-      userId = session?.user?.id;
-    } catch (sessionError) {
-      console.error('Error getting session:', sessionError);
-      // Continue without user ID
-    }
+    const userId = session.user.id;
 
     // Create the SSE stream
     const stream = await Promise.resolve().then(() => createSSEConnection(userId));
@@ -55,7 +48,7 @@ export async function GET(req: NextRequest) {
         message: 'Failed to establish SSE connection',
         code: 'CONNECTION_ERROR',
         timestamp: Date.now(),
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: 'Unable to create event stream'
       })}\n\n`,
       { headers: responseHeaders, status: 500 }
     );
@@ -65,7 +58,7 @@ export async function GET(req: NextRequest) {
 /**
  * Handle OPTIONS requests for CORS preflight
  */
-export async function OPTIONS(req: NextRequest) {
+export async function OPTIONS() {
   return new Response(null, {
     status: 204,
     headers: {
@@ -82,11 +75,14 @@ export async function OPTIONS(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
+    const user = await getCurrentUser();
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const body = await req.json().catch(() => ({}));
     const { clientId, action, topic, enabled } = body;
 
     // Handle debug mode toggle
     if (action === 'debug') {
+      if (!user.isAdmin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       if (typeof enabled === 'boolean') {
         const result = toggleDebugMode(enabled);
         return NextResponse.json({ success: true, debugMode: result });
@@ -103,11 +99,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Action is required' }, { status: 400 });
     }
 
+    if (typeof clientId !== 'string' || !isSSEClientOwnedBy(clientId, user.id)) {
+      return NextResponse.json({ error: 'SSE connection not found or not owned by this user' }, { status: 403 });
+    }
+
     // Topic is required for subscribe/unsubscribe
     if ((action === 'subscribe' || action === 'unsubscribe') && !topic) {
       return NextResponse.json({ error: 'Topic is required' }, { status: 400 });
     }
 
+    if (typeof topic !== 'string' && (action === 'subscribe' || action === 'unsubscribe')) {
+      return NextResponse.json({ error: 'Invalid topic' }, { status: 400 });
+    }
+    if ((action === 'subscribe' || action === 'unsubscribe') &&
+        !user.isAdmin && topic !== `user:${user.id}` && !topic.startsWith('public:')) {
+      return NextResponse.json({ error: 'Cannot subscribe to a restricted topic' }, { status: 403 });
+    }
     let result;
     switch (action) {
       case 'subscribe':
@@ -119,6 +126,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: result, action, topic });
       
       case 'stats':
+        if (!user.isAdmin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         result = getStats();
         return NextResponse.json(result);
       
@@ -130,7 +138,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ 
       error: 'Internal server error',
       code: 'INTERNAL_ERROR',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: 'Request failed'
     }, { status: 500 });
   }
 } 

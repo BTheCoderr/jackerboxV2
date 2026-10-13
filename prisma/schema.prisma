@@ -22,6 +22,9 @@ model User {
   createdAt              DateTime           @default(now())
   updatedAt              DateTime           @updatedAt
   verificationToken      String?
+  phoneVerificationExpiresAt DateTime?
+  phoneVerificationSentAt DateTime?
+  phoneVerificationAttempts Int @default(0)
   twoFactorEnabled       Boolean            @default(false)
   idVerified             Boolean            @default(false)
   idVerificationStatus   String?
@@ -40,6 +43,7 @@ model User {
   receivedMessages       Message[]          @relation("ReceivedMessages")
   sentMessages           Message[]          @relation("SentMessages")
   notifications          Notification[]
+  notificationPreferences NotificationPreference[]
   payments               Payment[]
   pushSubscriptions      PushSubscription[]
   rentals                Rental[]           @relation("RenterRentals")
@@ -151,10 +155,10 @@ model Message {
   content     String
   senderId    String
   recipientId String
-  equipmentId String
+  equipmentId String?
   bookingId   String?
   booking     Booking?  @relation(fields: [bookingId], references: [id])
-  equipment   Equipment @relation(fields: [equipmentId], references: [id])
+  equipment   Equipment? @relation(fields: [equipmentId], references: [id])
   recipient   User      @relation("ReceivedMessages", fields: [recipientId], references: [id])
   sender      User      @relation("SentMessages", fields: [senderId], references: [id])
 
@@ -365,4 +369,19 @@ enum RentalStatus {
   COMPLETED
   CANCELLED
   REFUNDED
+}
+
+model NotificationPreference {
+  id               String   @id @default(cuid())
+  userId           String
+  notificationType String
+  emailEnabled     Boolean  @default(true)
+  pushEnabled      Boolean  @default(true)
+  inAppEnabled     Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, notificationType])
+  @@index([userId])
 }

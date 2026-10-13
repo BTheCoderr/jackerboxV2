@@ -74,7 +74,7 @@ export function ProfileForm({ user }: ProfileFormProps) {
     }
   };
   
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (_e: React.ChangeEvent<HTMLInputElement>) => {
     // This is a placeholder for image upload functionality
     // In a real implementation, you would upload the image to a service like Cloudinary
     console.log("Image upload not implemented yet");
@@ -193,7 +193,7 @@ export function ProfileForm({ user }: ProfileFormProps) {
           <button
             type="submit"
             disabled={isLoading}
-            className="px-4 py-2 bg-black text-white rounded-md hover:bg-opacity-80 disabled:opacity-50"
+            className="px-4 py-2 bg-jacker-blue text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
           >
             {isLoading ? "Saving..." : "Save Changes"}
           </button>

@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { EquipmentCard } from './EquipmentCard';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useSearchParams } from 'next/navigation';
 
 interface Equipment {

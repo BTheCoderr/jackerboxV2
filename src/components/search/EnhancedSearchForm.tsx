@@ -2,10 +2,8 @@
 
 import { useState, useCallback, FormEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { SearchSuggestions } from './SearchSuggestions';
 import { EQUIPMENT_CATEGORIES } from '@/lib/constants';
 import { FeatureToggle } from '@/components/feature-flags/FeatureToggle';
-import { FeatureFlags } from '@/lib/feature-flags';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -52,23 +50,14 @@ export function EnhancedSearchForm({
     
     // Add enhanced search parameters if the feature is enabled
     // These will be handled by the feature flag on the server
-    params.append('minPrice', priceRange[0].toString());
-    params.append('maxPrice', priceRange[1].toString());
+    params.set('priceMin', priceRange[0].toString());
+    params.set('priceMax', priceRange[1].toString());
     params.append('sortBy', sortBy);
     
+    onSearch(query, { category, location, priceMin: priceRange[0], priceMax: priceRange[1], sortBy });
     // Navigate to the equipment page with the search parameters
     router.push(`/routes/equipment?${params.toString()}`);
-  }, [query, category, location, router, priceRange, sortBy]);
-  
-  // Handle suggestion selection for query
-  const handleQuerySuggestion = useCallback((suggestion: string) => {
-    setQuery(suggestion);
-  }, []);
-  
-  // Handle suggestion selection for location
-  const handleLocationSuggestion = useCallback((suggestion: string) => {
-    setLocation(suggestion);
-  }, []);
+  }, [query, category, location, router, priceRange, sortBy, onSearch]);
   
   // Handle slider value change
   const handlePriceRangeChange = (value: number[]) => {
@@ -91,6 +80,14 @@ export function EnhancedSearchForm({
           </div>
         </div>
         
+        <div className="md:w-44">
+          <label className="sr-only" htmlFor="search-category">Category</label>
+          <select id="search-category" value={category} onChange={e => setCategory(e.target.value)}
+            className="h-10 w-full rounded-md border bg-white px-2 text-sm">
+            <option value="">All categories</option>
+            {EQUIPMENT_CATEGORIES.map(item => <option key={item} value={item}>{item}</option>)}
+          </select>
+        </div>
         <FeatureToggle featureKey={FEATURE_FLAGS.ENHANCED_SEARCH}>
           <div className="flex-1">
             <div className="relative">
@@ -132,6 +129,16 @@ export function EnhancedSearchForm({
           />
         </div>
       </FeatureToggle>
+      <label className="flex items-center gap-2 text-sm">
+        Sort by
+        <select value={sortBy} onChange={e => setSortBy(e.target.value)}
+          className="rounded-md border bg-white px-2 py-1">
+          <option value="relevance">Newest or most relevant</option>
+          <option value="price_asc">Lowest price</option>
+          <option value="price_desc">Highest price</option>
+          <option value="newest">Newest</option>
+        </select>
+      </label>
     </form>
   );
 } 

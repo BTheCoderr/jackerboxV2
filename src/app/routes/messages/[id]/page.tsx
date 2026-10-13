@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { ChatInterface } from "@/components/messaging/chat-interface";
 import { use } from "react";
-import { toast } from "sonner";
 
 interface MessagesUserPageProps {
   params: Promise<{

@@ -78,7 +78,7 @@ export async function uploadToS3(
       CacheControl: 'max-age=31536000', // Cache for 1 year
     };
     
-    const result = await s3Client.send(new PutObjectCommand(params));
+    await s3Client.send(new PutObjectCommand(params));
     
     return {
       key,

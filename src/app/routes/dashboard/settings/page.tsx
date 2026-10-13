@@ -3,8 +3,7 @@ export const dynamic = 'force-dynamic';
 import { Metadata } from "next";
 import { getCurrentUser } from "@/lib/auth/auth-utils";
 import { redirect } from "next/navigation";
-import { db } from "@/lib/db";
-import { Settings, User, Bell, Shield, CreditCard } from "lucide-react";
+import { User, Bell, Shield, CreditCard } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Account Settings | Jackerbox",
@@ -257,7 +256,7 @@ export default async function SettingsPage() {
                   <p className="text-sm text-gray-500 mb-4">
                     Add an extra layer of security to your account by enabling two-factor authentication.
                   </p>
-                  <button className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
+                  <button className="px-4 py-2 bg-jacker-blue text-white rounded-md hover:bg-blue-700">
                     Enable Two-Factor Authentication
                   </button>
                 </div>

@@ -1,13 +1,8 @@
 import dotenv from "dotenv";
-import { fileURLToPath } from "url";
-import path from "path";
 import fetch from "node-fetch";
 import { processImage } from "../src/lib/image-service";
 import { verifyRealPhoto } from "../src/lib/aws/rekognition-service";
 
-// Define __dirname for ES modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 // Load environment variables
 dotenv.config();

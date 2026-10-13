@@ -1,17 +1,29 @@
 [build]
-  command = "npx prisma generate --schema=./prisma/schema.prisma && npm run build"
+  command = "node scripts/assert-netlify-build.mjs && npx prisma generate --schema=./prisma/schema.prisma && npm run build"
   publish = ".next"
 
 [build.environment]
   NEXT_TELEMETRY_DISABLED = "1"
-  NODE_VERSION = "20"
-  SECRETS_SCAN_ENABLED = "false"
-
+  NODE_VERSION = "22"
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
-# Handle client-side routing
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
+# Next.js routes are handled by the Netlify Next.js runtime, not an SPA fallback.
+
+# Non-production builds must not inherit live Stripe or unknown database values.
+# Preview secrets must be configured for their own Netlify deploy context.
+[context.deploy-preview]
+  command = "node scripts/assert-staging-env.mjs && npx prisma generate --schema=./prisma/schema.prisma && npm run build"
+
+[context.branch-deploy]
+  command = "node scripts/assert-staging-env.mjs && npx prisma generate --schema=./prisma/schema.prisma && npm run build"
+
+# Non-secret markers are pinned in source rather than dependent on Netlify UI
+# variable creation, which could not be confirmed via the connected API.
+[context.deploy-preview.environment]
+  JACKERBOX_SUPABASE_PROJECT_REF = "gjqrubvipnhpnnpvodsv"
+  NEXT_PUBLIC_JACKERBOX_STAGING_PREVIEW = "true"
+
+[context.branch-deploy.environment]
+  JACKERBOX_SUPABASE_PROJECT_REF = "gjqrubvipnhpnnpvodsv"
+  NEXT_PUBLIC_JACKERBOX_STAGING_PREVIEW = "true"

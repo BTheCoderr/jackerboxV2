@@ -4,7 +4,6 @@ export const dynamic = 'force-dynamic';
 import { LoginForm } from "@/components/auth/login-form";
 import { getCurrentUser } from "@/lib/auth/auth-utils";
 import { redirect } from "next/navigation";
-import Image from "next/image";
 import Link from "next/link";
 
 export default async function LoginPage() {
@@ -16,10 +15,10 @@ export default async function LoginPage() {
   
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="border-b p-4">
+      <header className="border-b border-gray-200 bg-white p-4">
         <div className="container mx-auto flex justify-between items-center">
           <Link href="/" className="flex items-center space-x-2">
-            <span className="text-xl font-bold">Jackerbox</span>
+            <span className="text-xl font-bold text-jacker-blue">Jacker<span className="text-jacker-orange">box</span></span>
           </Link>
         </div>
       </header>
@@ -34,13 +33,13 @@ export default async function LoginPage() {
                 Join our community today!
               </p>
               <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 bg-gray-50 rounded-lg">
+                <div className="p-4 bg-jacker-blue-soft rounded-lg">
                   <h3 className="font-medium">Find what you need</h3>
                   <p className="text-sm text-gray-500">
                     Search thousands of items available for rent
                   </p>
                 </div>
-                <div className="p-4 bg-gray-50 rounded-lg">
+                <div className="p-4 bg-jacker-blue-soft rounded-lg">
                   <h3 className="font-medium">Make extra money</h3>
                   <p className="text-sm text-gray-500">
                     Rent out your equipment when you're not using it
@@ -50,7 +49,7 @@ export default async function LoginPage() {
             </div>
           </div>
           
-          <div className="bg-white rounded-lg shadow-sm border p-1">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-1">
             <LoginForm />
           </div>
         </div>

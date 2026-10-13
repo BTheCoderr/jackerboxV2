@@ -115,7 +115,7 @@ export default function HomePage() {
   return (
     <div className="flex flex-col min-h-screen">
       {/* Hero Section */}
-      <section className="bg-gray-50 py-16 md:py-24">
+      <section className="bg-jacker-blue-soft py-16 md:py-24 dark:bg-gray-900">
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
             <div className="space-y-6">
@@ -129,7 +129,7 @@ export default function HomePage() {
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link
                   href="/routes/equipment"
-                  className="px-6 py-3 bg-jacker-blue text-white rounded-md hover:bg-opacity-90 text-center"
+                  className="px-6 py-3 bg-jacker-blue text-white rounded-md hover:bg-blue-700 transition-colors text-center"
                 >
                   Find Equipment
                 </Link>
@@ -143,7 +143,7 @@ export default function HomePage() {
                 ) : (
                   <Link
                     href="/auth/register"
-                    className="px-6 py-3 bg-jacker-orange text-white rounded-md hover:bg-opacity-90 text-center"
+                    className="px-6 py-3 bg-jacker-orange text-white rounded-md hover:bg-jacker-orange-hover transition-colors text-center"
                   >
                     Sign Up
                   </Link>
@@ -226,14 +226,14 @@ export default function HomePage() {
           
           {isLoading ? (
             <div className="flex justify-center py-12" data-testid="featured-equipment-loading">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-jacker-blue"></div>
             </div>
           ) : error ? (
             <div className="text-center py-12" data-testid="featured-equipment-error">
               <p className="text-red-500 mb-4">{error}</p>
               <button 
                 onClick={fetchFeaturedEquipment}
-                className="px-4 py-2 bg-jacker-blue text-white rounded-md hover:bg-opacity-90"
+                className="px-4 py-2 bg-jacker-blue text-white rounded-md hover:bg-blue-700 transition-colors"
               >
                 Try Again
               </button>
@@ -243,7 +243,7 @@ export default function HomePage() {
               <p className="text-gray-500">No equipment listings yet.</p>
               <button 
                 onClick={fetchFeaturedEquipment}
-                className="mt-4 px-4 py-2 bg-jacker-blue text-white rounded-md hover:bg-opacity-90"
+                className="mt-4 px-4 py-2 bg-jacker-blue text-white rounded-md hover:bg-blue-700 transition-colors"
               >
                 Refresh
               </button>
@@ -266,7 +266,7 @@ export default function HomePage() {
                       onError={() => handleImageError(equipment.id)}
                     />
                     {equipment.isVerified && (
-                      <div className="absolute top-2 right-2 bg-blue-500 text-white text-xs px-2 py-1 rounded-full">
+                      <div className="absolute top-2 right-2 bg-jacker-blue text-white text-xs px-2 py-1 rounded-full">
                         Verified
                       </div>
                     )}
@@ -274,7 +274,7 @@ export default function HomePage() {
                   
                   <div className="p-4">
                     <div className="flex justify-between items-start">
-                      <h3 className="font-medium text-lg truncate">{equipment.title}</h3>
+                      <h3 className="font-medium text-lg truncate text-jacker-blue">{equipment.title}</h3>
                       <span className="text-sm bg-gray-100 px-2 py-1 rounded">
                         {equipment.condition}
                       </span>
@@ -291,17 +291,17 @@ export default function HomePage() {
                     <div className="mt-4 flex justify-between items-end">
                       <div>
                         {equipment.dailyRate && (
-                          <p className="font-bold text-lg">
+                          <p className="font-bold text-lg text-jacker-orange">
                             ${equipment.dailyRate}/day
                           </p>
                         )}
                         {!equipment.dailyRate && equipment.hourlyRate && (
-                          <p className="font-bold text-lg">
+                          <p className="font-bold text-lg text-jacker-orange">
                             ${equipment.hourlyRate}/hour
                           </p>
                         )}
                         {!equipment.dailyRate && !equipment.hourlyRate && equipment.weeklyRate && (
-                          <p className="font-bold text-lg">
+                          <p className="font-bold text-lg text-jacker-orange">
                             ${equipment.weeklyRate}/week
                           </p>
                         )}
@@ -418,7 +418,7 @@ export default function HomePage() {
                 {!session?.user && (
                   <Link
                     href="/auth/register"
-                    className="px-6 py-3 bg-jacker-orange text-white rounded-md hover:bg-opacity-90 text-center"
+                    className="px-6 py-3 bg-jacker-orange text-white rounded-md hover:bg-jacker-orange-hover transition-colors text-center"
                   >
                     Create Account
                   </Link>

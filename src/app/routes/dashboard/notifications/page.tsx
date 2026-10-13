@@ -1,10 +1,6 @@
 export const dynamic = 'force-dynamic';
 
 import { Metadata } from "next";
-import { formatDistanceToNow } from "date-fns";
-import { GenerateSampleNotificationsButton } from "@/components/notifications/generate-sample-button";
-import { NotificationPreferences } from "@/components/notifications/notification-preferences";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { redirect } from "next/navigation";
@@ -15,25 +11,6 @@ export const metadata: Metadata = {
   description: "View your notifications",
 };
 
-interface NotificationData {
-  amount?: number;
-  propertyName?: string;
-  checkIn?: string;
-  checkOut?: string;
-  rentalId?: string;
-  [key: string]: any;
-}
-
-interface NotificationType {
-  id: string;
-  type: string;
-  userId: string;
-  data: NotificationData | null;
-  read: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
 export default async function NotificationsPage() {
   const user = await getCurrentUser();
   
@@ -42,7 +19,7 @@ export default async function NotificationsPage() {
   }
 
   // Fetch notifications from the database
-  let notifications = [];
+  let notifications: Awaited<ReturnType<typeof db.notification.findMany>> = [];
   try {
     notifications = await db.notification.findMany({
       where: {

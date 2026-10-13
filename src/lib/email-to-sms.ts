@@ -90,7 +90,6 @@ export async function sendSmsViaEmail(
       if (!resolvedCarrier) {
         // Multi-carrier blast approach for unknown carriers
         console.log('Auto-detection failed, trying multi-carrier blast...');
-        const majorCarriers = ['tmobile', 'verizon', 'sprint', 'att']; // T-Mobile first since it's most reliable
         return { 
           success: false, 
           error: 'Unable to detect carrier. Please specify carrier manually.' 

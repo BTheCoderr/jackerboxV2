@@ -25,7 +25,7 @@ export function Navbar() {
   };
   
   return (
-    <header className="border-b hidden md:block">
+    <header className="hidden border-b border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 md:block">
       <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-8">
           <Logo />
@@ -45,7 +45,7 @@ export function Navbar() {
             <>
               <Link 
                 href="/routes/equipment/new"
-                className="px-4 py-2 border border-jacker-blue text-jacker-blue rounded-md hover:bg-jacker-blue hover:text-white transition-colors dark:border-blue-400 dark:text-blue-400 dark:hover:bg-blue-400"
+                className="px-4 py-2 border border-jacker-blue text-jacker-blue rounded-md hover:bg-jacker-blue hover:text-white transition-colors dark:border-blue-300 dark:text-blue-300 dark:hover:bg-blue-700"
               >
                 List Equipment
               </Link>
@@ -151,7 +151,7 @@ export function Navbar() {
               </Link>
               <Link 
                 href="/auth/register"
-                className="px-4 py-2 bg-jacker-orange text-white rounded-md hover:bg-opacity-90"
+                className="px-4 py-2 bg-jacker-orange text-white rounded-md hover:bg-jacker-orange-hover transition-colors"
               >
                 Sign up
               </Link>

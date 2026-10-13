@@ -69,7 +69,7 @@ export function MessageList({ messages, currentUserId }: MessageListProps) {
               <div
                 className={`max-w-xs sm:max-w-md px-4 py-2 rounded-lg ${
                   isCurrentUser
-                    ? "bg-black text-white rounded-br-none"
+                    ? "bg-jacker-blue text-white rounded-br-none"
                     : "bg-gray-100 text-gray-800 rounded-bl-none"
                 }`}
               >

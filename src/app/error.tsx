@@ -20,14 +20,14 @@ export default function Error({
       <h1 className="text-6xl font-bold text-gray-800" suppressHydrationWarning>
         Something went wrong
       </h1>
-      <div className="h-1 w-24 bg-black my-6"></div>
+      <div className="h-1 w-24 bg-jacker-orange my-6"></div>
       <p className="text-gray-600 max-w-md mb-8">
         We apologize for the inconvenience. An unexpected error has occurred.
       </p>
       <div className="flex flex-col sm:flex-row gap-4">
         <button
           onClick={reset}
-          className="px-6 py-3 bg-black text-white rounded-md hover:bg-opacity-90 transition-all"
+          className="px-6 py-3 bg-jacker-blue text-white rounded-md hover:bg-blue-700 transition-all"
         >
           Try Again
         </button>

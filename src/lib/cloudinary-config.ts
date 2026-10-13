@@ -1,4 +1,4 @@
-import { v2 as cloudinary } from 'cloudinary';
+import { v2 as cloudinary, type UploadApiOptions } from 'cloudinary';
 
 if (!process.env.CLOUDINARY_URL) {
   cloudinary.config({
@@ -17,10 +17,10 @@ export interface UploadResponse {
   height: number;
 }
 
-export const uploadImage = async (file: File | Buffer, options = {}): Promise<UploadResponse> => {
+export const uploadImage = async (file: File | Buffer, options: UploadApiOptions = {}): Promise<UploadResponse> => {
   try {
-    const uploadOptions = {
-      resource_type: 'auto',
+    const uploadOptions: UploadApiOptions = {
+      resource_type: 'image',
       folder: process.env.NODE_ENV === 'production' ? 'production' : 'development',
       ...options,
     };

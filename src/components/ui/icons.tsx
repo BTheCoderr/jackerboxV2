@@ -12,7 +12,6 @@ import {
   Image,
   Laptop,
   Loader2,
-  LucideProps,
   Moon,
   MoreVertical,
   Pizza,
@@ -23,7 +22,7 @@ import {
   Twitter,
   User,
   X,
-  type Icon as LucideIcon,
+  type LucideIcon,
 } from "lucide-react";
 
 import { Google } from "./vendor/google";

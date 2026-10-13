@@ -64,7 +64,7 @@ async function testWebhookWithDatabase() {
   console.log('\n🧪 Testing webhook with actual database record...');
   
   try {
-    const { paymentIntent, payment } = await createTestPaymentRecord();
+    const { paymentIntent } = await createTestPaymentRecord();
 
     // Test webhook endpoint with real payment
     const webhookEvent = {

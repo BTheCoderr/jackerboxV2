@@ -1,17 +1,16 @@
 // Add dynamic export to ensure proper data fetching
 export const dynamic = 'force-dynamic';
 
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { requireAuth } from "@/lib/auth/auth-utils";
 import { db } from "@/lib/db";
 import { formatCurrency, formatDateRange } from "@/lib/utils/format";
 
 interface RentalsPageProps {
-  searchParams: {
+  searchParams: Promise<{
     type?: string; // "renter" or "owner"
     status?: string;
-  };
+  }>;
 }
 
 export default async function RentalsPage({ searchParams }: RentalsPageProps) {
@@ -19,7 +18,7 @@ export default async function RentalsPage({ searchParams }: RentalsPageProps) {
   const user = await requireAuth();
   
   // Extract search parameters safely for Next.js 15.2.0
-  const params = await Promise.resolve(searchParams);
+  const params = (await searchParams) ?? {};
   const type = params.type || '';
   const status = params.status || '';
   
@@ -238,11 +237,11 @@ export default async function RentalsPage({ searchParams }: RentalsPageProps) {
                       <span className="text-gray-600 w-32">Status:</span>
                       <span
                         className={`px-2 py-1 text-xs rounded-full ${
-                          rental.status === "Approved"
+                          (rental.status === "PAID" || rental.status === "ACTIVE")
                             ? "bg-green-100 text-green-800"
-                            : rental.status === "Pending"
+                            : rental.status === "PENDING"
                             ? "bg-yellow-100 text-yellow-800"
-                            : rental.status === "Completed"
+                            : rental.status === "COMPLETED"
                             ? "bg-blue-100 text-blue-800"
                             : "bg-red-100 text-red-800"
                         }`}
@@ -292,24 +291,8 @@ export default async function RentalsPage({ searchParams }: RentalsPageProps) {
                 {/* Actions */}
                 <div className="md:col-span-1 flex flex-col justify-between">
                   <div className="space-y-2">
-                    {rental.status === "Pending" && viewType === "owner" && (
-                      <>
-                        <button className="w-full py-2 px-4 bg-green-600 text-white rounded-md hover:bg-green-700">
-                          Approve
-                        </button>
-                        <button className="w-full py-2 px-4 bg-red-600 text-white rounded-md hover:bg-red-700">
-                          Reject
-                        </button>
-                      </>
-                    )}
-                    
-                    {rental.status === "Approved" && (
-                      <button className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700">
-                        Mark as Completed
-                      </button>
-                    )}
-                    
-                    {rental.status === "Completed" && viewType === "renter" && !rental.review && (
+                    {/* Rental state changes are handled on the detail page with access checks. */}
+                    {rental.status === "COMPLETED" && viewType === "renter" && !rental.review && (
                       <Link
                         href={`/routes/reviews/new?rentalId=${rental.id}`}
                         className="block w-full py-2 px-4 bg-jacker-orange text-white text-center rounded-md hover:bg-opacity-90"

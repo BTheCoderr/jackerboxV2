@@ -72,16 +72,13 @@ export function FeatureFlagExample() {
           <p className="font-medium">Button Color Experiment</p>
           <p className="mt-1">Current variant: <span className="font-bold">{buttonColor}</span></p>
           
-          <ExperimentToggle
-            experimentKey={EXPERIMENTS.PRICING_DISPLAY}
-            paramName="button_color"
-            defaultVariant="blue"
-            variants={{
-              blue: <button className="mt-2 px-4 py-2 bg-blue-500 text-white rounded">Blue Button</button>,
-              green: <button className="mt-2 px-4 py-2 bg-green-500 text-white rounded">Green Button</button>,
-              red: <button className="mt-2 px-4 py-2 bg-red-500 text-white rounded">Red Button</button>,
-            }}
-          />
+          {(['blue', 'green', 'red'] as const).map(variant => (
+            <ExperimentToggle key={variant} experimentKey={EXPERIMENTS.PRICING_DISPLAY} variant={variant}>
+              <button className={`mt-2 mr-2 rounded px-4 py-2 text-white ${variant === 'blue' ? 'bg-blue-500' : variant === 'green' ? 'bg-green-500' : 'bg-red-500'}`}>
+                {variant} Button
+              </button>
+            </ExperimentToggle>
+          ))}
         </div>
       </div>
     </div>

@@ -103,10 +103,11 @@ function NavLink({
       href={href} 
       className={cn(
         "flex flex-col items-center justify-center w-full h-full text-xs transition-colors duration-200",
-        highlight && "bg-blue-50 dark:bg-blue-900/20 rounded-lg mx-1",
-        isActive
-          ? "text-blue-600 dark:text-blue-400" 
-          : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300"
+        highlight
+          ? "bg-jacker-orange-soft text-jacker-orange rounded-lg mx-1 dark:bg-gray-800 dark:text-orange-300"
+          : isActive
+            ? "bg-jacker-blue-soft text-jacker-blue rounded-lg mx-1 dark:bg-gray-800 dark:text-blue-300"
+            : "text-gray-500 dark:text-gray-400 hover:text-jacker-blue dark:hover:text-blue-300"
       )}
       data-testid={dataTestId}
     >

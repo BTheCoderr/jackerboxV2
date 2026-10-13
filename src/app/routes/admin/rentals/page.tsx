@@ -13,37 +13,38 @@ const formatCurrency = (amount: number) => {
 };
 
 interface AdminRentalsPageProps {
-  searchParams: {
+  searchParams: Promise<{
     status?: string;
     search?: string;
     page?: string;
-  };
+  }>;
 }
 
 export default async function AdminRentalsPage({ searchParams }: AdminRentalsPageProps) {
+  const resolvedSearchParams = (await searchParams) ?? {};
   const user = await getCurrentUser();
   
   if (!user?.isAdmin) {
     throw new Error("Unauthorized");
   }
   
-  const page = Number(searchParams.page) || 1;
+  const page = Number(resolvedSearchParams.page) || 1;
   const pageSize = 10;
   const skip = (page - 1) * pageSize;
   
   // Build filter conditions
   const where: any = {};
   
-  if (searchParams.status) {
-    where.status = searchParams.status;
+  if (resolvedSearchParams.status) {
+    where.status = resolvedSearchParams.status;
   }
   
-  if (searchParams.search) {
+  if (resolvedSearchParams.search) {
     where.OR = [
       {
         equipment: {
           title: {
-            contains: searchParams.search,
+            contains: resolvedSearchParams.search,
             mode: 'insensitive',
           },
         },
@@ -51,7 +52,7 @@ export default async function AdminRentalsPage({ searchParams }: AdminRentalsPag
       {
         renter: {
           name: {
-            contains: searchParams.search,
+            contains: resolvedSearchParams.search,
             mode: 'insensitive',
           },
         },
@@ -105,13 +106,13 @@ export default async function AdminRentalsPage({ searchParams }: AdminRentalsPag
             <select
               id="status"
               name="status"
-              defaultValue={searchParams.status || ""}
+              defaultValue={resolvedSearchParams.status || ""}
               className="w-full rounded-md border-gray-300 shadow-sm focus:border-jacker-blue focus:ring-jacker-blue"
             >
               <option value="">All Statuses</option>
               <option value="PENDING">Pending</option>
-              <option value="CONFIRMED">Confirmed</option>
-              <option value="IN_PROGRESS">In Progress</option>
+              <option value="PAID">Paid</option>
+              <option value="ACTIVE">Active</option>
               <option value="COMPLETED">Completed</option>
               <option value="CANCELLED">Cancelled</option>
               <option value="DISPUTED">Disputed</option>
@@ -126,7 +127,7 @@ export default async function AdminRentalsPage({ searchParams }: AdminRentalsPag
               type="text"
               id="search"
               name="search"
-              defaultValue={searchParams.search || ""}
+              defaultValue={resolvedSearchParams.search || ""}
               placeholder="Search by equipment, renter, or owner"
               className="w-full rounded-md border-gray-300 shadow-sm focus:border-jacker-blue focus:ring-jacker-blue"
             />
@@ -206,8 +207,8 @@ export default async function AdminRentalsPage({ searchParams }: AdminRentalsPag
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                         rental.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
-                        rental.status === 'CONFIRMED' ? 'bg-blue-100 text-blue-800' :
-                        rental.status === 'IN_PROGRESS' ? 'bg-purple-100 text-purple-800' :
+                        rental.status === 'PAID' ? 'bg-blue-100 text-blue-800' :
+                        rental.status === 'ACTIVE' ? 'bg-purple-100 text-purple-800' :
                         rental.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
                         rental.status === 'CANCELLED' ? 'bg-gray-100 text-gray-800' :
                         'bg-red-100 text-red-800'
@@ -249,7 +250,7 @@ export default async function AdminRentalsPage({ searchParams }: AdminRentalsPag
                   href={{
                     pathname: "/routes/admin/rentals",
                     query: {
-                      ...searchParams,
+                      ...resolvedSearchParams,
                       page: page - 1,
                     },
                   }}
@@ -263,7 +264,7 @@ export default async function AdminRentalsPage({ searchParams }: AdminRentalsPag
                   href={{
                     pathname: "/routes/admin/rentals",
                     query: {
-                      ...searchParams,
+                      ...resolvedSearchParams,
                       page: page + 1,
                     },
                   }}

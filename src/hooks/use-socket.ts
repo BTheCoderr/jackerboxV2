@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { io, Socket, ManagerOptions, SocketOptions } from "socket.io-client";
+import { io, Socket } from "socket.io-client";
 import { useSession } from "next-auth/react";
 
 // Define the socket connection status
@@ -54,8 +54,8 @@ export function useSocket(options: UseSocketOptions = {}): UseSocketReturn {
     onReconnectFailed,
   } = options;
 
-  const { data: session, status: sessionStatus } = useSession();
-  const [socket, setSocket] = useState<Socket | null>(null);
+  const { status: sessionStatus } = useSession();
+  const [, setSocket] = useState<Socket | null>(null);
   const [status, setStatus] = useState<SocketStatus>('disconnected');
   const [error, setError] = useState<Error | null>(null);
   const [isPollingFallback, setIsPollingFallback] = useState(false);
@@ -421,7 +421,7 @@ export function useSocket(options: UseSocketOptions = {}): UseSocketReturn {
     const unsubscribers = eventsRef.current.map((event) => {
       console.log(`Auto-subscribing to event: ${event}`);
       
-      const handler = (...args: any[]) => {
+      const handler = (..._args: any[]) => {
         // This is just a placeholder handler to ensure the event is registered
         // Actual handlers should be registered using the subscribe method
       };

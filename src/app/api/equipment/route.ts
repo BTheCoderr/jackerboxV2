@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { Prisma } from "@/lib/prisma-client";
 
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/auth-utils";
@@ -7,11 +8,6 @@ import { EQUIPMENT_CATEGORIES, EQUIPMENT_CONDITIONS } from "@/lib/constants";
 
 // Minimum number of required images
 const MIN_REQUIRED_IMAGES = 3;
-
-// Cache control headers for GET requests
-const CACHE_CONTROL_HEADERS = {
-  'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300'
-};
 
 const equipmentSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters"),
@@ -36,7 +32,7 @@ const equipmentSchema = z.object({
   (data) => {
     try {
       const images = JSON.parse(data.imagesJson);
-      return Array.isArray(images) && images.length >= MIN_REQUIRED_IMAGES;
+      return Array.isArray(images) && images.length >= MIN_REQUIRED_IMAGES && images.length <= 5 && images.every((url: unknown) => { try { return typeof url === 'string' && new URL(url).protocol === 'https:'; } catch { return false; } });
     } catch {
       return false;
     }
@@ -55,20 +51,6 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { message: "Unauthorized" },
         { status: 401 }
-      );
-    }
-    
-    // Check if user is a renter (has rental history)
-    const userRentals = await db.rental.count({
-      where: {
-        renterId: user.id
-      }
-    });
-    
-    if (userRentals > 0) {
-      return NextResponse.json(
-        { message: "Renters cannot create equipment listings. Please use a separate owner account." },
-        { status: 403 }
       );
     }
     
@@ -96,7 +78,7 @@ export async function POST(req: Request) {
     });
     
     return NextResponse.json(
-      { equipment, message: "Equipment created successfully" },
+      { equipment, id: equipment.id, message: "Equipment created successfully" },
       { status: 201 }
     );
   } catch (error) {
@@ -115,58 +97,103 @@ export async function POST(req: Request) {
   }
 }
 
-export async function GET(request: Request) {
+function parseStoredStrings(raw: string | null | undefined): string[] {
+  if (!raw) return [];
   try {
-    const { searchParams } = new URL(request.url);
-    const query = searchParams.get('query') || '';
-    const category = searchParams.get('category') || '';
-    const location = searchParams.get('location') || '';
-    const minPrice = searchParams.get('minPrice') ? Number(searchParams.get('minPrice')) : undefined;
-    const maxPrice = searchParams.get('maxPrice') ? Number(searchParams.get('maxPrice')) : undefined;
-
-    // Build where clause based on filters
-    const where = {
-      AND: [
-        {
-          OR: [
-            { title: { contains: query, mode: 'insensitive' } },
-            { description: { contains: query, mode: 'insensitive' } },
-          ],
-        },
-        category ? { category } : {},
-        location ? { location: { contains: location, mode: 'insensitive' } } : {},
-        minPrice ? { dailyRate: { gte: minPrice } } : {},
-        maxPrice ? { dailyRate: { lte: maxPrice } } : {},
-        { isAvailable: true },
-        { moderationStatus: 'APPROVED' },
-      ],
-    };
-
-    const equipment = await db.equipment.findMany({
-      where,
-      include: {
-        owner: {
-          select: {
-            id: true,
-            name: true,
-            image: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-      take: 50,
-    });
-
-    return NextResponse.json({ equipment });
-  } catch (error) {
-    console.error('Error fetching equipment:', error);
-    return NextResponse.json(
-      { message: 'Failed to fetch equipment' },
-      { status: 500 }
-    );
+    const value: unknown = JSON.parse(raw);
+    return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+  } catch {
+    return [];
   }
 }
 
-export const dynamic = 'force-dynamic'; 
+export async function GET(request: Request) {
+  const params = new URL(request.url).searchParams;
+  const query = (params.get('query') ?? '').trim();
+  const category = (params.get('category') ?? '').trim();
+  const location = (params.get('location') ?? '').trim();
+  const minRaw = params.get('priceMin') ?? params.get('minPrice');
+  const maxRaw = params.get('priceMax') ?? params.get('maxPrice');
+  const minPrice = minRaw == null || minRaw === '' ? undefined : Number(minRaw);
+  const maxPrice = maxRaw == null || maxRaw === '' ? undefined : Number(maxRaw);
+  const pageRaw = Number(params.get('page') || '1');
+  const limitRaw = Number(params.get('limit') || '20');
+  const sortBy = params.get('sortBy') || 'relevance';
+  const validSort = ['relevance', 'newest', 'price_asc', 'price_desc'];
+
+  if (query.length > 120 || location.length > 100 ||
+      (category && category !== 'all' && !EQUIPMENT_CATEGORIES.includes(category)) ||
+      !Number.isSafeInteger(pageRaw) || pageRaw < 1 || pageRaw > 10000 ||
+      !Number.isSafeInteger(limitRaw) || limitRaw < 1 || limitRaw > 50 ||
+      !validSort.includes(sortBy) ||
+      [minPrice, maxPrice].some(n => n !== undefined && (!Number.isFinite(n) || n < 0)) ||
+      (minPrice !== undefined && maxPrice !== undefined && minPrice > maxPrice)) {
+    return NextResponse.json({ message: 'Invalid search filters' }, { status: 400 });
+  }
+
+  // Geographic-radius searching is not supported until listings store coordinates.
+  // Reject it instead of returning unfiltered results pretending they are nearby.
+  if (['lat', 'lng', 'maxDistance'].some(key => params.has(key))) {
+    return NextResponse.json({ message: 'Distance filtering is not available yet. Search by city instead.' }, { status: 400 });
+  }
+
+  const where: Prisma.EquipmentWhereInput = {
+    moderationStatus: 'APPROVED',
+    isAvailable: true,
+    ...(category && category !== 'all' ? { category } : {}),
+    ...(location ? { location: { contains: location, mode: 'insensitive' } } : {}),
+  };
+
+  const filters: Prisma.EquipmentWhereInput[] = [];
+  if (query) {
+    filters.push({ OR: [
+      { title: { contains: query, mode: 'insensitive' } },
+      { description: { contains: query, mode: 'insensitive' } },
+    ] });
+  }
+  if (minPrice !== undefined || maxPrice !== undefined) {
+    const range = {
+      ...(minPrice !== undefined ? { gte: minPrice } : {}),
+      ...(maxPrice !== undefined ? { lte: maxPrice } : {}),
+    };
+    filters.push({ OR: [{ dailyRate: range }, { hourlyRate: range }, { weeklyRate: range }] });
+  }
+  if (filters.length) where.AND = filters;
+
+  const orderBy: Prisma.EquipmentOrderByWithRelationInput[] =
+    sortBy === 'price_asc' ? [{ dailyRate: { sort: 'asc', nulls: 'last' } }, { createdAt: 'desc' }] :
+    sortBy === 'price_desc' ? [{ dailyRate: { sort: 'desc', nulls: 'last' } }, { createdAt: 'desc' }] :
+    [{ createdAt: 'desc' }];
+
+  try {
+    const [total, rows] = await Promise.all([
+      db.equipment.count({ where }),
+      db.equipment.findMany({
+        where,
+        include: { owner: { select: { id: true, name: true, image: true } } },
+        orderBy,
+        take: limitRaw,
+        skip: (pageRaw - 1) * limitRaw,
+      }),
+    ]);
+    const equipment = rows.map(item => ({
+      ...item,
+      images: parseStoredStrings(item.imagesJson),
+      tags: parseStoredStrings(item.tagsJson),
+    }));
+    return NextResponse.json({
+      equipment,
+      pagination: {
+        total,
+        page: pageRaw,
+        limit: limitRaw,
+        pages: Math.ceil(total / limitRaw),
+      },
+    });
+  } catch (error) {
+    console.error('Equipment retrieval failed', error);
+    return NextResponse.json({ message: 'Unable to load equipment' }, { status: 500 });
+  }
+}
+
+export const dynamic = 'force-dynamic';

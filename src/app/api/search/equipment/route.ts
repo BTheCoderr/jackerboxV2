@@ -1,313 +1,128 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db as prisma } from '@/lib/db';
-import { getCurrentUser } from '@/lib/auth/session';
+import { Prisma } from '@/lib/prisma-client';
+import { db } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
-export const revalidate = 0;
 
-/**
- * Advanced equipment search API with PostgreSQL full-text search and trigram similarity
- * Supports hybrid search combining keyword matching, location proximity, and category filtering
- */
-export async function GET(req: NextRequest) {
+const rad = (n: number) => n * Math.PI / 180;
+function distanceKm(lat1: number, lng1: number, lat2: number, lng2: number) {
+  const dLat = rad(lat2 - lat1);
+  const dLng = rad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function jsonArray(value: string): string[] {
   try {
-    const { searchParams } = new URL(req.url);
-    
-    // Extract search parameters
-    const query = searchParams.get('query') || '';
-    const category = searchParams.get('category') || '';
-    const subcategory = searchParams.get('subcategory') || '';
-    const lat = searchParams.get('lat') ? parseFloat(searchParams.get('lat')!) : null;
-    const lng = searchParams.get('lng') ? parseFloat(searchParams.get('lng')!) : null;
-    const maxDistance = searchParams.get('maxDistance') ? parseFloat(searchParams.get('maxDistance')!) : null;
-    const priceMin = searchParams.get('priceMin') ? parseFloat(searchParams.get('priceMin')!) : null;
-    const priceMax = searchParams.get('priceMax') ? parseFloat(searchParams.get('priceMax')!) : null;
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '20');
-    const sortBy = searchParams.get('sortBy') || 'relevance';
-    
-    console.log('Search parameters:', { query, category, subcategory, lat, lng, maxDistance, priceMin, priceMax, page, limit, sortBy });
-    
-    // Prepare filter conditions
-    const conditions: any[] = [
-      { isAvailable: true },
-      { moderationStatus: 'APPROVED' },
-    ];
-    
-    // Category filters
-    if (category) {
-      conditions.push({ category });
-    }
-    
-    if (subcategory) {
-      conditions.push({ subcategory });
-    }
-    
-    // Price filters
-    if (priceMin !== null) {
-      conditions.push({ 
-        OR: [
-          { dailyRate: { gte: priceMin } },
-          { hourlyRate: { gte: priceMin } }
-        ]
+    const parsed: unknown = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : [];
+  } catch { return []; }
+}
+
+export async function GET(req: NextRequest) {
+  const p = req.nextUrl.searchParams;
+  const query = (p.get('query') ?? '').trim();
+  const category = (p.get('category') ?? '').trim();
+  const subcategory = (p.get('subcategory') ?? '').trim();
+  const location = (p.get('location') ?? '').trim();
+  const page = Number(p.get('page') ?? '1');
+  const limit = Number(p.get('limit') ?? '20');
+  const sortBy = p.get('sortBy') ?? 'newest';
+
+  if (query.length > 120 || category.length > 80 || subcategory.length > 80 || location.length > 100 ||
+      !Number.isInteger(page) || page < 1 || page > 1000 ||
+      !Number.isInteger(limit) || limit < 1 || limit > 50) {
+    return NextResponse.json({ error: 'Invalid search criteria or pagination' }, { status: 400 });
+  }
+
+  function optionalNumber(key: string): number | undefined {
+    const raw = p.get(key);
+    if (raw == null || raw === '') return undefined;
+    return Number(raw);
+  }
+  const lat = optionalNumber('lat');
+  const lng = optionalNumber('lng');
+  const maxDistance = optionalNumber('maxDistance');
+  const priceMin = optionalNumber('priceMin');
+  const priceMax = optionalNumber('priceMax');
+  const numbers = [lat, lng, maxDistance, priceMin, priceMax].filter((x): x is number => x !== undefined);
+  if (numbers.some(x => !Number.isFinite(x)) ||
+      ((lat === undefined) !== (lng === undefined)) ||
+      (lat !== undefined && (Math.abs(lat) > 90 || Math.abs(lng!) > 180)) ||
+      (maxDistance !== undefined && (maxDistance <= 0 || maxDistance > 500)) ||
+      (maxDistance !== undefined && lat === undefined) ||
+      (priceMin !== undefined && priceMin < 0) ||
+      (priceMax !== undefined && priceMax < 0) ||
+      (priceMin !== undefined && priceMax !== undefined && priceMin > priceMax)) {
+    return NextResponse.json({ error: 'Invalid numeric search filters' }, { status: 400 });
+  }
+
+  const where: Prisma.EquipmentWhereInput = {
+    isAvailable: true,
+    moderationStatus: 'APPROVED',
+    ...(category ? { category } : {}),
+    ...(subcategory ? { subcategory } : {}),
+    ...(location ? { location: { contains: location, mode: 'insensitive' } } : {}),
+  };
+  const and: Prisma.EquipmentWhereInput[] = [];
+  if (query) and.push({ OR: [
+    { title: { contains: query, mode: 'insensitive' } },
+    { description: { contains: query, mode: 'insensitive' } },
+    { category: { contains: query, mode: 'insensitive' } },
+    { subcategory: { contains: query, mode: 'insensitive' } },
+  ] });
+  if (priceMin !== undefined || priceMax !== undefined) {
+    const range = { ...(priceMin !== undefined ? { gte: priceMin } : {}),
+      ...(priceMax !== undefined ? { lte: priceMax } : {}) };
+    and.push({ OR: [{ hourlyRate: range }, { dailyRate: range }, { weeklyRate: range }] });
+  }
+  if (and.length > 0) where.AND = and;
+
+  const sort: Prisma.EquipmentOrderByWithRelationInput =
+    sortBy === 'price_asc' ? { dailyRate: 'asc' } :
+    sortBy === 'price_desc' ? { dailyRate: 'desc' } :
+    { createdAt: 'desc' };
+
+  try {
+    if (lat !== undefined && lng !== undefined) {
+      // Bounded candidate set; safe without interpolated raw SQL.
+      const candidates = await db.equipment.findMany({
+        where: { ...where, latitude: { not: null }, longitude: { not: null } },
+        orderBy: sort,
+        take: 1000,
       });
-    }
-    
-    if (priceMax !== null) {
-      conditions.push({ 
-        OR: [
-          { dailyRate: { lte: priceMax } },
-          { hourlyRate: { lte: priceMax } }
-        ]
-      });
-    }
-    
-    // Prepare the search query
-    let searchEquipment;
-    let totalCount;
-    
-    // Skip pagination for first request to get totalCount
-    const skip = (page - 1) * limit;
-    
-    try {
-      // If there's a search query
-      if (query.trim()) {
-        console.log('Executing full-text search query');
-        // Generate search vectors from user input
-        const searchTerms = query.trim().split(/\s+/).filter(Boolean);
-        
-        try {
-          // Create full-text search condition with weights for different fields
-          // Add trigram similarity for fuzzy matching
-          const searchConditions = await prisma.$queryRaw`
-            SELECT id, 
-              title, 
-              description,
-              category,
-              subcategory,
-              location,
-              hourlyRate,
-              dailyRate,
-              weeklyRate,
-              securityDeposit,
-              isAvailable,
-              "createdAt",
-              "updatedAt",
-              "moderationStatus",
-              "isVerified",
-              "ownerId",
-              "imagesJson",
-              "tagsJson",
-              ts_rank(
-                setweight(to_tsvector('english', title), 'A') || 
-                setweight(to_tsvector('english', description), 'B') || 
-                setweight(to_tsvector('english', category), 'C') ||
-                setweight(to_tsvector('english', COALESCE(subcategory, '')), 'D'),
-                plainto_tsquery('english', ${query})
-              ) AS rank,
-              CASE 
-                WHEN ${lat} IS NOT NULL AND ${lng} IS NOT NULL AND latitude IS NOT NULL AND longitude IS NOT NULL
-                THEN (
-                  6371 * acos(
-                    cos(radians(${lat})) * 
-                    cos(radians(latitude)) * 
-                    cos(radians(longitude) - radians(${lng})) + 
-                    sin(radians(${lat})) * 
-                    sin(radians(latitude))
-                  )
-                )
-                ELSE NULL
-              END as distance
-            FROM "Equipment"
-            WHERE 
-              "moderationStatus" = 'APPROVED' AND
-              "isAvailable" = true AND
-              (
-                to_tsvector('english', title) || 
-                to_tsvector('english', description) || 
-                to_tsvector('english', category) ||
-                to_tsvector('english', COALESCE(subcategory, ''))
-              ) @@ plainto_tsquery('english', ${query})
-              ${category ? ` AND category = ${category}` : ''}
-              ${subcategory ? ` AND subcategory = ${subcategory}` : ''}
-              ${priceMin ? ` AND (COALESCE("dailyRate", 0) >= ${priceMin} OR COALESCE("hourlyRate", 0) >= ${priceMin})` : ''}
-              ${priceMax ? ` AND (COALESCE("dailyRate", 0) <= ${priceMax} OR COALESCE("hourlyRate", 0) <= ${priceMax})` : ''}
-              ${(lat && lng && maxDistance) ? ` AND (
-                6371 * acos(
-                  cos(radians(${lat})) * 
-                  cos(radians(latitude)) * 
-                  cos(radians(longitude) - radians(${lng})) + 
-                  sin(radians(${lat})) * 
-                  sin(radians(latitude))
-                )
-              ) <= ${maxDistance}` : ''}
-            ORDER BY 
-              ${sortBy === 'distance' && lat && lng ? 'distance ASC,' : ''}
-              ${sortBy === 'price_asc' ? 'COALESCE("dailyRate", "hourlyRate" * 8) ASC,' : ''}
-              ${sortBy === 'price_desc' ? 'COALESCE("dailyRate", "hourlyRate" * 8) DESC,' : ''}
-              ${sortBy === 'newest' ? '"createdAt" DESC,' : ''}
-              ${sortBy === 'relevance' || !sortBy ? 'rank DESC,' : ''}
-              "createdAt" DESC
-            LIMIT ${limit} OFFSET ${skip}
-          `;
-          
-          // Get total count for pagination
-          const countResult = await prisma.$queryRaw`
-            SELECT COUNT(*) as count
-            FROM "Equipment"
-            WHERE 
-              "moderationStatus" = 'APPROVED' AND
-              "isAvailable" = true AND
-              (
-                to_tsvector('english', title) || 
-                to_tsvector('english', description) || 
-                to_tsvector('english', category) ||
-                to_tsvector('english', COALESCE(subcategory, ''))
-              ) @@ plainto_tsquery('english', ${query})
-              ${category ? ` AND category = ${category}` : ''}
-              ${subcategory ? ` AND subcategory = ${subcategory}` : ''}
-              ${priceMin ? ` AND (COALESCE("dailyRate", 0) >= ${priceMin} OR COALESCE("hourlyRate", 0) >= ${priceMin})` : ''}
-              ${priceMax ? ` AND (COALESCE("dailyRate", 0) <= ${priceMax} OR COALESCE("hourlyRate", 0) <= ${priceMax})` : ''}
-              ${(lat && lng && maxDistance) ? ` AND (
-                6371 * acos(
-                  cos(radians(${lat})) * 
-                  cos(radians(latitude)) * 
-                  cos(radians(longitude) - radians(${lng})) + 
-                  sin(radians(${lat})) * 
-                  sin(radians(latitude))
-                )
-              ) <= ${maxDistance}` : ''}
-          `;
-          
-          searchEquipment = searchConditions;
-          totalCount = (countResult as any)[0].count;
-        } catch (rawQueryError) {
-          console.error('Raw query error:', rawQueryError);
-          
-          // Fallback to standard query if raw query fails (e.g., if ts_rank is not available)
-          console.log('Falling back to standard query');
-          
-          // Add text search condition
-          conditions.push({
-            OR: [
-              { title: { contains: query, mode: 'insensitive' } },
-              { description: { contains: query, mode: 'insensitive' } },
-              { category: { contains: query, mode: 'insensitive' } },
-              { subcategory: { contains: query, mode: 'insensitive' } }
-            ]
-          });
-          
-          const baseQuery: any = {
-            where: {
-              AND: conditions,
-            },
-            skip,
-            take: limit,
-            orderBy: [{ createdAt: 'desc' }]
-          };
-          
-          searchEquipment = await prisma.equipment.findMany(baseQuery);
-          
-          // Get total count for pagination
-          totalCount = await prisma.equipment.count({
-            where: {
-              AND: conditions,
-            },
-          });
-        }
-      } else {
-        // If no search query, just use filters
-        console.log('Executing standard filter query');
-        const baseQuery: any = {
-          where: {
-            AND: conditions,
-          },
-          skip,
-          take: limit,
-        };
-        
-        // Sorting options
-        if (sortBy === 'price_asc') {
-          baseQuery.orderBy = [{ dailyRate: 'asc' }];
-        } else if (sortBy === 'price_desc') {
-          baseQuery.orderBy = [{ dailyRate: 'desc' }]; 
-        } else if (sortBy === 'newest') {
-          baseQuery.orderBy = [{ createdAt: 'desc' }];
-        } else {
-          baseQuery.orderBy = [{ createdAt: 'desc' }];
-        }
-        
-        // Execute query
-        searchEquipment = await prisma.equipment.findMany(baseQuery);
-        
-        // Get total count for pagination
-        const count = await prisma.equipment.count({
-          where: {
-            AND: conditions,
-          },
-        });
-        
-        totalCount = count;
-      }
-    } catch (queryError) {
-      console.error('Query execution error:', queryError);
-      return NextResponse.json(
-        { 
-          error: 'Query execution failed', 
-          details: queryError instanceof Error ? queryError.message : 'Unknown error'
+      const filtered = candidates.map(item => ({
+        ...item,
+        distance: distanceKm(lat, lng, item.latitude!, item.longitude!),
+      })).filter(item => maxDistance === undefined || item.distance <= maxDistance);
+      if (sortBy === 'distance') filtered.sort((a, b) => a.distance - b.distance);
+      const results = filtered.slice((page - 1) * limit, page * limit).map(item => ({
+        ...item,
+        distance: Number(item.distance.toFixed(1)),
+        images: jsonArray(item.imagesJson),
+        tags: jsonArray(item.tagsJson),
+      }));
+      return NextResponse.json({
+        results,
+        pagination: {
+          total: filtered.length, page, limit,
+          pages: Math.ceil(filtered.length / limit),
+          truncated: candidates.length === 1000,
         },
-        { status: 500 }
-      );
+      });
     }
-    
-    // Process results
-    console.log(`Found ${Array.isArray(searchEquipment) ? searchEquipment.length : 0} results`);
-    
-    const results = Array.isArray(searchEquipment) ? searchEquipment.map(item => {
-      try {
-        // Parse JSON strings to objects
-        const images = item.imagesJson ? JSON.parse(item.imagesJson as string) : [];
-        const tags = item.tagsJson ? JSON.parse(item.tagsJson as string) : [];
-        
-        // Format the item
-        return {
-          ...item,
-          images,
-          tags,
-          // Include distance if available
-          ...(item.distance !== undefined && { distance: parseFloat(item.distance.toFixed(1)) }),
-          // Include rank score if available
-          ...(item.rank !== undefined && { relevanceScore: parseFloat(item.rank.toFixed(3)) }),
-        };
-      } catch (parseError) {
-        console.error('Error parsing item JSON:', parseError, item);
-        // Return item without attempting to parse JSON fields
-        return {
-          ...item,
-          images: [],
-          tags: [],
-        };
-      }
-    }) : [];
-    
+
+    const [items, total] = await Promise.all([
+      db.equipment.findMany({ where, orderBy: sort, skip: (page - 1) * limit, take: limit }),
+      db.equipment.count({ where }),
+    ]);
     return NextResponse.json({
-      results,
-      pagination: {
-        total: totalCount,
-        page,
-        limit,
-        pages: Math.ceil(totalCount / limit),
-      },
+      results: items.map(item => ({ ...item, images: jsonArray(item.imagesJson), tags: jsonArray(item.tagsJson) })),
+      pagination: { total, page, limit, pages: Math.ceil(total / limit) },
     });
   } catch (error) {
-    console.error('Search error:', error);
-    return NextResponse.json(
-      { 
-        error: 'Failed to perform search',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    );
+    console.error('Equipment search failed', error);
+    return NextResponse.json({ error: 'Search currently unavailable' }, { status: 500 });
   }
-} 
+}

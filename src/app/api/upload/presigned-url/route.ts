@@ -8,9 +8,9 @@ import { getAwsRegion, getAwsS3BucketName } from '@/lib/aws/env';
 
 // Validation schema for the request body
 const requestSchema = z.object({
-  contentType: z.string().min(1),
-  folder: z.string().optional(),
-  filename: z.string().optional(),
+  contentType: z.enum(['image/jpeg', 'image/png', 'image/webp', 'application/pdf']),
+  folder: z.enum(['equipment', 'verification', 'uploads']).optional(),
+  filename: z.string().regex(/^[a-zA-Z0-9._-]{1,100}$/).optional(),
 });
 
 export async function POST(req: Request) {
@@ -32,8 +32,8 @@ export async function POST(req: Request) {
     const { contentType, folder = 'uploads', filename } = result.data;
     
     // Generate a unique key for the file
-    const fileKey = filename || `${uuidv4()}-${Date.now()}`;
-    const key = folder ? `${folder}/${fileKey}` : fileKey;
+    const fileKey = `${uuidv4()}-${Date.now()}${filename ? `-${filename}` : ""}`;
+    const key = `users/${user.id}/${folder}/${fileKey}`;
     
     // Generate a pre-signed URL for uploading
     const presignedUrl = await getSignedUploadUrl(key, contentType, 300); // 5 minutes expiry
@@ -56,7 +56,7 @@ export async function POST(req: Request) {
     }
     
     return NextResponse.json(
-      { error: 'Failed to generate pre-signed URL', message: (error as Error).message },
+      { error: 'Failed to generate pre-signed URL' },
       { status: 500 }
     );
   }

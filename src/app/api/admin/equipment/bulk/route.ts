@@ -56,7 +56,7 @@ export async function POST(req: Request) {
             rentals: {
               some: {
                 status: {
-                  in: ["PENDING", "APPROVED"],
+                  in: ["PENDING", "PAID", "ACTIVE"],
                 },
               },
             },

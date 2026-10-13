@@ -5,8 +5,7 @@ import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Camera, Upload, X, Info, AlertTriangle, CheckCircle2 } from "lucide-react";
-import Image from "next/image";
+import { Upload, X, Info, AlertTriangle, CheckCircle2 } from "lucide-react";
 
 // Define the form schema
 const idVerificationSchema = z.object({
@@ -141,7 +140,7 @@ export function BasicIdVerificationForm({ user }: BasicIdVerificationFormProps) 
         if (responseData.needsManualReview) {
           setSuccess("Your ID has been submitted for manual review. We'll notify you once it's verified.");
         } else if (responseData.isValid) {
-          setSuccess("Your ID has been verified successfully!");
+          setSuccess("Your document was received for review. Verification is pending.");
         } else {
           setError(responseData.message || "ID verification failed. Please try again with a clearer image.");
         }

@@ -5,15 +5,28 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useRouter } from "next/navigation";
-import { Equipment } from "@prisma/client";
+import type { Equipment } from '@/lib/prisma-client';
 import { formatCurrency, formatDateRange } from "@/lib/utils/format";
-import { differenceInDays, differenceInHours, addDays } from "date-fns";
+import { addDays } from "date-fns";
+import { calculateRentalPrice } from "@/lib/rentals/pricing";
+
+// The optional calendar widget shares its selection with this form.
+declare global {
+  interface Window {
+    calendarState?: {
+      startDate: string;
+      endDate: string;
+      setStartDate: (value: string) => void;
+      setEndDate: (value: string) => void;
+    };
+  }
+}
 
 // Define the minimum booking schema
 const bookingSchema = z.object({
   startDate: z.string().refine((val) => {
     const date = new Date(val);
-    return !isNaN(date.getTime()) && date >= new Date(new Date().setHours(0, 0, 0, 0));
+    return !isNaN(date.getTime()) && date >= new Date(new Date().toISOString().slice(0, 10));
   }, "Start date must be today or later"),
   endDate: z.string().refine((val) => {
     const date = new Date(val);
@@ -32,13 +45,7 @@ const bookingSchema = z.object({
 type BookingFormValues = z.infer<typeof bookingSchema>;
 
 interface BookingFormProps {
-  equipment: Equipment & {
-    owner: {
-      id: string;
-      name: string | null;
-      image: string | null;
-    };
-  };
+  equipment: Pick<Equipment, 'id' | 'title' | 'dailyRate' | 'hourlyRate' | 'weeklyRate' | 'securityDeposit'>;
 }
 
 export function BookingForm({ equipment }: BookingFormProps) {
@@ -113,6 +120,7 @@ export function BookingForm({ equipment }: BookingFormProps) {
         }
       };
     }
+    return undefined;
   }, [setValue]);
 
   // Update calendar when form values change
@@ -129,31 +137,32 @@ export function BookingForm({ equipment }: BookingFormProps) {
     }
   }, [startDate, endDate]);
 
-  // Calculate total price when form values change
+  // Use exactly the same quote calculation as the server, including rounding.
+  // The server still recalculates the price from its stored equipment rates.
   useEffect(() => {
-    if (startDate && endDate) {
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-
-      if (end > start) {
-        let price = 0;
-
-        if (rentalType === "hourly" && equipment.hourlyRate) {
-          const hours = Math.max(1, differenceInHours(end, start));
-          price = hours * equipment.hourlyRate;
-        } else if (rentalType === "daily" && equipment.dailyRate) {
-          const days = Math.max(1, differenceInDays(end, start));
-          price = days * equipment.dailyRate;
-        } else if (rentalType === "weekly" && equipment.weeklyRate) {
-          const days = differenceInDays(end, start);
-          const weeks = Math.max(1, Math.ceil(days / 7));
-          price = weeks * equipment.weeklyRate;
-        }
-
-        setTotalPrice(price);
-      }
+    if (!startDate || !endDate) {
+      setTotalPrice(null);
+      return;
     }
-  }, [startDate, endDate, rentalType, equipment]);
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const rate = rentalType === "hourly" ? equipment.hourlyRate
+      : rentalType === "weekly" ? equipment.weeklyRate
+      : equipment.dailyRate;
+
+    if (!rate || !Number.isFinite(start.getTime()) ||
+        !Number.isFinite(end.getTime()) || end <= start) {
+      setTotalPrice(null);
+      return;
+    }
+
+    try {
+      setTotalPrice(calculateRentalPrice(rate, start, end, rentalType));
+    } catch {
+      setTotalPrice(null);
+    }
+  }, [startDate, endDate, rentalType, equipment.hourlyRate, equipment.dailyRate, equipment.weeklyRate]);
 
   const onSubmit = async (data: BookingFormValues) => {
     setIsLoading(true);
@@ -170,8 +179,6 @@ export function BookingForm({ equipment }: BookingFormProps) {
           startDate: data.startDate,
           endDate: data.endDate,
           rentalType: data.rentalType,
-          totalPrice: totalPrice,
-          securityDeposit: equipment.securityDeposit,
         }),
       });
 
@@ -183,7 +190,7 @@ export function BookingForm({ equipment }: BookingFormProps) {
       const responseData = await response.json();
       
       // Redirect to the payment page with the rental ID
-      router.push(`/routes/payments/checkout?rentalId=${responseData.rental.id}`);
+      router.push(`/routes/rentals/${responseData.rental.id}/payment`);
     } catch (error) {
       if (error instanceof Error) {
         setError(error.message);

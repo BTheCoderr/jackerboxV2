@@ -55,6 +55,7 @@ export default async function AdminDashboardPage() {
   
   // Calculate total revenue (simplified)
   const totalRevenue = await db.rental.aggregate({
+    where: { payment: { is: { status: 'COMPLETED' } } },
     _sum: {
       totalPrice: true
     }
@@ -63,11 +64,11 @@ export default async function AdminDashboardPage() {
   // Get rental status counts
   const rentalStatusCounts = await Promise.all([
     db.rental.count({ where: { status: "PENDING" } }),
-    db.rental.count({ where: { status: "CONFIRMED" } }),
-    db.rental.count({ where: { status: "IN_PROGRESS" } }),
+    db.rental.count({ where: { status: "PAID" } }),
+    db.rental.count({ where: { status: "ACTIVE" } }),
     db.rental.count({ where: { status: "COMPLETED" } }),
     db.rental.count({ where: { status: "CANCELLED" } }),
-    db.rental.count({ where: { status: "DISPUTED" } })
+    db.rental.count({ where: { status: "PAYMENT_FAILED" } })
   ]);
   
   return (
@@ -186,8 +187,8 @@ export default async function AdminDashboardPage() {
                   </svg>
                 </div>
                 <div>
-                  <p className="font-medium">Disputed Rentals</p>
-                  <p className="text-sm">{rentalStatusCounts[5]} rentals in dispute</p>
+                  <p className="font-medium">Payment Failures</p>
+                  <p className="text-sm">{rentalStatusCounts[5]} rentals with failed payments</p>
                 </div>
               </Link>
               
@@ -220,23 +221,23 @@ export default async function AdminDashboardPage() {
                 <span className="text-sm text-gray-500">{rentalStatusCounts[0]}</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2.5">
-                <div className="bg-yellow-400 h-2.5 rounded-full" style={{ width: `${(rentalStatusCounts[0] / rentalCount) * 100}%` }}></div>
+                <div className="bg-yellow-400 h-2.5 rounded-full" style={{ width: `${(rentalStatusCounts[0] / (rentalCount || 1)) * 100}%` }}></div>
               </div>
               
               <div className="flex justify-between items-center">
-                <span className="text-sm font-medium">Confirmed</span>
+                <span className="text-sm font-medium">Paid</span>
                 <span className="text-sm text-gray-500">{rentalStatusCounts[1]}</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2.5">
-                <div className="bg-blue-500 h-2.5 rounded-full" style={{ width: `${(rentalStatusCounts[1] / rentalCount) * 100}%` }}></div>
+                <div className="bg-blue-500 h-2.5 rounded-full" style={{ width: `${(rentalStatusCounts[1] / (rentalCount || 1)) * 100}%` }}></div>
               </div>
               
               <div className="flex justify-between items-center">
-                <span className="text-sm font-medium">In Progress</span>
+                <span className="text-sm font-medium">Active</span>
                 <span className="text-sm text-gray-500">{rentalStatusCounts[2]}</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2.5">
-                <div className="bg-purple-500 h-2.5 rounded-full" style={{ width: `${(rentalStatusCounts[2] / rentalCount) * 100}%` }}></div>
+                <div className="bg-purple-500 h-2.5 rounded-full" style={{ width: `${(rentalStatusCounts[2] / (rentalCount || 1)) * 100}%` }}></div>
               </div>
               
               <div className="flex justify-between items-center">
@@ -244,7 +245,7 @@ export default async function AdminDashboardPage() {
                 <span className="text-sm text-gray-500">{rentalStatusCounts[3]}</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2.5">
-                <div className="bg-green-500 h-2.5 rounded-full" style={{ width: `${(rentalStatusCounts[3] / rentalCount) * 100}%` }}></div>
+                <div className="bg-green-500 h-2.5 rounded-full" style={{ width: `${(rentalStatusCounts[3] / (rentalCount || 1)) * 100}%` }}></div>
               </div>
               
               <div className="flex justify-between items-center">
@@ -252,15 +253,15 @@ export default async function AdminDashboardPage() {
                 <span className="text-sm text-gray-500">{rentalStatusCounts[4]}</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2.5">
-                <div className="bg-gray-500 h-2.5 rounded-full" style={{ width: `${(rentalStatusCounts[4] / rentalCount) * 100}%` }}></div>
+                <div className="bg-gray-500 h-2.5 rounded-full" style={{ width: `${(rentalStatusCounts[4] / (rentalCount || 1)) * 100}%` }}></div>
               </div>
               
               <div className="flex justify-between items-center">
-                <span className="text-sm font-medium">Disputed</span>
+                <span className="text-sm font-medium">Payment Failed</span>
                 <span className="text-sm text-gray-500">{rentalStatusCounts[5]}</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2.5">
-                <div className="bg-red-500 h-2.5 rounded-full" style={{ width: `${(rentalStatusCounts[5] / rentalCount) * 100}%` }}></div>
+                <div className="bg-red-500 h-2.5 rounded-full" style={{ width: `${(rentalStatusCounts[5] / (rentalCount || 1)) * 100}%` }}></div>
               </div>
             </div>
           </div>
@@ -348,8 +349,8 @@ export default async function AdminDashboardPage() {
                         </Link>
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                           rental.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
-                          rental.status === 'CONFIRMED' ? 'bg-blue-100 text-blue-800' :
-                          rental.status === 'IN_PROGRESS' ? 'bg-purple-100 text-purple-800' :
+                          rental.status === 'PAID' ? 'bg-blue-100 text-blue-800' :
+                          rental.status === 'ACTIVE' ? 'bg-purple-100 text-purple-800' :
                           rental.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
                           rental.status === 'CANCELLED' ? 'bg-gray-100 text-gray-800' :
                           'bg-red-100 text-red-800'

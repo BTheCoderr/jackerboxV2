@@ -19,7 +19,7 @@ export default async function MessagesInboxPage() {
       where: {
         OR: [
           { senderId: currentUser.id },
-          { receiverId: currentUser.id },
+          { recipientId: currentUser.id },
         ],
       },
       orderBy: {
@@ -33,7 +33,7 @@ export default async function MessagesInboxPage() {
             image: true,
           },
         },
-        receiver: {
+        recipient: {
           select: {
             id: true,
             name: true,
@@ -47,23 +47,21 @@ export default async function MessagesInboxPage() {
     const conversationMap = new Map();
 
     conversations.forEach((message) => {
-      const otherUser = message.senderId === currentUser.id ? message.receiver : message.sender;
+      const otherUser = message.senderId === currentUser.id ? message.recipient : message.sender;
       const conversationId = otherUser.id;
       
       if (!conversationMap.has(conversationId)) {
         conversationMap.set(conversationId, {
           otherUser,
-          lastMessage: message,
-          unreadCount: message.senderId !== currentUser.id && !message.isRead ? 1 : 0,
+          lastMessage: { ...message, receiverId: message.recipientId, isRead: true },
+          unreadCount: 0,
         });
       } else {
         const conversation = conversationMap.get(conversationId);
         if (message.createdAt > conversation.lastMessage.createdAt) {
-          conversation.lastMessage = message;
+          conversation.lastMessage = { ...message, receiverId: message.recipientId, isRead: true };
         }
-        if (message.senderId !== currentUser.id && !message.isRead) {
-          conversation.unreadCount += 1;
-        }
+
       }
     });
 

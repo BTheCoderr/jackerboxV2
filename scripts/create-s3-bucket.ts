@@ -1,6 +1,4 @@
 import dotenv from "dotenv";
-import { fileURLToPath } from "url";
-import path from "path";
 import { 
   S3Client, 
   CreateBucketCommand,
@@ -13,9 +11,6 @@ import {
 // Load environment variables
 dotenv.config();
 
-// Define __dirname for ES modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 // Get AWS credentials from environment variables
 const region = process.env.AWS_REGION || "us-east-2";

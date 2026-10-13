@@ -49,8 +49,8 @@ export function MobileOptimizedLayout({ children }: MobileOptimizedLayoutProps) 
                   <ChevronLeft size={24} />
                 </button>
               )}
-              <Link href="/" className="font-bold text-xl dark:text-white">
-                Jackerbox
+              <Link href="/" className="font-bold text-xl text-jacker-blue dark:text-blue-300">
+                Jacker<span className="text-jacker-orange dark:text-orange-300">box</span>
               </Link>
             </div>
             

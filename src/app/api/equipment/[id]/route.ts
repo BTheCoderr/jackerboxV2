@@ -21,8 +21,8 @@ const updateEquipmentSchema = z.object({
 });
 
 export async function GET(
-  req: Request,
-  { params }: { params: { id: string } }
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await getCurrentUser();
@@ -35,7 +35,7 @@ export async function GET(
     }
     
     // Properly await params before using
-    const equipmentId = await Promise.resolve(params.id);
+    const equipmentId = (await params).id;
     
     // Fetch the equipment by ID
     const equipment = await db.equipment.findUnique({
@@ -84,8 +84,8 @@ export async function GET(
 }
 
 export async function DELETE(
-  req: Request,
-  { params }: { params: { id: string } }
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await getCurrentUser();
@@ -98,21 +98,7 @@ export async function DELETE(
     }
     
     // Properly await params before using
-    const equipmentId = await Promise.resolve(params.id);
-    
-    // Check if user is a renter (has rental history)
-    const userRentals = await db.rental.count({
-      where: {
-        renterId: user.id
-      }
-    });
-    
-    if (userRentals > 0) {
-      return NextResponse.json(
-        { message: "Renters cannot manage equipment. Please use a separate owner account." },
-        { status: 403 }
-      );
-    }
+    const equipmentId = (await params).id;
     
     // Check if the equipment exists and belongs to the user
     const equipment = await db.equipment.findUnique({
@@ -123,7 +109,7 @@ export async function DELETE(
         rentals: {
           where: {
             status: {
-              in: ["Pending", "Approved"],
+              in: ["PENDING", "PAID", "ACTIVE"],
             },
           },
         },
@@ -174,7 +160,7 @@ export async function DELETE(
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await getCurrentUser();
@@ -187,21 +173,7 @@ export async function PATCH(
     }
     
     // Properly await params before using
-    const equipmentId = await Promise.resolve(params.id);
-    
-    // Check if user is a renter (has rental history)
-    const userRentals = await db.rental.count({
-      where: {
-        renterId: user.id
-      }
-    });
-    
-    if (userRentals > 0) {
-      return NextResponse.json(
-        { message: "Renters cannot manage equipment. Please use a separate owner account." },
-        { status: 403 }
-      );
-    }
+    const equipmentId = (await params).id;
     
     // Check if the equipment exists and belongs to the user
     const equipment = await db.equipment.findUnique({

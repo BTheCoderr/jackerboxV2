@@ -1,7 +1,5 @@
 import { ReactNode } from 'react';
-import { useSession } from 'next-auth/react';
-import { cookies } from 'next/headers';
-import { getServerExperiment, createServerStatsigUser } from '@/lib/server-feature-flags';
+import { getServerExperiment } from '@/lib/server-feature-flags';
 
 interface ServerExperimentToggleProps {
   /**

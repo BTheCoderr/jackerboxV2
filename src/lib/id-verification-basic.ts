@@ -1,4 +1,3 @@
-import Tesseract from 'tesseract.js';
 import { createWorker } from 'tesseract.js';
 
 export interface BasicIDVerificationResult {
@@ -23,11 +22,7 @@ export async function verifyIDDocumentBasic(imageBuffer: Buffer): Promise<BasicI
     const base64Image = `data:image/jpeg;base64,${imageBuffer.toString('base64')}`;
     
     // Create Tesseract worker
-    const worker = await createWorker();
-    
-    // Initialize worker with English language
-    await worker.loadLanguage('eng');
-    await worker.initialize('eng');
+    const worker = await createWorker('eng');
     
     // Recognize text in the image
     const { data } = await worker.recognize(base64Image);
@@ -67,7 +62,7 @@ export async function verifyIDDocumentBasic(imageBuffer: Buffer): Promise<BasicI
     if (name) confidence += 0.2;
     
     // Determine if manual review is needed
-    const needsManualReview = confidence < 0.7;
+    const needsManualReview = true; // OCR cannot authenticate the document or person.
     
     // Determine validity - we'll be conservative and require manual review for low confidence
     const isValid = confidence >= 0.5;
@@ -75,7 +70,7 @@ export async function verifyIDDocumentBasic(imageBuffer: Buffer): Promise<BasicI
     let message = isValid 
       ? needsManualReview 
         ? "ID document submitted for manual review" 
-        : "ID document verified successfully"
+        : "Document text was detected. Identity verification is pending manual or provider review."
       : "Could not verify ID document with confidence";
       
     if (!documentType) {

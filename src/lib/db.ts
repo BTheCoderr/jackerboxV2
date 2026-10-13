@@ -11,21 +11,43 @@ if (process.env.NODE_ENV !== 'production') {
   globalThis.prisma = db;
 }
 
+/**
+ * Guard against pointing a JackerBox preview at another application's database.
+ * This is opt-in through a non-secret environment variable.
+ * Never include connection strings in error logs.
+ */
+function assertExpectedSupabaseProject(databaseUrl: string | undefined) {
+  const expectedRef = process.env.JACKERBOX_SUPABASE_PROJECT_REF;
+  if (!expectedRef) return;
+  if (!/^[a-z0-9]{20}$/.test(expectedRef) || !databaseUrl) {
+    throw new Error("Supabase preview database configuration is incomplete");
+  }
+  try {
+    const url = new URL(databaseUrl);
+    const protocolValid = url.protocol === "postgresql:" || url.protocol === "postgres:";
+    const directMatch = url.hostname === `db.${expectedRef}.supabase.co`;
+    const poolerMatch = url.hostname.endsWith(".pooler.supabase.com")
+      && decodeURIComponent(url.username).endsWith(`.${expectedRef}`);
+    if (!protocolValid || (!directMatch && !poolerMatch)) {
+      throw new Error("project mismatch");
+    }
+  } catch {
+    throw new Error("Database URL does not match the expected Supabase project");
+  }
+}
+
 function createPrismaClient() {
   try {
-    // Configure Prisma Client with a connection retry strategy to handle Neon auto-suspend
+    assertExpectedSupabaseProject(process.env.DATABASE_URL);
+    // Configure Prisma Client with PostgreSQL URL supplied by the hosting provider
     const client = new PrismaClient({
       log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
-      datasources: {
-        db: {
-          url: process.env.DATABASE_URL,
-        },
-      },
+      ...(process.env.DATABASE_URL ? { datasources: { db: { url: process.env.DATABASE_URL } } } : {}),
       // Add retry logic for transient connection errors
       errorFormat: 'minimal',
     });
     
-    // Wrap client queries with retry logic for Neon auto-suspend wakeup
+    // Retain bounded retries for transient PostgreSQL connection failures
     const originalConnect = client.$connect.bind(client);
     client.$connect = async () => {
       let retries = 3;
@@ -43,20 +65,14 @@ function createPrismaClient() {
       }
     };
     
-    // Test the connection
-    client.$connect()
-  .then(() => {
-    console.log('Database connected successfully');
-  })
-  .catch((error) => {
-    console.error('Database connection failed:', error);
-  });
+    // Do not connect at module import time. Queries connect lazily at runtime;
+    // eager connections break production builds and trigger unnecessary cold-start traffic.
 
     return client;
   } catch (error) {
     console.error("Failed to create Prisma client:", error);
-    // Return a mock client that returns empty data instead of crashing
-    return createMockPrismaClient();
+    // Never fake successful database operations when the real client fails.
+    throw error;
   }
 }
 
@@ -75,42 +91,6 @@ function isRetryableError(error: any): boolean {
     return true;
   }
   return false;
-}
-
-// Create a mock client for when the database is unavailable
-function createMockPrismaClient() {
-  console.warn("Using mock Prisma client due to database connection issues");
-  
-  const handler = {
-    get: (target: any, prop: string) => {
-      // Return empty arrays/objects for common methods
-      if (prop === '$connect' || prop === '$disconnect') {
-        return async () => {};
-      }
-      
-      // For all model operations, return an empty result proxy
-      return new Proxy({}, {
-        get: (target: any, operation: string) => {
-          // Handle common Prisma operations
-          if (['findMany', 'findFirst', 'findUnique', 'findFirstOrThrow', 'findUniqueOrThrow'].includes(operation)) {
-            return async () => operation.includes('Many') ? [] : null;
-          }
-          
-          if (['create', 'update', 'upsert'].includes(operation)) {
-            return async () => ({});
-          }
-          
-          if (['delete', 'deleteMany', 'updateMany', 'count'].includes(operation)) {
-            return async () => ({ count: 0 });
-          }
-          
-          return async () => null;
-        }
-      });
-    }
-  };
-  
-  return new Proxy({}, handler);
 }
 
 // Export only once

@@ -5,22 +5,13 @@ import { z } from "zod";
 
 // Schema for updating rental status
 const updateRentalStatusSchema = z.object({
-  status: z.enum([
-    "PENDING",
-    "CONFIRMED",
-    "ACTIVE",
-    "COMPLETED",
-    "CANCELLED",
-    "DISPUTED",
-  ]),
+  status: z.enum(["ACTIVE", "COMPLETED", "CANCELLED"]),
   notes: z.string().optional(),
 });
 
 // Use the correct Next.js App Router parameter type
 type RouteParams = {
-  params: {
-    id: string;
-  };
+  params: Promise<{ id: string }>;
 };
 
 export async function POST(
@@ -29,7 +20,7 @@ export async function POST(
 ) {
   try {
     const user = await getCurrentUser();
-    const { id } = context.params;
+    const { id } = await context.params;
     
     if (!user?.isAdmin) {
       return NextResponse.json(
@@ -39,12 +30,13 @@ export async function POST(
     }
     
     const body = await req.json();
-    const { status, notes } = updateRentalStatusSchema.parse(body);
+    const { status } = updateRentalStatusSchema.parse(body);
     
     // Check if rental exists
     const rental = await db.rental.findUnique({
       where: { id },
       include: {
+        payment: true,
         renter: true,
         equipment: {
           include: {
@@ -61,14 +53,27 @@ export async function POST(
       );
     }
     
-    // Update rental status
-    const updatedRental = await db.rental.update({
-      where: { id },
-      data: {
-        status,
-      },
+    const paymentOk = rental.payment?.status === "COMPLETED";
+    const allowed =
+      (status === "ACTIVE" && rental.status === "PAID" && paymentOk) ||
+      (status === "COMPLETED" && rental.status === "ACTIVE" && paymentOk) ||
+      (status === "CANCELLED" && rental.status === "PENDING" && !rental.payment?.stripePaymentIntentId);
+
+    if (!allowed) return NextResponse.json(
+      { message: "Invalid transition or unresolved payment. Paid cancellations need refund processing." },
+      { status: 409 }
+    );
+
+    const changed = await db.rental.updateMany({
+      where: { id, status: rental.status },
+      data: { status },
     });
-    
+    if (changed.count !== 1) return NextResponse.json(
+      { message: "The rental changed during this request. Refresh and retry." },
+      { status: 409 }
+    );
+    const updatedRental = await db.rental.findUnique({ where: { id } });
+
     // Create notifications for both renter and owner
     await db.notification.create({
       data: {

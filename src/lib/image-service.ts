@@ -7,7 +7,6 @@ import {
 } from './aws/rekognition-service';
 import { 
   uploadToCloudinary, 
-  getCloudinaryUrl, 
   deleteFromCloudinary 
 } from './cloudinary-service';
 

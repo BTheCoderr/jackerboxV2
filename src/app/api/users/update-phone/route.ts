@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
-import { validatePhoneNumber } from "@/lib/firebase-auth";
+import { validatePhoneNumber } from "@/lib/phone-verification";
 
 // Schema for phone update request
 const phoneUpdateSchema = z.object({

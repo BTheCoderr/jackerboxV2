@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { publish } from '@/lib/sse/sse-manager';
+import { getCurrentUser } from '@/lib/auth/auth-utils';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -9,6 +10,8 @@ export const runtime = 'nodejs';
  */
 export async function POST(req: NextRequest) {
   try {
+    const user = await getCurrentUser();
+    if (!user?.isAdmin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     const body = await req.json().catch(() => ({}));
     const { topic, data } = body;
 

@@ -58,7 +58,7 @@ export async function PUT(req: Request) {
           },
           status: {
             not: {
-              in: ["Completed", "Cancelled"]
+              in: ["COMPLETED", "CANCELLED"]
             },
           },
         },

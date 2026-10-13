@@ -9,14 +9,12 @@ import Image from "next/image";
 import { formatCurrency } from "@/lib/utils/format";
 
 interface AdminUserDetailPageProps {
-  params: {
-    id: string;
-  };
+  params: Promise<{ id: string }>;
 }
 
 export default async function AdminUserDetailPage({ params }: AdminUserDetailPageProps) {
-  // Properly await the params.id
-  const userId = await Promise.resolve(params.id);
+  // Properly await the (await params).id
+  const userId = (await params).id;
   
   const currentUser = await getCurrentUser();
   
@@ -79,21 +77,21 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
     },
   });
   
-  const totalEarned = await db.payment.aggregate({
+  // Payout information is stored after Stripe transfers in payment metadata.
+  const ownerPayments = await db.payment.findMany({
     where: {
-      rental: {
-        equipment: {
-          ownerId: user.id,
-        },
-      },
-      status: "COMPLETED",
-      ownerPaidOut: true,
+      rental: { equipment: { ownerId: user.id } },
+      status: 'COMPLETED',
     },
-    _sum: {
-      ownerPaidOutAmount: true,
-    },
+    select: { metadata: true },
   });
-  
+  const totalEarned = ownerPayments.reduce((sum, payment) => {
+    const metadata = payment.metadata;
+    if (!metadata || Array.isArray(metadata) || typeof metadata !== 'object') return sum;
+    const cents = (metadata as Record<string, unknown>).ownerPayoutCents;
+    return sum + (typeof cents === 'number' && Number.isFinite(cents) && cents > 0 ? cents / 100 : 0);
+  }, 0);
+
   return (
     <div className="container py-8">
       <div className="mb-6">
@@ -225,7 +223,7 @@ export default async function AdminUserDetailPage({ params }: AdminUserDetailPag
         
         <div className="bg-white p-6 rounded-lg shadow">
           <h2 className="text-sm font-medium text-gray-500">Total Earned</h2>
-          <p className="text-3xl font-bold">${totalEarned._sum?.ownerPaidOutAmount?.toFixed(2) || "0.00"}</p>
+          <p className="text-3xl font-bold">${totalEarned.toFixed(2)}</p>
         </div>
       </div>
       

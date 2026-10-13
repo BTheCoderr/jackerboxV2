@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { prisma } from '@/lib/prisma';
 
 interface Equipment {
   id: string;
@@ -28,6 +27,7 @@ export function EquipmentGrid() {
       try {
         const response = await fetch('/api/equipment');
         const data = await response.json();
+        if (!response.ok || !Array.isArray(data.equipment)) throw new Error('Unable to load equipment');
         setEquipment(data.equipment);
       } catch (error) {
         console.error('Error fetching equipment:', error);
@@ -60,8 +60,8 @@ export function EquipmentGrid() {
         return (
           <Link
             key={item.id}
-            href={`/equipment/${item.id}`}
-            className="group block bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow"
+            href={`/routes/equipment/${item.id}`}
+            className="group block bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md hover:border-jacker-blue transition-all"
             data-testid={`equipment-item-${item.id}`}
           >
             <div className="aspect-w-16 aspect-h-9 relative rounded-t-lg overflow-hidden">
@@ -74,7 +74,7 @@ export function EquipmentGrid() {
             </div>
             
             <div className="p-4">
-              <h3 className="font-semibold text-lg mb-1 group-hover:text-blue-600">
+              <h3 className="font-semibold text-lg mb-1 text-jacker-blue group-hover:text-blue-700">
                 {item.title}
               </h3>
               
@@ -85,7 +85,7 @@ export function EquipmentGrid() {
               </div>
               
               {item.dailyRate && (
-                <p className="text-lg font-bold">
+                <p className="text-lg font-bold text-jacker-orange">
                   ${item.dailyRate}/day
                 </p>
               )}

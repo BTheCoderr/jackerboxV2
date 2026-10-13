@@ -1,322 +1,73 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { 
-  validatePhoneNumber, 
-  createRecaptchaVerifier, 
-  sendVerificationCode, 
-  verifyCode 
-} from "@/lib/firebase-auth";
-import { TestModeInfo } from "@/components/auth/test-mode-info";
-import { isTestMode, isTestPhoneNumber, TEST_VERIFICATION_CODE } from "@/lib/test-utils";
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
 
 interface PhoneVerificationFormProps {
-  user: {
-    id: string;
-    phone: string | null;
-    phoneVerified: boolean;
-  };
+  user: { id: string; phone: string | null; phoneVerified: boolean };
   onVerificationComplete?: () => void;
 }
-
 export function PhoneVerificationForm({ user, onVerificationComplete }: PhoneVerificationFormProps) {
   const router = useRouter();
-  const [phone, setPhone] = useState(user.phone || "");
-  const [verificationCode, setVerificationCode] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [phone, setPhone] = useState(user.phone ?? '');
+  const [code, setCode] = useState('');
+  const [sent, setSent] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-  const [codeSent, setCodeSent] = useState(false);
-  const [confirmationResult, setConfirmationResult] = useState<any>(null);
-  const [testMode, setTestMode] = useState(false);
-  
-  const recaptchaContainerRef = useRef<HTMLDivElement>(null);
-  const recaptchaVerifierRef = useRef<any>(null);
-  
-  useEffect(() => {
-    // Check if test mode is active
-    setTestMode(isTestMode());
-    
-    // Clean up recaptcha when component unmounts
-    return () => {
-      if (recaptchaVerifierRef.current) {
-        recaptchaVerifierRef.current.clear();
-      }
-    };
-  }, []);
-  
-  const initializeRecaptcha = () => {
-    if (!recaptchaContainerRef.current) return;
-    
-    try {
-      recaptchaVerifierRef.current = createRecaptchaVerifier('recaptcha-container');
-      recaptchaVerifierRef.current.render();
-    } catch (error) {
-      console.error('Error initializing recaptcha:', error);
-      setError('Failed to initialize verification. Please try again.');
-    }
-  };
-  
-  const handleSendCode = async (e: React.FormEvent) => {
-    e.preventDefault();
+
+  const submit = async (event: React.FormEvent, method: 'POST' | 'PUT') => {
+    event.preventDefault();
+    setBusy(true);
     setError(null);
-    setSuccess(null);
-    
-    if (!validatePhoneNumber(phone)) {
-      setError('Please enter a valid phone number');
-      return;
-    }
-    
-    setIsLoading(true);
-    
+    setMessage(null);
     try {
-      // Check if this is a test phone number
-      if (isTestPhoneNumber(phone)) {
-        // For test phone numbers, skip Firebase and use our API directly
-        const response = await fetch('/api/auth/verify-phone', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ phone }),
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-          setCodeSent(true);
-          setSuccess('Test verification code set successfully. Use code: ' + TEST_VERIFICATION_CODE);
-        } else {
-          setError(data.message || 'Failed to send verification code. Please try again.');
-        }
+      const response = await fetch('/api/auth/verify-phone', {
+        method, headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(method === 'POST' ? { phone } : { phone, code }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.message || 'Phone verification failed');
+      if (method === 'POST') {
+        setSent(true);
+        setMessage('Code sent. It expires in 10 minutes.');
       } else {
-        // For real phone numbers, use Firebase
-        // Initialize recaptcha if not already initialized
-        if (!recaptchaVerifierRef.current) {
-          initializeRecaptcha();
-        }
-        
-        // Send verification code
-        const result = await sendVerificationCode(phone, recaptchaVerifierRef.current);
-        
-        if (result.success) {
-          setCodeSent(true);
-          setConfirmationResult(result.confirmationResult);
-          setSuccess('Verification code sent successfully');
-          
-          // Update user's phone number in the database
-          await fetch('/api/users/update-phone', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ phone }),
-          });
-        } else {
-          setError('Failed to send verification code. Please try again.');
-        }
+        setMessage('Phone verified successfully');
+        onVerificationComplete?.();
+        router.refresh();
       }
-    } catch (error) {
-      console.error('Error sending verification code:', error);
-      setError('An error occurred. Please try again.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Phone verification unavailable');
     } finally {
-      setIsLoading(false);
+      setBusy(false);
     }
   };
-  
-  const handleVerifyCode = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setSuccess(null);
-    
-    if (!verificationCode || verificationCode.length < 6) {
-      setError('Please enter a valid verification code');
-      return;
-    }
-    
-    setIsLoading(true);
-    
-    try {
-      // Check if this is a test phone number
-      if (isTestPhoneNumber(phone)) {
-        // For test phone numbers, use our API directly
-        const response = await fetch('/api/auth/verify-phone', {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ phone, code: verificationCode }),
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-          setSuccess('Phone number verified successfully');
-          
-          // Call the callback if provided
-          if (onVerificationComplete) {
-            onVerificationComplete();
-          }
-          
-          // Refresh the page to update the UI
-          router.refresh();
-        } else {
-          setError(data.message || 'Failed to verify code. Please try again.');
-        }
-      } else {
-        // For real phone numbers, use Firebase
-        // Verify the code
-        const result = await verifyCode(confirmationResult, verificationCode);
-        
-        if (result.success) {
-          // Update user's phone verification status in the database
-          const response = await fetch('/api/users/verify-phone', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ phone }),
-          });
-          
-          if (response.ok) {
-            setSuccess('Phone number verified successfully');
-            
-            // Call the callback if provided
-            if (onVerificationComplete) {
-              onVerificationComplete();
-            }
-            
-            // Refresh the page to update the UI
-            router.refresh();
-          } else {
-            setError('Failed to update verification status. Please try again.');
-          }
-        } else {
-          setError('Invalid verification code. Please try again.');
-        }
-      }
-    } catch (error) {
-      console.error('Error verifying code:', error);
-      setError('An error occurred. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  // If phone is already verified, show success message
-  if (user.phoneVerified) {
-    return (
-      <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
-        <div className="flex items-center">
-          <svg className="w-5 h-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
-          <h3 className="text-lg font-medium text-green-800">Phone Verified</h3>
-        </div>
-        <p className="text-sm text-green-700 mt-1">
-          Your phone number ({user.phone}) has been verified.
-        </p>
+
+  if (user.phoneVerified) return <p className="rounded border border-green-200 bg-green-50 p-4 text-sm text-green-800">
+    Phone verified: {user.phone}
+  </p>;
+
+  return <section className="space-y-4 rounded border p-5">
+    <h2 className="font-semibold">Verify your phone</h2>
+    <p className="text-sm text-gray-600">We will send a one-time SMS. Phone numbers must include the country code.</p>
+    {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+    {message && <p role="status" className="text-sm text-green-700">{message}</p>}
+    {!sent ? <form onSubmit={e => submit(e, 'POST')} className="space-y-3">
+      <label className="block text-sm">Phone number
+        <input type="tel" autoComplete="tel" value={phone} onChange={e => setPhone(e.target.value)}
+          placeholder="+14015550100" required className="mt-1 w-full rounded border p-2" />
+      </label>
+      <Button type="submit" disabled={busy}>{busy ? 'Sending…' : 'Send verification code'}</Button>
+    </form> : <form onSubmit={e => submit(e, 'PUT')} className="space-y-3">
+      <label className="block text-sm">Six-digit SMS code
+        <input inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6}
+          value={code} onChange={e => setCode(e.target.value)} required className="mt-1 w-full rounded border p-2" />
+      </label>
+      <div className="flex gap-3">
+        <Button type="submit" disabled={busy || code.length !== 6}>{busy ? 'Verifying…' : 'Verify code'}</Button>
+        <Button type="button" variant="outline" onClick={() => { setSent(false); setCode(''); }}>Start over</Button>
       </div>
-    );
-  }
-  
-  return (
-    <div className="border rounded-lg p-6 mb-6">
-      <h2 className="text-xl font-semibold mb-4">Verify Your Phone Number</h2>
-      <p className="text-gray-600 mb-4">
-        Verifying your phone number helps secure your account and enables important notifications.
-      </p>
-      
-      {/* Show test mode information if in test mode */}
-      {testMode && <TestModeInfo />}
-      
-      {error && (
-        <div className="p-3 bg-red-100 text-red-600 rounded-md text-sm mb-4">
-          {error}
-        </div>
-      )}
-      
-      {success && (
-        <div className="p-3 bg-green-100 text-green-600 rounded-md text-sm mb-4">
-          {success}
-        </div>
-      )}
-      
-      {!codeSent ? (
-        <form onSubmit={handleSendCode} className="space-y-4">
-          <div className="space-y-1">
-            <label htmlFor="phone" className="text-sm font-medium">
-              Phone Number
-            </label>
-            <input
-              id="phone"
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="+1 (555) 123-4567"
-              className="w-full p-2 border rounded-md"
-              disabled={isLoading}
-            />
-            <p className="text-xs text-gray-500">
-              Enter your phone number with country code (e.g., +1 for US)
-            </p>
-          </div>
-          
-          {/* Only show recaptcha for non-test phone numbers */}
-          {!isTestPhoneNumber(phone) && (
-            <div id="recaptcha-container" ref={recaptchaContainerRef}></div>
-          )}
-          
-          <Button
-            type="submit"
-            disabled={isLoading || !phone}
-            className="w-full bg-black hover:bg-gray-800 text-white"
-          >
-            {isLoading ? "Sending..." : "Send Verification Code"}
-          </Button>
-        </form>
-      ) : (
-        <form onSubmit={handleVerifyCode} className="space-y-4">
-          <div className="space-y-1">
-            <label htmlFor="verificationCode" className="text-sm font-medium">
-              Verification Code
-            </label>
-            <input
-              id="verificationCode"
-              type="text"
-              value={verificationCode}
-              onChange={(e) => setVerificationCode(e.target.value)}
-              placeholder="123456"
-              className="w-full p-2 border rounded-md"
-              disabled={isLoading}
-            />
-            <p className="text-xs text-gray-500">
-              Enter the 6-digit code sent to your phone
-            </p>
-          </div>
-          
-          <div className="flex space-x-4">
-            <Button
-              type="button"
-              onClick={() => setCodeSent(false)}
-              disabled={isLoading}
-              className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800"
-            >
-              Back
-            </Button>
-            
-            <Button
-              type="submit"
-              disabled={isLoading || verificationCode.length < 6}
-              className="flex-1 bg-black hover:bg-gray-800 text-white"
-            >
-              {isLoading ? "Verifying..." : "Verify Code"}
-            </Button>
-          </div>
-        </form>
-      )}
-    </div>
-  );
-} 
+    </form>}
+  </section>;
+}

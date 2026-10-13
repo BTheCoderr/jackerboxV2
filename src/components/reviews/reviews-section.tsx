@@ -60,7 +60,7 @@ export function ReviewsSection({
   const [error, setError] = useState<string | null>(null);
   const [lastFetchTime, setLastFetchTime] = useState<number>(0);
   
-  const { statistics, isLoading: statsLoading, refetch: refetchStats } = useReviewStatistics({
+  const { statistics, isLoading: _statsLoading, refetch: refetchStats } = useReviewStatistics({
     equipmentId,
     userId
   });

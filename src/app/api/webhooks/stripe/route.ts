@@ -1,176 +1,121 @@
 import { NextResponse } from 'next/server';
-import { headers } from 'next/headers';
-import Stripe from 'stripe';
-import prisma from '@/lib/db';
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-02-24.acacia',
-});
-
-async function verifyStripeSignature(request: Request): Promise<Stripe.Event> {
-  const body = await request.text();
-  const headersList = await headers();
-  const signature = headersList.get('stripe-signature');
-
-  if (!signature) {
-    throw new Error('No Stripe signature found');
-  }
-
-  return stripe.webhooks.constructEvent(
-    body,
-    signature,
-    process.env.STRIPE_WEBHOOK_SECRET!
-  );
-}
+import { stripe } from '@/lib/stripe';
+import { db } from '@/lib/db';
+import { Prisma } from '../../../../../prisma/generated/client';
 
 export async function POST(request: Request) {
-  try {
-    const event = await verifyStripeSignature(request);
-    
-    console.log(`📦 Received Stripe webhook: ${event.type} (${event.id})`);
-
-    switch (event.type) {
-      case 'payment_intent.succeeded':
-        const paymentIntent = event.data.object as Stripe.PaymentIntent;
-        try {
-          await prisma.payment.update({
-            where: { stripePaymentIntentId: paymentIntent.id },
-            data: {
-              status: 'COMPLETED',
-              paidAt: new Date(),
-              metadata: paymentIntent.metadata as any,
-            },
-          });
-          console.log(`✅ Payment ${paymentIntent.id} marked as completed`);
-        } catch (updateError: any) {
-          if (updateError.code === 'P2025') {
-            // Payment record not found - this is normal for test webhooks
-            console.log(`⚠️ Payment record not found for ${paymentIntent.id} (test webhook)`);
-          } else {
-            console.error(`❌ Error updating payment ${paymentIntent.id}:`, updateError);
-          }
-        }
-        break;
-
-      case 'payment_intent.payment_failed':
-        const failedPayment = event.data.object as Stripe.PaymentIntent;
-        try {
-          await prisma.payment.update({
-            where: { stripePaymentIntentId: failedPayment.id },
-            data: {
-              status: 'FAILED',
-              failedAt: new Date(),
-              blockReason: failedPayment.last_payment_error?.message,
-            },
-          });
-          console.log(`❌ Payment ${failedPayment.id} marked as failed`);
-        } catch (updateError: any) {
-          if (updateError.code === 'P2025') {
-            console.log(`⚠️ Payment record not found for ${failedPayment.id} (test webhook)`);
-          } else {
-            console.error(`❌ Error updating failed payment ${failedPayment.id}:`, updateError);
-          }
-        }
-        break;
-
-      case 'charge.refunded':
-        const charge = event.data.object as Stripe.Charge;
-        const paymentIntentId = (charge.payment_intent as string);
-        try {
-          await prisma.payment.update({
-            where: { stripePaymentIntentId: paymentIntentId },
-            data: {
-              status: 'REFUNDED',
-              refundedAt: new Date(),
-            },
-          });
-          console.log(`🔄 Payment ${paymentIntentId} marked as refunded`);
-        } catch (updateError: any) {
-          if (updateError.code === 'P2025') {
-            console.log(`⚠️ Payment record not found for refund ${paymentIntentId}`);
-          } else {
-            console.error(`❌ Error processing refund for ${paymentIntentId}:`, updateError);
-          }
-        }
-        break;
-
-      // Identity verification events - TEMPORARILY DISABLED FOR SIMPLIFIED ONBOARDING
-      case 'identity.verification_session.verified':
-        const verificationSession = event.data.object as Stripe.Identity.VerificationSession;
-        if (verificationSession.metadata?.userId) {
-          try {
-            await prisma.user.update({
-              where: { id: verificationSession.metadata.userId },
-              data: {
-                idVerified: true,
-                idVerificationStatus: 'VERIFIED',
-                idVerificationDate: new Date(),
-              },
-            });
-            console.log(`✅ User ${verificationSession.metadata.userId} ID verified`);
-          } catch (updateError: any) {
-            if (updateError.code === 'P2025') {
-              console.log(`⚠️ User not found for ID verification: ${verificationSession.metadata.userId}`);
-            } else {
-              console.error(`❌ Error updating user verification:`, updateError);
-            }
-          }
-        }
-        break;
-
-      case 'identity.verification_session.requires_input':
-        const pendingSession = event.data.object as Stripe.Identity.VerificationSession;
-        if (pendingSession.metadata?.userId) {
-          try {
-            await prisma.user.update({
-              where: { id: pendingSession.metadata.userId },
-              data: {
-                idVerificationStatus: 'PENDING_INPUT',
-              },
-            });
-            console.log(`⏳ User ${pendingSession.metadata.userId} verification pending input`);
-          } catch (updateError: any) {
-            if (updateError.code === 'P2025') {
-              console.log(`⚠️ User not found for verification update: ${pendingSession.metadata.userId}`);
-            } else {
-              console.error(`❌ Error updating user verification status:`, updateError);
-            }
-          }
-        }
-        break;
-
-      default:
-        console.log(`🤷 Unhandled Stripe event type: ${event.type}`);
-        // Don't treat unknown events as errors - just log them
-    }
-
-    return NextResponse.json({ 
-      received: true, 
-      eventType: event.type,
-      eventId: event.id,
-      timestamp: new Date().toISOString()
-    });
-    
-  } catch (error) {
-    console.error('❌ Stripe webhook error:', error);
-    
-    // Don't return error status for signature verification issues during development
-    if (process.env.NODE_ENV === 'development' && error instanceof Error && error.message.includes('signature')) {
-      console.log('🚧 Development mode: Allowing webhook despite signature issues');
-      return NextResponse.json({ 
-        received: true, 
-        error: 'Signature verification failed (development mode)',
-        timestamp: new Date().toISOString()
-      });
-    }
-    
-    return NextResponse.json(
-      { 
-        error: 'Webhook handler failed',
-        message: error instanceof Error ? error.message : 'Unknown error',
-        timestamp: new Date().toISOString()
-      },
-      { status: 400 }
-    );
+  const signature = request.headers.get('stripe-signature');
+  if (!signature || !process.env.STRIPE_WEBHOOK_SECRET) {
+    return NextResponse.json({ error: 'Webhook signature is required' }, { status: 400 });
   }
-} 
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(await request.text(), signature, process.env.STRIPE_WEBHOOK_SECRET);
+  } catch {
+    return NextResponse.json({ error: 'Invalid webhook signature' }, { status: 400 });
+  }
+
+  try {
+    if (event.type === 'payment_intent.succeeded') {
+      const intent = event.data.object;
+      const payment = await db.payment.findUnique({ where: { stripePaymentIntentId: intent.id } });
+      if (!payment || !payment.rentalId || payment.id !== intent.metadata.paymentId ||
+          payment.rentalId !== intent.metadata.rentalId) {
+        // An unknown payment should not be falsely marked as completed.
+        throw new Error('Payment record missing or metadata mismatch');
+      }
+      if (intent.amount !== Math.round(payment.amount * 100) || intent.currency !== 'usd') {
+        throw new Error('Stripe payment amount does not match the stored charge');
+      }
+
+      if (payment.status === 'COMPLETED') return NextResponse.json({ received: true });
+
+      // A payment confirmed after a reservation expired or after another rental
+      // took the same dates must be returned, not activated as a double booking.
+      const rental = await db.rental.findUnique({ where: { id: payment.rentalId } });
+      if (!rental) throw new Error('Rental missing for paid intent');
+      const confirmedAt = new Date(event.created * 1000);
+      const expired = confirmedAt.getTime() - rental.createdAt.getTime() > 30 * 60 * 1000;
+      const conflicting = await db.rental.findFirst({
+        where: {
+          id: { not: rental.id },
+          equipmentId: rental.equipmentId,
+          startDate: { lt: rental.endDate },
+          endDate: { gt: rental.startDate },
+          status: { in: ['PAID', 'ACTIVE'] },
+        },
+        select: { id: true },
+      });
+      if (rental.status !== 'PENDING' || expired || conflicting) {
+        await stripe.refunds.create({ payment_intent: intent.id }, {
+          idempotencyKey: `jackerbox-invalid-booking-${intent.id}`,
+        });
+        await db.payment.update({ where: { id: payment.id }, data: { status: 'REFUNDED', refundedAt: new Date() } });
+        await db.rental.updateMany({ where: { id: rental.id, status: 'PENDING' }, data: { status: 'REFUNDED' } });
+        return NextResponse.json({ received: true });
+      }
+
+      await db.$transaction(async (tx) => {
+        const conflict = await tx.rental.findFirst({
+          where: {
+            id: { not: rental.id },
+            equipmentId: rental.equipmentId,
+            startDate: { lt: rental.endDate },
+            endDate: { gt: rental.startDate },
+            status: { in: ['PAID', 'ACTIVE'] },
+          },
+          select: { id: true },
+        });
+        if (conflict) throw new Error('Booking conflict during payment confirmation');
+        await tx.payment.update({
+          where: { id: payment.id },
+          data: { status: 'COMPLETED', paidAt: confirmedAt, metadata: intent.metadata },
+        });
+        const result = await tx.rental.updateMany({
+          where: { id: rental.id, status: 'PENDING' },
+          data: { status: 'PAID' },
+        });
+        if (result.count !== 1) throw new Error('Rental state changed during payment confirmation');
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    } else if (event.type === 'payment_intent.payment_failed') {
+      const intent = event.data.object;
+      const payment = await db.payment.findUnique({ where: { stripePaymentIntentId: intent.id } });
+      if (payment && payment.status === 'PENDING') {
+        await db.$transaction(async (tx) => {
+          await tx.payment.update({ where: { id: payment.id }, data: {
+            status: 'FAILED', failedAt: new Date(), blockReason: intent.last_payment_error?.message,
+          } });
+          if (payment.rentalId) await tx.rental.updateMany({
+            where: { id: payment.rentalId, status: 'PENDING' },
+            data: { status: 'PAYMENT_FAILED' },
+          });
+        });
+      }
+    } else if (event.type === 'charge.refunded') {
+      const charge = event.data.object;
+      const intentId = typeof charge.payment_intent === 'string' ? charge.payment_intent : charge.payment_intent?.id;
+      if (intentId) {
+        const fullyRefunded = charge.amount_refunded >= charge.amount;
+        await db.payment.updateMany({
+          where: { stripePaymentIntentId: intentId },
+          data: { refundedAt: new Date(), ...(fullyRefunded ? { status: 'REFUNDED' as const } : {}) },
+        });
+      }
+    } else if (event.type === 'identity.verification_session.verified') {
+      const userId = event.data.object.metadata?.userId;
+      if (userId) await db.user.updateMany({ where: { id: userId }, data: {
+        idVerified: true, idVerificationStatus: 'VERIFIED', idVerificationDate: new Date(),
+      } });
+    } else if (event.type === 'identity.verification_session.requires_input') {
+      const userId = event.data.object.metadata?.userId;
+      if (userId) await db.user.updateMany({ where: { id: userId }, data: {
+        idVerified: false, idVerificationStatus: 'PENDING_INPUT',
+      } });
+    }
+    return NextResponse.json({ received: true });
+  } catch (error) {
+    console.error('Stripe webhook processing failed', error);
+    // Stripe can retry a transient processing error.
+    return NextResponse.json({ error: 'Webhook processing failed' }, { status: 500 });
+  }
+}
