@@ -65,3 +65,38 @@ test('incorrect build context fails closed', () => {
   const result = run({ CONTEXT: 'production' });
   assert.notEqual(result.status, 0);
 });
+
+test('dedicated staging site is guarded even when Netlify treats it as production', () => {
+  const result = run({
+    SITE_ID: 'f23d7f5f-7d06-47dd-a29b-80e23c687c8a',
+    CONTEXT: 'production',
+    JACKERBOX_SUPABASE_PROJECT_REF: '',
+    NEXTAUTH_URL: 'https://jackerbox-staging.netlify.app',
+    DEPLOY_PRIME_URL: 'https://jackerbox-staging.netlify.app',
+  });
+  assert.equal(result.status, 0, result.stderr);
+});
+
+test('dedicated staging site does not build with missing credentials or approval', () => {
+  const wrapper = fileURLToPath(new URL('../../scripts/assert-netlify-build.mjs', import.meta.url));
+  const result = spawnSync(process.execPath, [wrapper], {
+    encoding: 'utf8',
+    env: { ...process.env, ...staging,
+      SITE_ID: 'f23d7f5f-7d06-47dd-a29b-80e23c687c8a',
+      CONTEXT: 'production',
+      JACKERBOX_STAGING_READY: '',
+    },
+  });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Staging configuration not approved/);
+});
+
+test('production site build wrapper is unaffected', () => {
+  const wrapper = fileURLToPath(new URL('../../scripts/assert-netlify-build.mjs', import.meta.url));
+  const result = spawnSync(process.execPath, [wrapper], {
+    encoding: 'utf8',
+    env: { ...process.env, SITE_ID: '3448ffcd-fdf4-4f91-b2c5-f5cbd89fff65',
+      JACKERBOX_STAGING_SITE: '', CONTEXT: 'production' },
+  });
+  assert.equal(result.status, 0, result.stderr);
+});
