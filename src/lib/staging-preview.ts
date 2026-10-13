@@ -16,6 +16,10 @@ export function isStagingPreviewBlocked(
     /^[a-z0-9-]+--jackerbox\.netlify\.app$/.test(host) &&
     host !== 'main--jackerbox.netlify.app';
 
-  return (isPreviewBuild === 'true' || isDeployPreviewHost || isBranchPreviewHost) &&
+  const isDedicatedStagingHost = host === 'jackerbox-staging.netlify.app' ||
+    /^[a-z0-9-]+--jackerbox-staging\.netlify\.app$/.test(host);
+
+  return (isPreviewBuild === 'true' || isDeployPreviewHost ||
+    isBranchPreviewHost || isDedicatedStagingHost) &&
     isStagingReady !== 'true';
 }
