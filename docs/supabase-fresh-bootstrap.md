@@ -67,6 +67,55 @@ or unavailable, the endpoint returns 503 rather than silently allowing
 unlimited signups. Do not launch registration until these values are set
 and 429/503 behavior is tested in the preview.
 
+## Dedicated isolated Netlify staging site (created 2026-10-13)
+
+The independent project `jackerbox-staging` was created in Netlify under
+team `bthecoderr`:
+- Site: https://jackerbox-staging.netlify.app
+- Settings: https://app.netlify.com/projects/jackerbox-staging
+- Site ID: `f23d7f5f-7d06-47dd-a29b-80e23c687c8a`
+- Access: Netlify team SSO required for **all** deploys
+- Production project `jackerbox` and `jackerbox.app`: unchanged
+- Repository connection: **NOT CONFIGURED**; this empty site does not run the app yet
+- Secrets and hosted Stripe transactions: **NOT CONFIGURED / NOT TESTED**
+
+Do not use the old production site's globally-scoped credentials as a shortcut.
+Only configure the isolated staging site's own environment variables in Netlify.
+Netlify calls the dedicated staging site's default branch `production`; this
+does **not** mean it is the public app's production deployment. The
+`scripts/assert-netlify-build.mjs` guard identifies the dedicated site by
+its Netlify `SITE_ID` and enforces `scripts/assert-staging-env.mjs` even in
+that build context. Unapproved requests to the dedicated staging hostname
+also return HTTP 503 in `src/proxy.ts`. Never set
+`JACKERBOX_STAGING_READY=true` before the credentials are isolated.
+
+### Connect and configure the staging site
+
+1. In the new site's **Build & deploy** settings, connect the GitHub repository
+   `BTheCoderr/jackerboxV2` and choose the existing branch
+   `audit/security-and-rental-hardening-2026-10` for the staging site's deploy.
+   Do not change the GitHub branch or published deployment of `jackerbox.app`.
+2. Under the **new staging site only**, set `DATABASE_URL` and
+   `DIRECT_DATABASE_URL` to the transaction/session Supabase connection strings
+   described below, using its dedicated `JackerBox` database. Both are secret
+   values. Set `NEXTAUTH_URL=https://jackerbox-staging.netlify.app` and generate
+   a new site-specific `NEXTAUTH_SECRET`.
+3. Configure only `sk_test_` and `pk_test_` Stripe keys, a webhook signing
+   secret for the staging Stripe endpoint, and a fresh staging Redis service.
+   Add non-secret `JACKERBOX_SUPABASE_PROJECT_REF=gjqrubvipnhpnnpvodsv`.
+   Treat any Netlify env-write API acknowledgement as unverified until the new
+   project's Environment variables UI shows the value in the correct context.
+4. Verify Cloudinary, Twilio, OAuth, email and other configured integration
+   accounts are test-only or disabled in staging. Rotate any exposed keys in
+   upstream provider dashboards. A staging site with inherited real provider
+   credentials is **not isolated**.
+5. After auditing every variable, set `JACKERBOX_STAGING_READY=true` on the
+   **staging site only**, rebuild from the repair branch, run
+   `npm run db:verify:supabase` against staging, then perform the real
+   Stripe test-mode booking, transfer, refund and upload acceptance tests.
+6. Never promote this branch to public production until the acceptance and
+   security gates below pass.
+
 ## Netlify preview connection (BLOCKED ON ISOLATED CREDENTIALS)
 Netlify's site credentials were not changed by this database bootstrap.
 A PR #2 deploy-preview URL exists, but **the preview runtime is not yet connected to this Supabase project** and is not approved for rental/payment testing. Netlify SSO currently protects non-production access. New preview builds intentionally fail closed until the staging credentials are configured and reviewed. Runtime requests also fail closed with HTTP 503 when the preview is not approved.
