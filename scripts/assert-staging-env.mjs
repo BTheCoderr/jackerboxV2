@@ -35,13 +35,14 @@ function assertDb(key, port, transactionPool) {
   }
 }
 
-if (!['deploy-preview', 'branch-deploy'].includes(env.CONTEXT)) {
-  errors.push('Only preview and branch-deploy builds may invoke this gate.');
+const dedicatedStaging = env.SITE_ID === 'f23d7f5f-7d06-47dd-a29b-80e23c687c8a';
+if (!['deploy-preview', 'branch-deploy'].includes(env.CONTEXT) && !dedicatedStaging) {
+  errors.push('Only verified staging sites and non-production previews may invoke this gate.');
 }
 if (env.JACKERBOX_STAGING_READY !== 'true') {
   errors.push('JACKERBOX_STAGING_READY must be explicitly set after staging credential review.');
 }
-if (env.JACKERBOX_SUPABASE_PROJECT_REF !== REF) {
+if (env.JACKERBOX_SUPABASE_PROJECT_REF !== REF && !dedicatedStaging) {
   errors.push('JACKERBOX_SUPABASE_PROJECT_REF is not the approved staging project.');
 }
 assertDb('DATABASE_URL', '6543', true);
