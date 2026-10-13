@@ -44,7 +44,7 @@ test('live Stripe keys block preview build without revealing the key', () => {
 });
 
 test('wrong database project blocks preview build without exposing connection URL', () => {
-  const wrong = 'postgresql://postgres.other:private@a.pooler.supabase.com:6543/db?pgbouncer=true';
+  const wrong = staging.DATABASE_URL.replace('.' + ref, '.not-a-real-project');
   const result = run({ DATABASE_URL: wrong });
   assert.notEqual(result.status, 0);
   assert.ok(!result.stderr.includes(wrong));
