@@ -9,3 +9,11 @@
   package = "@netlify/plugin-nextjs"
 
 # Next.js routes are handled by the Netlify Next.js runtime, not an SPA fallback.
+
+# Non-production builds must not inherit live Stripe or unknown database values.
+# Preview secrets must be configured for their own Netlify deploy context.
+[context.deploy-preview]
+  command = "node scripts/assert-staging-env.mjs && npx prisma generate --schema=./prisma/schema.prisma && npm run build"
+
+[context.branch-deploy]
+  command = "node scripts/assert-staging-env.mjs && npx prisma generate --schema=./prisma/schema.prisma && npm run build"
